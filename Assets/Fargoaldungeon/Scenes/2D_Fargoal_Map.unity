@@ -795,9 +795,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8f528c7611df43ebb3e5039e2e54428, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  cfg: {fileID: 0}
   tilemap: {fileID: 409665906}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
+  randomizeSeed: 1
+  seed: 0
   mapWidth: 128
   mapHeight: 128
   roomAttempts: 30
@@ -810,8 +813,10 @@ MonoBehaviour:
   directCorridors: 1
   corridorWidth: 2
   jitterChance: 0.2
-  RoomAlgorithm: 1
+  RoomAlgorithm: 2
   TunnelsAlgorithm: 3
+  controlOffset: 5
+  max_control: 0.1
   stepDelay: 0.2
 --- !u!483693784 &409665905
 TilemapRenderer:
@@ -1002,7 +1007,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   controlOffset: 10
-  max_control: 0.1
+  max_control: 1
 --- !u!114 &409665911
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2901,6 +2906,7 @@ GameObject:
   - component: {fileID: 1815589284}
   - component: {fileID: 1815589283}
   - component: {fileID: 1815589286}
+  - component: {fileID: 1815589287}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -2950,7 +2956,7 @@ Camera:
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
-  orthographic: 1
+  orthographic: 0
   orthographic size: 100
   m_Depth: -1
   m_CullingMask:
@@ -2976,7 +2982,7 @@ Transform:
   m_GameObject: {fileID: 1815589282}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 65, y: 78, z: 800}
+  m_LocalPosition: {x: 50, y: 50, z: 150}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3026,6 +3032,57 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &1815589287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1815589282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6254d3f6019024f28b4150208a70962b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cam: {fileID: 1815589284}
+  tilemap: {fileID: 409665906}
+  flyDuration: 1.5
+  padding: 0.06
+  startTiltDeg: -90
+  endTiltDeg: 0
+  yawDeg: 0
+  autoStart: 1
+--- !u!1 &1862363842
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1862363843}
+  m_Layer: 0
+  m_Name: Config
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1862363843
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1862363842}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 157.15912, y: 198.38835, z: -324.83978}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1865988241
 GameObject:
   m_ObjectHideFlags: 0
@@ -3533,3 +3590,4 @@ SceneRoots:
   - {fileID: 2032406099}
   - {fileID: 1554749956}
   - {fileID: 409665908}
+  - {fileID: 1862363843}

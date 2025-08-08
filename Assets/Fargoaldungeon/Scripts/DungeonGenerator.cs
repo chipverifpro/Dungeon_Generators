@@ -19,6 +19,7 @@ public enum TunnelsAlgorithm
 
 public class DungeonGenerator : MonoBehaviour
 {
+    public DungeonSettings cfg; // Configurable settings for project
     public Tilemap tilemap;
     public TileBase floorTile;
     public TileBase wallTile;
@@ -42,6 +43,9 @@ public class DungeonGenerator : MonoBehaviour
     public DungeonAlgorithm RoomAlgorithm = DungeonAlgorithm.Scatter_Overlap;
     public TunnelsAlgorithm TunnelsAlgorithm = TunnelsAlgorithm.TunnelsOrganic;
 
+    // Control points for Bezier curves
+    public float controlOffset = 5f;
+    public float max_control = 0.1f;
     List<RectInt> rooms = new();
 
     public float stepDelay = 0.2f;  // adjustable delay

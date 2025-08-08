@@ -40,27 +40,6 @@ public class Room
         return new Vector2Int(sumX / tiles.Count, sumY / tiles.Count);
     }
 
-    public Vector2Int GetCenterPointInRoom()
-    {
-        Vector2Int center = GetCenter();
-        int min_distance = 9999;
-        int cur_distance = 9999;
-        Vector2Int closest_point = Vector2Int.zero;
-
-        if (tiles.Count == 0) return Vector2Int.zero;
-
-        foreach (var t in tiles)
-        {
-            cur_distance = (t - center).sqrMagnitude;
-            if (cur_distance < min_distance)
-            {
-                min_distance = cur_distance;
-                closest_point = t;
-            }
-        }
-
-        return closest_point;
-    }
     public Vector2Int GetClosestPointInRoom(Vector2Int point)
     {
         Vector2Int center = point;
@@ -86,8 +65,8 @@ public class Room
 public class CellularAutomata : MonoBehaviour
 {
     [Header("Map Settings")]
-    public int width = 80;
-    public int height = 50;
+    public int width = 150;
+    public int height = 150;
     [Range(0, 100)] public int fillPercent = 45;
     public int totalSteps = 5;
     public float stepDelay = 0.3f;
@@ -287,6 +266,7 @@ public List<Vector3Int> Directions() => new()
 
         for (int i = 1; i < rooms.Count; i++)
         {
+            // Connect each room to the first room, finding the closest points
             close_zero = rooms[0].GetClosestPointInRoom(rooms[i].GetCenter());
             close_i = rooms[i].GetClosestPointInRoom(close_zero);
 
