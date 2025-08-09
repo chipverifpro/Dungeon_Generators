@@ -6,6 +6,8 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
 {
     public Camera cam;
     public Tilemap tilemap;
+    public DungeonSettings cfg; // Configurable settings for project
+
 
     [Header("Flight Settings")]
     public float flyDuration = 1.5f;
@@ -32,21 +34,46 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
             Debug.LogWarning("Assign Camera and Tilemap.");
             return;
         }
-        StartCoroutine(FlyToTopDown());
+        Vector3Int origin = new Vector3Int(0, 0, 0);
+        Vector3Int size = new Vector3Int(cfg.mapWidth, cfg.mapHeight, 1);
+
+        Bounds worldBounds = ComputeWorldBounds(tilemap, origin, size);
+        if (worldBounds.size == Vector3.zero)
+        {
+            Debug.LogWarning("Tilemap bounds are zero. Ensure tiles are painted.");
+            return;
+        }
+        // Fit your camera now, even before tiles are painted:
+        FitOrthoCameraToBounds(cam, worldBounds);
+        StartCoroutine(FlyToTopDown(worldBounds));
     }
 
-    IEnumerator FlyToTopDown()
+    IEnumerator FlyToTopDown(Bounds worldBounds)
     {
-        yield return new WaitForSeconds(0.3f); // allow scene to load
-        // Get bounds of actual tiles
-        tilemap.CompressBounds();
-        Bounds localBounds = tilemap.localBounds;
-        Vector3 centerWorld = tilemap.transform.TransformPoint(localBounds.center);
+        float radius;
+        Vector3 centerWorld;
+        Vector3 extentsWorld;
+        Bounds localBounds;
 
-        // Bounding sphere radius in world space
-        Vector3 extentsWorld = Vector3.Scale(localBounds.extents, tilemap.transform.lossyScale);
-        float radius = extentsWorld.magnitude;
+        if (worldBounds.size != Vector3.zero) {
+            // Center of the tilemap area in world space
+            centerWorld = worldBounds.center;
+            localBounds = worldBounds; // Use the provided bounds directly
 
+            // Bounding sphere that encloses the rect at any tilt/yaw
+            extentsWorld = worldBounds.extents;
+            radius = Mathf.Max(0.001f, extentsWorld.magnitude);
+        } else { 
+            //yield return new WaitForSeconds(0.3f); // allow scene to load
+            // Get bounds of actual tiles
+            tilemap.CompressBounds();
+            localBounds = tilemap.localBounds;
+            centerWorld = tilemap.transform.TransformPoint(localBounds.center);
+
+            // Bounding sphere radius in world space
+            extentsWorld = Vector3.Scale(localBounds.extents, tilemap.transform.lossyScale);
+            radius = extentsWorld.magnitude;
+        }
         // Fit sphere to camera FOV
         float vFov = cam.fieldOfView * Mathf.Deg2Rad;
         float hFov = 2f * Mathf.Atan(Mathf.Tan(vFov * 0.5f) * cam.aspect);
@@ -80,5 +107,49 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
 
         }
         //StartCoroutine(FlyToTopDown());
+    }
+
+    // The following code allows for computing world-space bounds for a rectangular block of cells in a Tilemap.
+    /// <summary>
+    /// Compute world-space bounds for a rectangular block of cells.
+    /// origin = bottom-left cell (or wherever you start)
+    /// size   = width/height in cells (z usually 1)
+    /// </summary>
+    public static Bounds ComputeWorldBounds(Tilemap tilemap, Vector3Int origin, Vector3Int size)
+    {
+        var grid = tilemap.layoutGrid;                   // the Grid component
+        Vector3 cellSize = grid.cellSize;
+
+        // If size is zero, return empty bounds
+        if (size.x <= 0 || size.y <= 0)
+            return new Bounds(tilemap.transform.position, Vector3.zero);
+
+        // Inclusive min & max cells we’ll occupy
+        Vector3Int minCell = origin;
+        Vector3Int maxCell = new Vector3Int(origin.x + size.x - 1,
+                                            origin.y + size.y - 1,
+                                            origin.z + Mathf.Max(0, size.z - 1));
+
+        // World centers of those cells
+        Vector3 minCenter = tilemap.GetCellCenterWorld(minCell);
+        Vector3 maxCenter = tilemap.GetCellCenterWorld(maxCell);
+
+        // Convert centers to outer corners (± half a cell)
+        Vector3 half = cellSize * 0.5f;
+        Vector3 minCorner = minCenter - half;
+        Vector3 maxCorner = maxCenter + half;
+
+        // Build bounds
+        Vector3 center = (minCorner + maxCorner) * 0.5f;
+        Vector3 sizeWorld = maxCorner - minCorner;
+        return new Bounds(center, sizeWorld);
+    }
+    public static void FitOrthoCameraToBounds(Camera cam, Bounds b, float padding = 0.05f)
+    {
+        float aspect = cam.aspect;
+        float vSize  = (b.size.y * 0.5f) * (1f + padding);
+        float hSize  = (b.size.x * 0.5f) / aspect * (1f + padding);
+        cam.orthographicSize = Mathf.Max(vSize, hSize);
+        cam.transform.position = new Vector3(b.center.x, b.center.y, cam.transform.position.z);
     }
 }

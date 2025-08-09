@@ -20,16 +20,16 @@ public static class DungeonSettingsLoader
 
         public static DungeonSettingsDTO FromSO(DungeonSettings so) => new DungeonSettingsDTO
         {
-            width = so.width,
-            height = so.height,
+            width = so.mapWidth,
+            height = so.mapHeight,
             allowOverlappingRooms = so.allowOverlappingRooms,
             
         };
 
         public void ApplyToSO(DungeonSettings so)
         {
-            so.width = width;
-            so.height = height;
+            so.mapWidth = width;
+            so.mapHeight = height;
             so.allowOverlappingRooms = allowOverlappingRooms;
             
         }

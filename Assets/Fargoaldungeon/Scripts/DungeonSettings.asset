@@ -13,28 +13,29 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   randomizeSeed: 1
-  seed: 0
+  seed: 144
   mapWidth: 150
   mapHeight: 150
   roomAttempts: 50
   roomsMax: 10
-  minRoomSize: 4
-  maxRoomSize: 8
+  minRoomSize: 20
+  maxRoomSize: 40
   allowOverlappingRooms: 0
   shortestTunnels: 0
   ovalRooms: 0
   directCorridors: 0
   corridorWidth: 3
   jitterChance: 0.2
-  RoomAlgorithm: 0
-  TunnelsAlgorithm: 2
-  width: 150
-  height: 150
+  RoomAlgorithm: 1
+  TunnelsAlgorithm: 3
   fillPercent: 45
   totalSteps: 5
   stepDelay: 0.3
   usePerlin: 1
-  noiseScale: 0.1
-  noiseThreshold: 0.5
+  perlinScale: 0.0408
+  perlinThreshold: 0.439
+  noiseOverlay: 49
   MinimumRoomSize: 100
-  BorderSize: 5
+  softBorderSize: 5
+  controlOffset: 5
+  max_control: 0.1

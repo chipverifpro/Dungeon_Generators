@@ -64,21 +64,7 @@ public class Room
 }
 public class CellularAutomata : MonoBehaviour
 {
-    [Header("Map Settings")]
-    public int width = 150;
-    public int height = 150;
-    [Range(0, 100)] public int fillPercent = 45;
-    public int totalSteps = 5;
-    public float stepDelay = 0.3f;
-
-    [Header("Perlin Noise Settings")]
-    public bool usePerlin = true;
-    public float noiseScale = 0.1f;
-    public float noiseThreshold = 0.5f;
-
-    [Header("Tiles & Tilemap")]
-    public int MinimumRoomSize = 100; // Threshold for tiny rooms
-    public int BorderSize = 5; // Size of the border around the map
+    public DungeonSettings cfg; // Reference to the DungeonSettings ScriptableObject
 
     public DungeonGenerator generator;
 
@@ -92,18 +78,18 @@ public class CellularAutomata : MonoBehaviour
 
     public IEnumerator RunCaveGeneration()
     {
-        map = new bool[width, height];
+        map = new bool[cfg.mapWidth, cfg.mapHeight];
         RandomFillMap(map);
 
         // Draw initial map
         DrawMap();
-        yield return new WaitForSeconds(stepDelay);
+        yield return new WaitForSeconds(cfg.stepDelay);
 
-        for (int step = 0; step < totalSteps; step++)
+        for (int step = 0; step < cfg.totalSteps; step++)
         {
             map = RunSimulationStep(map);
             DrawMap();
-            yield return new WaitForSeconds(stepDelay);
+            yield return new WaitForSeconds(cfg.stepDelay);
         }
 
         Debug.Log("Cave generation complete.");
@@ -118,24 +104,24 @@ public class CellularAutomata : MonoBehaviour
 
         float seedX = Random.Range(0f, 100f);
         float seedY = Random.Range(0f, 100f);
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
+        for (int x = 0; x < cfg.mapWidth; x++)
+            for (int y = 0; y < cfg.mapHeight; y++)
             {
-                int borderDistance = Mathf.Min(x, y, width - x - 1, height - y - 1);
+                int borderDistance = Mathf.Min(x, y, cfg.mapWidth - x - 1, cfg.mapHeight - y - 1);
                 if (borderDistance == 1)
                     map[x, y] = true; // Set border tile to wall
-                else if (borderDistance <= BorderSize)
+                else if (borderDistance <= cfg.softBorderSize)
                     // Setting a wide random border makes edges less sharp
-                    map[x, y] = rng.Next(0, 100) < fillPercent;
+                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent;
                 else
-                    if (usePerlin && rng.Next(0, 100) < 60)
+                    if (cfg.usePerlin && rng.Next(0, 100) < (100 - cfg.noiseOverlay))
                     {
-                        float noise = Mathf.PerlinNoise((x + seedX) * noiseScale, (y + seedY) * noiseScale);
-                        map[x, y] = noise > noiseThreshold;
+                        float noise = Mathf.PerlinNoise((x + seedX) * cfg.perlinScale, (y + seedY) * cfg.perlinScale);
+                        map[x, y] = noise > cfg.perlinThreshold;
                     }
                 else
                 {
-                    map[x, y] = rng.Next(0, 100) < fillPercent;
+                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent;
                 }
             }
         return map;
@@ -143,10 +129,10 @@ public class CellularAutomata : MonoBehaviour
 
     bool[,] RunSimulationStep(bool[,] oldMap)
     {
-        bool[,] newMap = new bool[width, height];
+        bool[,] newMap = new bool[cfg.mapWidth, cfg.mapHeight];
 
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
+        for (int x = 0; x < cfg.mapWidth; x++)
+            for (int y = 0; y < cfg.mapHeight; y++)
             {
                 int walls = CountWallNeighbors(oldMap, x, y);
                 if (oldMap[x, y])
@@ -165,7 +151,7 @@ public class CellularAutomata : MonoBehaviour
             for (int ny = y - 1; ny <= y + 1; ny++)
             {
                 if (nx == x && ny == y) continue;
-                if (nx < 0 || ny < 0 || nx >= width || ny >= height)
+                if (nx < 0 || ny < 0 || nx >= cfg.mapWidth || ny >= cfg.mapHeight )
                     count++;
                 else if (map[nx, ny])
                     count++;
@@ -178,8 +164,8 @@ public class CellularAutomata : MonoBehaviour
     {
         tilemap.ClearAllTiles();
 
-        for (int x = 0; x < width; x++)
-            for (int y = 0; y < height; y++)
+        for (int x = 0; x < cfg.mapWidth; x++)
+            for (int y = 0; y < cfg.mapHeight; y++)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
                 if (map[x, y] == false || HasFloorNeighbor(pos))
@@ -194,7 +180,7 @@ public class CellularAutomata : MonoBehaviour
         foreach (Vector3Int dir in Directions())
         {
             if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
-                pos.x + dir.x >= width || pos.y + dir.y >= height)
+                pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
                 continue; // Out of bounds
             if (map[pos.x + dir.x, pos.y + dir.y] == false)
                 return true;
@@ -306,7 +292,7 @@ public List<Vector3Int> Directions() => new()
             Done = true; // Reset for each pass
             foreach (Room room in rooms)
             {
-                if (room.Size < MinimumRoomSize) // Arbitrary threshold for tiny rooms
+                if (room.Size < cfg.MinimumRoomSize) // Arbitrary threshold for tiny rooms
                 {
                     foreach (Vector2Int tilePos in room.tiles)
                     {

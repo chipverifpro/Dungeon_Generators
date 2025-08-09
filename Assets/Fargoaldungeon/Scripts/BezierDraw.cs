@@ -1,15 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Tilemaps;
 
 public class BezierDraw : MonoBehaviour
 {
-    //public Tilemap tilemap;
-    //public TileBase floorTile;
-    //public int corridorWidth = 3;
-    //public int sampleCount = 30;
-    public float controlOffset = 5f;
-    public float max_control = 0.1f;
+    public DungeonSettings cfg; // Reference to the DungeonSettings ScriptableObject
 
     public List<Vector2Int> DrawBezierCorridor(Vector2Int start, Vector2Int end)
     {
@@ -24,10 +18,10 @@ public class BezierDraw : MonoBehaviour
         length = (int)Vector2.Distance(p0, p3);
 
         // Short corridors need less control offset or they go crazy
-        if (controlOffset > (int)(length / max_control))
-            controlOffsetLimited = (int)(length / max_control);
+        if (cfg.controlOffset > (int)(length / cfg.max_control))
+            controlOffsetLimited = (int)(length / cfg.max_control);
         else
-            controlOffsetLimited = (int)controlOffset;
+            controlOffsetLimited = (int)cfg.controlOffset;
 
         // Improved control points: pull toward midpoint + random bend
         Vector2 p1 = Vector2.Lerp(p0, mid, 0.5f) + perp * Random.Range(-controlOffsetLimited, controlOffsetLimited);

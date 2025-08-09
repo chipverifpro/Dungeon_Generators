@@ -3,20 +3,6 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 
-public enum DungeonAlgorithm
-    {
-        Scatter_Overlap,
-        Scatter_NoOverlap,
-        CellularAutomata
-    }
-public enum TunnelsAlgorithm
-    {
-        TunnelsOrthographic,
-        TunnelsStraight,
-        TunnelsOrganic,
-        TunnelsCurved
-    }
-
 public class DungeonGenerator : MonoBehaviour
 {
     public DungeonSettings cfg; // Configurable settings for project
@@ -24,56 +10,34 @@ public class DungeonGenerator : MonoBehaviour
     public TileBase floorTile;
     public TileBase wallTile;
 
-    public bool randomizeSeed = true;
-    public int seed = 0;
-    public int mapWidth = 64;
-    public int mapHeight = 64;
-    public int roomAttempts = 50;
-    public int roomsMax = 10;
-
-    public int minRoomSize = 4;
-    public int maxRoomSize = 8;
-    public bool allowOverlappingRooms = false;
-    public bool shortestTunnels = false;
-    public bool ovalRooms = false;
-    public bool directCorridors = false;
-    public int corridorWidth = 1;
-    public float jitterChance = 0.2f; // Chance to introduce a "wiggle" in corridors
-
-    public DungeonAlgorithm RoomAlgorithm = DungeonAlgorithm.Scatter_Overlap;
-    public TunnelsAlgorithm TunnelsAlgorithm = TunnelsAlgorithm.TunnelsOrganic;
-
-    // Control points for Bezier curves
-    public float controlOffset = 5f;
-    public float max_control = 0.1f;
     List<RectInt> rooms = new();
 
     public float stepDelay = 0.2f;  // adjustable delay
 
     public void Start()
     {
-        if (randomizeSeed)
+        if (cfg.randomizeSeed)
         {
-            seed = Random.Range(0, 10000);
+            cfg.seed = Random.Range(0, 10000);
         }
-        Random.InitState(seed);
+        Random.InitState(cfg.seed);
         RegenerateDungeon();
     }
 
     public void RegenerateDungeon()
     {
         StopAllCoroutines();
-        switch (RoomAlgorithm) // Change this to select different algorithms
+        switch (cfg.RoomAlgorithm) // Change this to select different algorithms
         {
-            case DungeonAlgorithm.Scatter_Overlap:
-                allowOverlappingRooms = true;
+            case DungeonSettings.DungeonAlgorithm_e.Scatter_Overlap:
+                cfg.allowOverlappingRooms = true;
                 StartCoroutine(ScatterRooms());
                 break;
-            case DungeonAlgorithm.Scatter_NoOverlap:
-                allowOverlappingRooms = false;
+            case DungeonSettings.DungeonAlgorithm_e.Scatter_NoOverlap:
+                cfg.allowOverlappingRooms = false;
                 StartCoroutine(ScatterRooms());
                 break;
-            case DungeonAlgorithm.CellularAutomata:
+            case DungeonSettings.DungeonAlgorithm_e.CellularAutomata:
                 CellularAutomata ca = GetComponent<CellularAutomata>();
                 if (ca != null)
                 {
@@ -88,19 +52,19 @@ public class DungeonGenerator : MonoBehaviour
         tilemap.ClearAllTiles();
         rooms.Clear();
 
-        for (int i = 0; rooms.Count < roomsMax && i < roomAttempts; i++)
+        for (int i = 0; rooms.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
         {
-            int w = Random.Range(minRoomSize, maxRoomSize + 1);
-            int h = Random.Range(minRoomSize, maxRoomSize + 1);
-            int x = Random.Range(1, mapWidth - w - 1);
-            int y = Random.Range(1, mapHeight - h - 1);
+            int w = Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
+            int h = Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
+            int x = Random.Range(1, cfg.mapWidth - w - 1);
+            int y = Random.Range(1, cfg.mapHeight - h - 1);
             RectInt newRoom = new(x, y, w, h);
             if (rooms.Count == 0)
             {
                 // First room, no need to check for overlaps
                 rooms.Add(newRoom);
                 DrawRoom(newRoom);
-                yield return new WaitForSeconds(stepDelay);
+                yield return new WaitForSeconds(cfg.stepDelay);
                 continue;
             }
 
@@ -116,11 +80,11 @@ public class DungeonGenerator : MonoBehaviour
                 }
             }
 
-            if (!overlaps || allowOverlappingRooms)
+            if (!overlaps || cfg.allowOverlappingRooms)
             {
                 rooms.Add(newRoom);
                 DrawRoom(newRoom);
-                yield return new WaitForSeconds(stepDelay);
+                yield return new WaitForSeconds(cfg.stepDelay);
             }
         }
         Debug.Log("rooms.Count = " + rooms.Count);
@@ -130,14 +94,14 @@ public class DungeonGenerator : MonoBehaviour
             Vector2Int PointA = PointInRoom(rooms[i - 1]);
             Vector2Int PointB = PointInRoom(rooms[i]);
             DrawCorridor(PointA, PointB);
-            yield return new WaitForSeconds(stepDelay);
+            yield return new WaitForSeconds(cfg.stepDelay);
 
         }
         // connect first and last room
         Vector2Int lastPoint = PointInRoom(rooms[rooms.Count - 1]);
         Vector2Int firstPoint = PointInRoom(rooms[0]);
         DrawCorridor(lastPoint, firstPoint);
-        yield return new WaitForSeconds(stepDelay);
+        yield return new WaitForSeconds(cfg.stepDelay);
 
         // Draw walls around the dungeon
         DrawWalls();
@@ -158,18 +122,18 @@ public class DungeonGenerator : MonoBehaviour
     public void DrawCorridor(Vector2Int start, Vector2Int end)
     {
         List<Vector2Int> path;
-        switch (TunnelsAlgorithm)
+        switch (cfg.TunnelsAlgorithm)
         {
-            case TunnelsAlgorithm.TunnelsOrthographic:
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrthographic:
                 path = GridedLine(start, end);
                 break;
-            case TunnelsAlgorithm.TunnelsStraight:
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsStraight:
                 path = BresenhamLine(start.x, start.y, end.x, end.y);
                 break;
-            case TunnelsAlgorithm.TunnelsOrganic:
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrganic:
                 path = OrganicLine(start, end);
                 break;
-            case TunnelsAlgorithm.TunnelsCurved:
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsCurved:
                 path = GetComponent<BezierDraw>().DrawBezierCorridor(start, end);
                 break;
             default:
@@ -177,10 +141,10 @@ public class DungeonGenerator : MonoBehaviour
                 break;
         }
 
-        Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + corridorWidth + " using " + TunnelsAlgorithm);
+        Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
 
-        int brush_neg = -corridorWidth / 2;
-        int brush_pos = brush_neg + corridorWidth;
+        int brush_neg = -cfg.corridorWidth / 2;
+        int brush_pos = brush_neg + cfg.corridorWidth;
 
         foreach (Vector2Int point in path)
         {
@@ -191,7 +155,7 @@ public class DungeonGenerator : MonoBehaviour
                 {
                     Vector3Int tilePos = new Vector3Int(point.x + dx, point.y + dy, 0);
                     tilemap.SetTile(tilePos, floorTile);
-                    if (RoomAlgorithm == DungeonAlgorithm.CellularAutomata)
+                    if (cfg.RoomAlgorithm == DungeonSettings.DungeonAlgorithm_e.CellularAutomata)
                     {
                         CellularAutomata ca = GetComponent<CellularAutomata>();
                         if (ca != null)
@@ -262,7 +226,7 @@ public class DungeonGenerator : MonoBehaviour
     public List<Vector2Int> NoisyBresenham(Vector2Int start, Vector2Int end)
     {
         List<Vector2Int> path = new List<Vector2Int>();
-        float noiseStrength = jitterChance;
+        float noiseStrength = cfg.jitterChance;
         int x0 = start.x;
         int y0 = start.y;
         int x1 = end.x;
@@ -323,7 +287,7 @@ public class DungeonGenerator : MonoBehaviour
             int dy = Mathf.Clamp(direction.y, -1, 1);
 
             // Introduce a slight chance to “wiggle”
-            if (Random.value < jitterChance)
+            if (Random.value < cfg.jitterChance)
             {
                 if (Random.value < 0.5f)
                     //dx = 0; // favor y
@@ -349,7 +313,7 @@ public class DungeonGenerator : MonoBehaviour
             for (int y = bounds.yMin - 1; y <= bounds.yMax + 1; y++)
             {
                 Vector3Int pos = new(x, y, 0);
-                if (RoomAlgorithm == DungeonAlgorithm.CellularAutomata)
+                if (cfg.RoomAlgorithm == DungeonSettings.DungeonAlgorithm_e.CellularAutomata)
                 {
 
                     if (/*(tilemap.GetTile(pos) == null) &&*/ (HasFloorNeighbor(pos)))
@@ -390,7 +354,7 @@ public class DungeonGenerator : MonoBehaviour
 
     bool IsPointInRoom(Vector2Int point, RectInt room)
     {
-        if (ovalRooms==false) {
+        if (cfg.ovalRooms==false) {
             return point.x >= room.xMin && point.x < room.xMax && point.y >= room.yMin && point.y < room.yMax;
         } else {
             // Check if the point is within the ellipse defined by the room

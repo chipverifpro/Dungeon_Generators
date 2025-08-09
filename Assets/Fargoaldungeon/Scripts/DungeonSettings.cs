@@ -1,8 +1,15 @@
 using UnityEngine;
 
+
+
 [CreateAssetMenu(fileName = "DungeonSettings", menuName = "Scriptable Objects/DungeonSettings")]
 public class DungeonSettings : ScriptableObject
 {
+    // Shared enumerations
+    public enum DungeonAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata }
+    public enum TunnelsAlgorithm_e { TunnelsOrthographic, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
+
+    [Header("General Settings")]
     public bool randomizeSeed = true;
     public int seed = 0;
     public int mapWidth = 150;
@@ -10,33 +17,38 @@ public class DungeonSettings : ScriptableObject
     public int roomAttempts = 50;
     public int roomsMax = 10;
 
-    public int minRoomSize = 4;
-    public int maxRoomSize = 8;
+    public int minRoomSize = 20;
+    public int maxRoomSize = 40;
     public bool allowOverlappingRooms = false;
     public bool shortestTunnels = false;
     public bool ovalRooms = false;
     public bool directCorridors = false;
-    public int corridorWidth = 1;
+    public int corridorWidth = 3;
     public float jitterChance = 0.2f; // Chance to introduce a "wiggle" in corridors
 
-    public DungeonAlgorithm RoomAlgorithm = DungeonAlgorithm.Scatter_Overlap;
-    public TunnelsAlgorithm TunnelsAlgorithm = TunnelsAlgorithm.TunnelsOrganic;
+    public DungeonAlgorithm_e RoomAlgorithm = DungeonAlgorithm_e.Scatter_Overlap;
+    public TunnelsAlgorithm_e TunnelsAlgorithm = TunnelsAlgorithm_e.TunnelsOrganic;
 
-// Settings for Cellular Automata
+    // Settings for Cellular Automata
     [Header("Cellular Automata Settings")]
-    public int width = 150;
-    public int height = 150;
     [Range(0, 100)] public int fillPercent = 45;
     public int totalSteps = 5;
-    public float stepDelay = 0.3f;
+    public float stepDelay = 0.2f;
 
     [Header("Perlin Noise Settings")]
     public bool usePerlin = true;
-    public float noiseScale = 0.1f;
-    public float noiseThreshold = 0.5f;
+    [Range(0.03f, 0.1f)][Tooltip("Low = big rooms | High = small rooms")]
+    public float perlinScale = 0.05f;
+    [Range(0.4f, 0.6f)][Tooltip("Low = many rooms | High = fewer rooms")]
+    public float perlinThreshold = 0.5f;
+    [Tooltip("Percent of white noise overlayed")]
+    [Range(0, 100)] public int noiseOverlay = 40; // Percent of white noise overlayed
 
-    [Header("Tiles & Tilemap")]
+    [Header("Cleanup Settings")]
     public int MinimumRoomSize = 100; // Threshold for tiny rooms
-    public int BorderSize = 5; // Size of the border around the map
+    public int softBorderSize = 5; // Size of the border around the map
 
+    [Header("Bezier Corridor Settings")]
+    public float controlOffset = 5f;
+    public float max_control = 0.1f;
 }
