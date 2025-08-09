@@ -115,10 +115,10 @@ public class CellularAutomata : MonoBehaviour
                     map[x, y] = rng.Next(0, 100) < cfg.fillPercent;
                 else
                     if (cfg.usePerlin && rng.Next(0, 100) < (100 - cfg.noiseOverlay))
-                    {
-                        float noise = Mathf.PerlinNoise((x + seedX) * cfg.perlinScale, (y + seedY) * cfg.perlinScale);
-                        map[x, y] = noise > cfg.perlinThreshold;
-                    }
+                {
+                    float noise = Mathf.PerlinNoise((x + seedX) * cfg.perlinScale, (y + seedY) * cfg.perlinScale);
+                    map[x, y] = noise > cfg.perlinThreshold;
+                }
                 else
                 {
                     map[x, y] = rng.Next(0, 100) < cfg.fillPercent;
@@ -151,7 +151,7 @@ public class CellularAutomata : MonoBehaviour
             for (int ny = y - 1; ny <= y + 1; ny++)
             {
                 if (nx == x && ny == y) continue;
-                if (nx < 0 || ny < 0 || nx >= cfg.mapWidth || ny >= cfg.mapHeight )
+                if (nx < 0 || ny < 0 || nx >= cfg.mapWidth || ny >= cfg.mapHeight)
                     count++;
                 else if (map[nx, ny])
                     count++;
@@ -187,7 +187,7 @@ public class CellularAutomata : MonoBehaviour
         }
         return false;
     }
-public List<Vector3Int> Directions() => new()
+    public List<Vector3Int> Directions() => new()
     {
         new Vector3Int(1, 0, 0),
         new Vector3Int(-1, 0, 0),
@@ -202,8 +202,8 @@ public List<Vector3Int> Directions() => new()
 
     public List<Room> FindRooms(bool[,] map)
     {
-        Vector2Int close_zero = Vector2Int.zero;
         Vector2Int close_i = Vector2Int.zero;
+        Vector2Int close_j = Vector2Int.zero;
         int width = map.GetLength(0);
         int height = map.GetLength(1);
         bool[,] visited = new bool[width, height];
@@ -249,26 +249,66 @@ public List<Vector3Int> Directions() => new()
 
         rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
         rooms = RemoveTinyRooms(rooms);
+        ColorCodeRooms(rooms);
 
-        for (int i = 1; i < rooms.Count; i++)
+        while (rooms.Count > 1)
         {
-            // Connect each room to the first room, finding the closest points
-            close_zero = rooms[0].GetClosestPointInRoom(rooms[i].GetCenter());
-            close_i = rooms[i].GetClosestPointInRoom(close_zero);
+            Vector2Int closestPair = FindTwoClosestRooms(rooms);
+            int i = closestPair.x;
+            int j = closestPair.y;
+            // Closest points between main room (rooms[0]) and this room
+            close_i = rooms[i].GetClosestPointInRoom(rooms[i].GetCenter());
+            close_j = rooms[j].GetClosestPointInRoom(close_i);
+            close_i = rooms[i].GetClosestPointInRoom(close_j);
+            
+            // 1) Carve the corridor (your existing visual/path)
+            generator.DrawCorridor(close_i, close_j);
 
-            generator.DrawCorridor(close_zero, close_i);
-        }
-
-        foreach (var room in rooms)
-        {
-            Debug.Log($"Room size: {room.Size}, Bounds: {room.GetBounds()}");
+            // 2) Compute the cells along the corridor and mark them as floor in the map
+            /*var corridorTiles = GetLineTiles(close_zero, close_i);
+            foreach (var p in corridorTiles)
+            {
+                if (p.x >= 0 && p.y >= 0 && p.x < cfg.mapWidth && p.y < cfg.mapHeight)
+                    map[p.x, p.y] = false; // corridor is floor
+            }
+*/
+            // 3) Merge this room into the main room and remove it from the list
+            MergeRooms(rooms[i], rooms[j]);
+            rooms.RemoveAt(j);
+            //i--; // adjust index after removal
         }
         DrawMap();
-        ColorCodeRooms(rooms);
+
 
         return rooms;
     }
 
+    public Vector2Int FindTwoClosestRooms (List<Room> rooms)
+    {
+        if (rooms.Count < 2) return Vector2Int.zero;
+
+        Vector2Int closestPair = Vector2Int.zero;
+        float minDistance = float.MaxValue;
+
+        for (int i = 0; i < rooms.Count - 1; i++)
+        {
+            for (int j = i + 1; j < rooms.Count; j++)
+            {
+                Vector2Int centerA = rooms[i].GetCenter();
+                Vector2Int centerB = rooms[j].GetCenter();
+                float distance = Vector2Int.Distance(centerA, centerB);
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestPair = new Vector2Int(i, j);
+                }
+            }
+        }
+
+        return closestPair;
+    }
+  
     public void ColorCodeRooms(List<Room> rooms)
     {
         foreach (Room room in rooms)
@@ -278,12 +318,12 @@ public List<Vector3Int> Directions() => new()
             foreach (Vector2Int tilePos in room.tiles)
             {
                 Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
-                
+
                 tilemap.SetColor(pos, color);
             }
         }
     }
-    
+
     List<Room> RemoveTinyRooms(List<Room> rooms)
     {
         bool Done = false;
@@ -313,5 +353,15 @@ public List<Vector3Int> Directions() => new()
             }
         }
         return rooms;
+    }
+    
+    void MergeRooms(Room keep, Room merge /*, IEnumerable<Vector2Int> corridor*/)
+    {
+        var combined = new HashSet<Vector2Int>(keep.tiles);
+        foreach (var t in merge.tiles) combined.Add(t);
+        //if (corridor != null)
+        //    foreach (var c in corridor) combined.Add(c);
+
+        keep.tiles = new List<Vector2Int>(combined);
     }
 }
