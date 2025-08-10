@@ -7,6 +7,13 @@ public class Room
 {
     public List<Vector2Int> tiles = new List<Vector2Int>();
     public int Size => tiles.Count;
+    public string Name = "";
+
+    public Room(List<Vector2Int> initialTiles)
+    {
+        tiles = initialTiles;
+    }
+    public Room() { }
 
     public RectInt GetBounds()
     {
@@ -75,6 +82,9 @@ public class CellularAutomata : MonoBehaviour
     public bool[,] map;
     private System.Random rng;
 
+    // Incremental draw cache: 0 = no tile, 1 = floorTile, 2 = wallTile
+    private bool _hasPrevVisual;
+    private byte[,] _prevKind;
 
     public IEnumerator RunCaveGeneration()
     {
@@ -161,6 +171,77 @@ public class CellularAutomata : MonoBehaviour
     }
 
     void DrawMap()
+    {
+        int w = cfg.mapWidth;
+        int h = cfg.mapHeight;
+
+        // Helper to decide what should be drawn in this cell right now
+        // 0 = draw nothing, 1 = draw floorTile, 2 = draw wallTile
+        byte DesiredKindAt(int x, int y)
+        {
+            // Your existing visibility rule:
+            // place a tile if it's floor OR a wall that touches floor
+            bool isWall = map[x, y];
+            bool place = !isWall || HasFloorNeighbor(new Vector3Int(x, y, 0));
+            if (!place) return 0;
+            return (byte)(isWall ? 2 : 1);
+        }
+
+        // First draw or size changed: do a bulk build and snapshot
+        if (!_hasPrevVisual || _prevKind == null ||
+            _prevKind.GetLength(0) != w || _prevKind.GetLength(1) != h)
+        {
+            tilemap.ClearAllTiles();
+
+            var positions = new List<Vector3Int>(w * h);
+            var tiles     = new List<TileBase>(w * h);
+
+            _prevKind = new byte[w, h];
+
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                byte k = DesiredKindAt(x, y);
+                _prevKind[x, y] = k;
+
+                if (k != 0)
+                {
+                    positions.Add(new Vector3Int(x, y, 0));
+                    tiles.Add(k == 1 ? floorTile : wallTile);
+                }
+            }
+
+            if (positions.Count > 0)
+                tilemap.SetTiles(positions.ToArray(), tiles.ToArray());
+
+            _hasPrevVisual = true;
+            return;
+        }
+
+        // Incremental diff: only touch cells whose visual kind changed
+        var changedPos   = new List<Vector3Int>(256);
+        var changedTiles = new List<TileBase>(256);
+
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                byte curr = DesiredKindAt(x, y);
+                if (_prevKind[x, y] != curr)
+                {
+                    changedPos.Add(new Vector3Int(x, y, 0));
+                    // null removes the tile when curr == 0
+                    changedTiles.Add(curr == 0 ? null : (curr == 1 ? floorTile : wallTile));
+                    // inside the diff loop, after changedTiles.Add(...):
+                    _prevKind[x, y] = curr;
+                }
+            /*if (curr == 0)*/ tilemap.SetColor(new Vector3Int(x, y, 0), Color.white);
+            }
+
+        if (changedPos.Count > 0)
+            tilemap.SetTiles(changedPos.ToArray(), changedTiles.ToArray());
+    }
+
+    void DrawMap_old()
     {
         tilemap.ClearAllTiles();
 
@@ -253,16 +334,19 @@ public class CellularAutomata : MonoBehaviour
 
         while (rooms.Count > 1)
         {
+            List<Vector2Int> corridor_points = new List<Vector2Int>();
             Vector2Int closestPair = FindTwoClosestRooms(rooms);
             int i = closestPair.x;
             int j = closestPair.y;
-            // Closest points between main room (rooms[0]) and this room
+            // Closest points between rooom i and j.
             close_i = rooms[i].GetClosestPointInRoom(rooms[i].GetCenter());
             close_j = rooms[j].GetClosestPointInRoom(close_i);
             close_i = rooms[i].GetClosestPointInRoom(close_j);
             
             // 1) Carve the corridor (your existing visual/path)
-            generator.DrawCorridor(close_i, close_j);
+            corridor_points = generator.DrawCorridor(close_i, close_j);
+
+            // TODO: Change DrawCorridor to return the corridor tiles
 
             // 2) Compute the cells along the corridor and mark them as floor in the map
             /*var corridorTiles = GetLineTiles(close_zero, close_i);
@@ -273,7 +357,7 @@ public class CellularAutomata : MonoBehaviour
             }
 */
             // 3) Merge this room into the main room and remove it from the list
-            MergeRooms(rooms[i], rooms[j]);
+            MergeRooms(rooms[i], rooms[j], corridor_points);
             rooms.RemoveAt(j);
             //i--; // adjust index after removal
         }
@@ -355,12 +439,12 @@ public class CellularAutomata : MonoBehaviour
         return rooms;
     }
     
-    void MergeRooms(Room keep, Room merge /*, IEnumerable<Vector2Int> corridor*/)
+    void MergeRooms(Room keep, Room merge, List<Vector2Int> corridor)
     {
         var combined = new HashSet<Vector2Int>(keep.tiles);
         foreach (var t in merge.tiles) combined.Add(t);
-        //if (corridor != null)
-        //    foreach (var c in corridor) combined.Add(c);
+        if (corridor != null)
+            foreach (var c in corridor) combined.Add(c);
 
         keep.tiles = new List<Vector2Int>(combined);
     }

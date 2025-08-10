@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
+using System.Linq;
 
 public class DungeonGenerator : MonoBehaviour
 {
@@ -10,8 +11,8 @@ public class DungeonGenerator : MonoBehaviour
     public TileBase floorTile;
     public TileBase wallTile;
 
-    List<RectInt> rooms = new();
-
+    List<RectInt> rect_rooms = new();   // being deprecated probably
+    List<Room> rooms = new(); // List of rooms for Cellular Automata
     public float stepDelay = 0.2f;  // adjustable delay
 
     public void Start()
@@ -49,28 +50,33 @@ public class DungeonGenerator : MonoBehaviour
 
     IEnumerator ScatterRooms()
     {
+        List<Vector2Int> roomPoints = new List<Vector2Int>();
+        List<Vector2Int> corridorPoints = new List<Vector2Int>();
         tilemap.ClearAllTiles();
-        rooms.Clear();
+        rect_rooms.Clear();
 
-        for (int i = 0; rooms.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
+        for (int i = 0; rect_rooms.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
         {
             int w = Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
             int h = Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
             int x = Random.Range(1, cfg.mapWidth - w - 1);
             int y = Random.Range(1, cfg.mapHeight - h - 1);
             RectInt newRoom = new(x, y, w, h);
-            if (rooms.Count == 0)
+            if (rect_rooms.Count == 0)
             {
                 // First room, no need to check for overlaps
-                rooms.Add(newRoom);
-                DrawRoom(newRoom);
+                rect_rooms.Add(newRoom);
+                
+                roomPoints = DrawRoom(newRoom);
+                rooms.Add(new Room(roomPoints));
+                rooms[rooms.Count - 1].Name = "First Room";
                 yield return new WaitForSeconds(cfg.stepDelay);
                 continue;
             }
 
             // Check if the new room overlaps with existing rooms
             bool overlaps = false;
-            foreach (var r in rooms)
+            foreach (var r in rect_rooms)
             {
                 RectInt big_r = new(r.xMin - 1, r.yMin - 1, r.width + 2, r.height + 2);
                 if (newRoom.Overlaps(big_r))
@@ -82,46 +88,71 @@ public class DungeonGenerator : MonoBehaviour
 
             if (!overlaps || cfg.allowOverlappingRooms)
             {
-                rooms.Add(newRoom);
-                DrawRoom(newRoom);
+                rect_rooms.Add(newRoom);
+                roomPoints = DrawRoom(newRoom);
+                rooms.Add(new Room(roomPoints));
+                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
                 yield return new WaitForSeconds(cfg.stepDelay);
             }
         }
-        Debug.Log("rooms.Count = " + rooms.Count);
+        Debug.Log("rooms.Count = " + rect_rooms.Count);
         // Draw all the corridors between rooms
-        for (var i = 1; i < rooms.Count; i++)
+        for (var i = 1; i < rect_rooms.Count; i++)
         {
-            Vector2Int PointA = PointInRoom(rooms[i - 1]);
-            Vector2Int PointB = PointInRoom(rooms[i]);
-            DrawCorridor(PointA, PointB);
+            Vector2Int PointA = PointInRoom(rect_rooms[i - 1]);
+            Vector2Int PointB = PointInRoom(rect_rooms[i]);
+            corridorPoints = DrawCorridor(PointA, PointB);
+            rooms.Add(new Room(corridorPoints));
+            rooms[rooms.Count - 1].Name = "Corridor from " + (i - 1) + " to " + i;
             yield return new WaitForSeconds(cfg.stepDelay);
 
         }
         // connect first and last room
-        Vector2Int lastPoint = PointInRoom(rooms[rooms.Count - 1]);
-        Vector2Int firstPoint = PointInRoom(rooms[0]);
-        DrawCorridor(lastPoint, firstPoint);
+        Vector2Int lastPoint = PointInRoom(rect_rooms[rect_rooms.Count - 1]);
+        Vector2Int firstPoint = PointInRoom(rect_rooms[0]);
+        corridorPoints = DrawCorridor(lastPoint, firstPoint);
+        rooms.Add(new Room(corridorPoints));
+        rooms[rooms.Count - 1].Name = "Corridor from " + (rect_rooms.Count - 1) + " to " + 0;
+
         yield return new WaitForSeconds(cfg.stepDelay);
 
         // Draw walls around the dungeon
         DrawWalls();
     }
-    void DrawRoom(RectInt room)
+    List<Vector2Int> DrawRoom(RectInt room)
     {
+        List<Vector2Int> roomPoints = new List<Vector2Int>();
         for (int x = room.xMin; x < room.xMax; x++)
         {
             for (int y = room.yMin; y < room.yMax; y++)
             {
-                if (IsPointInRoom(new Vector2Int(x, y), room)) {
+                if (IsPointInRoom(new Vector2Int(x, y), room))
+                {
                     tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
+                    roomPoints.Add(new Vector2Int(x, y));
                 }
             }
         }
+        return roomPoints;
     }
 
-    public void DrawCorridor(Vector2Int start, Vector2Int end)
+    public void DrawMapByRooms(List<Room> rooms)
+    {
+        tilemap.ClearAllTiles();
+        foreach (var room in rooms)
+        {
+            foreach (var point in room.tiles)
+            {
+                tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
+            }
+        }
+    }
+    
+    public List<Vector2Int> DrawCorridor(Vector2Int start, Vector2Int end)
     {
         List<Vector2Int> path;
+        HashSet<Vector2Int> hashPath = new HashSet<Vector2Int>();
+
         switch (cfg.TunnelsAlgorithm)
         {
             case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrthographic:
@@ -161,11 +192,13 @@ public class DungeonGenerator : MonoBehaviour
                         if (ca != null)
                         {
                             ca.map[tilePos.x, tilePos.y] = false;
+                            hashPath.Add(new Vector2Int(tilePos.x, tilePos.y));
                         }
                     }
                 }
             }
         }
+        return hashPath.ToList();
     }
 
     public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
@@ -380,15 +413,5 @@ public class DungeonGenerator : MonoBehaviour
 
     };
 
-    void OnDrawGizmos()
-    {
-        if (rooms == null) return;
-
-        Gizmos.color = UnityEngine.Color.green;
-        foreach (var room in rooms)
-        {
-            Gizmos.DrawWireCube(new Vector3(room.center.x, room.center.y), new Vector3(room.size.x, room.size.y));
-        }
-    }
 }
 
