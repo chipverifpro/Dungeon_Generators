@@ -82,7 +82,10 @@ public class DungeonGenerator : MonoBehaviour
                 {
                     cfg.usePerlin = false; // Disable Perlin for CA
                     yield return StartCoroutine(ca.RunCaveGeneration());
-                    rooms = ca.FindRooms(ca.map);
+                    //rooms = ca.FindRooms(ca.map);
+                    yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
+                    rooms = ca.return_rooms; // Get the rooms found by CA
+                    Debug.Log($"Done FindRoomsCoroutine, rooms.Count = {rooms.Count}");
                     //yield return StartCoroutine(ca.ConnectRoomsByCorridors(rooms));
                     //ca.DrawMapFromRoomsList(rooms);
                     //DrawMapByRooms(rooms);
@@ -98,7 +101,10 @@ public class DungeonGenerator : MonoBehaviour
                 {
                     cfg.usePerlin = true; // Enable Perlin for CA
                     yield return StartCoroutine(ca.RunCaveGeneration());
-                    rooms = ca.FindRooms(ca.map);
+                    //rooms = ca.FindRooms(ca.map);
+                    yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
+                    rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
+                    Debug.Log($"Done FindRoomsCoroutine, rooms.Count = {rooms.Count}");
                     //yield return StartCoroutine(ca.ConnectRoomsByCorridors(rooms));
                     //ca.DrawMapFromRoomsList(rooms);
                     //DrawMapByRooms(rooms);
@@ -110,7 +116,7 @@ public class DungeonGenerator : MonoBehaviour
         }
         yield return new WaitForSeconds(cfg.stepDelay);
         //rooms = FindRoomsByList(rooms); // Ensure rooms are found after generation
-        rooms = RoomMergeUtil.MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: false);
+        //rooms = RoomMergeUtil.MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: false);
         DrawMapByRooms(rooms);
         ca.ColorCodeRooms(rooms);
         yield return new WaitForSeconds(cfg.stepDelay);
@@ -304,6 +310,7 @@ public class DungeonGenerator : MonoBehaviour
             {
                 tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
             }
+            ca.ColorCodeOneRoom(room);
         }
     }
 
@@ -345,6 +352,10 @@ public class DungeonGenerator : MonoBehaviour
                 for (int dy = brush_neg; dy < brush_pos; dy++)
                 {
                     Vector3Int tilePos = new Vector3Int(point.x + dx, point.y + dy, 0);
+                    if (tilePos.x < 0 || tilePos.x >= cfg.mapWidth || tilePos.y < 0 || tilePos.y >= cfg.mapHeight)
+                    {
+                        continue; // Skip out-of-bounds tiles
+                    }
                     tilemap.SetTile(tilePos, floorTile);
                     hashPath.Add(new Vector2Int(tilePos.x, tilePos.y));
 
@@ -521,6 +532,7 @@ public class DungeonGenerator : MonoBehaviour
                     }
                 }*/
             }
+            //yield return null;
         }
         yield return null; // Final yield to ensure all tiles are set
     }

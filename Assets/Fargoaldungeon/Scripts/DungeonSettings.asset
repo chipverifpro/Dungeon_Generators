@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   randomizeSeed: 1
-  seed: 3576
-  mapWidth: 150
-  mapHeight: 150
+  seed: 7827
+  mapWidth: 300
+  mapHeight: 300
   roomAttempts: 50
   roomsMax: 10
   minRoomSize: 20
@@ -27,16 +27,16 @@ MonoBehaviour:
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 3
-  TunnelsAlgorithm: 3
+  RoomAlgorithm: 2
+  TunnelsAlgorithm: 1
   fillPercent: 47
   totalSteps: 6
   stepDelay: 0.3
-  usePerlin: 1
+  usePerlin: 0
   perlinScale: 0.0408
   perlinThreshold: 0.439
   noiseOverlay: 58
-  MinimumRoomSize: 50
+  MinimumRoomSize: 200
   softBorderSize: 5
   controlOffset: 5
   max_control: 0.1

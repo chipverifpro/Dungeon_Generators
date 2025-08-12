@@ -58,13 +58,12 @@ public class BezierDraw : MonoBehaviour
             Vector2 point = CubicBezier(p0, p1, p2, p3, t);
             Vector2Int tile = Vector2Int.RoundToInt(point);
 
-            //if (seen.Add(tile)) // Add returns true if it was not already in the set
-            //{
-            orderedPoints.Add(tile);
-            //}
+            if (seen.Add(tile)) // Add returns true if it was not already in the set
+            {
+                orderedPoints.Add(tile);
+            }
         }
 
-        //return orderedPoints;
         return new List<Vector2Int>(orderedPoints);
     }
 

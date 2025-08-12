@@ -87,6 +87,8 @@ public class CellularAutomata : MonoBehaviour
     private bool _hasPrevVisual;
     private byte[,] _prevKind;
 
+    public List<Room> return_rooms = new List<Room>();
+
     public IEnumerator RunCaveGeneration()
     {
         map = new bool[cfg.mapWidth, cfg.mapHeight];
@@ -105,7 +107,8 @@ public class CellularAutomata : MonoBehaviour
 
         Debug.Log("Cave generation complete.");
 
-        FindRooms(map);
+        yield return StartCoroutine(FindRoomsCoroutine(map));
+        //FindRooms(map);
         //DrawMap();
     }
 
@@ -242,6 +245,7 @@ public class CellularAutomata : MonoBehaviour
             tilemap.SetTiles(changedPos.ToArray(), changedTiles.ToArray());
     }
 
+    // DrawMap() is used only by cellular automata during iterations
     void DrawMap()
     {
         tilemap.ClearAllTiles();
@@ -288,7 +292,8 @@ public class CellularAutomata : MonoBehaviour
         return false;
     }
 
-    public List<Room> FindRooms(bool[,] map)
+    // Potentially long running so use a coroutine
+    public IEnumerator FindRoomsCoroutine(bool[,] map)
     {
         int width = map.GetLength(0);
         int height = map.GetLength(1);
@@ -301,12 +306,13 @@ public class CellularAutomata : MonoBehaviour
         };
 
         for (int x = 0; x < width; x++)
+        {
             for (int y = 0; y < height; y++)
             {
                 if (!visited[x, y] && !map[x, y]) // Floor and unvisited
                 {
                     Room newRoom = new Room();
-                    Queue<Vector2Int> queue = new Queue<Vector2Int>();
+                    Queue<Vector2Int> queue = new Queue<Vector2Int>(16);
                     queue.Enqueue(new Vector2Int(x, y));
                     visited[x, y] = true;
 
@@ -314,7 +320,11 @@ public class CellularAutomata : MonoBehaviour
                     {
                         var pos = queue.Dequeue();
                         newRoom.tiles.Add(pos);
-
+                        //if ((queue.Count & 1000) == 0)
+                        //{
+                        //    yield return null; // Yield to keep UI responsive
+                        //    Debug.Log($"Queue contains {queue.Count}");
+                        //}
                         foreach (var dir in directions)
                         {
                             int nx = pos.x + dir.x;
@@ -326,19 +336,33 @@ public class CellularAutomata : MonoBehaviour
                                 queue.Enqueue(new Vector2Int(nx, ny));
                                 visited[nx, ny] = true;
                             }
+                                // 🔑 Yield periodically to keep UI responsive during big rooms
+                                if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
+                                    yield return null;
                         }
                     }
 
                     rooms.Add(newRoom);
+                    //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
+                    // Optionally visualize the room immediately
+                    ColorCodeOneRoom(newRoom);
+                    yield return null; // Yield to allow UI updates
                 }
-            }
-
+            }   
+            Debug.Log($"Processed row {x} of {width}");
+        }
+        Debug.Log($"Starting room sorting.");
         rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
-        rooms = RemoveTinyRooms(rooms);
+        Debug.Log($"Finished room sorting.");
+        //rooms = RemoveTinyRooms(rooms);
+        yield return StartCoroutine(RemoveTinyRoomsCoroutine(rooms));
+        rooms = new List<Room>(return_rooms);
         ColorCodeRooms(rooms);
 
-        return rooms;
+        //return rooms;
+        return_rooms = rooms;
     }
+
     public IEnumerator ConnectRoomsByCorridors(List<Room> rooms)
     {
         Vector2Int close_i = Vector2Int.zero;
@@ -357,6 +381,10 @@ public class CellularAutomata : MonoBehaviour
 
             // 1) Carve the corridor (your existing visual/path)
             corridor_points = generator.DrawCorridor(close_i, close_j);
+            Room corridorRoom = new Room(corridor_points);
+            ColorCodeOneRoom(rooms[i]);
+            ColorCodeOneRoom(rooms[j]);
+            ColorCodeOneRoom(corridorRoom);
 
             // TODO: Change DrawCorridor to return the corridor tiles
 
@@ -422,7 +450,19 @@ public class CellularAutomata : MonoBehaviour
         }
     }
 
-    List<Room> RemoveTinyRooms(List<Room> rooms)
+    public void ColorCodeOneRoom(Room room)
+    {
+        Color color = Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright, visible colors
+
+        foreach (Vector2Int tilePos in room.tiles)
+        {
+            Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
+
+            tilemap.SetColor(pos, color);
+        }
+    }
+
+    IEnumerator RemoveTinyRoomsCoroutine(List<Room> rooms)
     {
         bool Done = false;
         while (!Done)
@@ -430,18 +470,22 @@ public class CellularAutomata : MonoBehaviour
             Done = true; // Reset for each pass
             foreach (Room room in rooms)
             {
-                if (room.Size < cfg.MinimumRoomSize) // Arbitrary threshold for tiny rooms
+                if (room.Size < cfg.MinimumRoomSize) // Threshold for tiny rooms
                 {
                     foreach (Vector2Int tilePos in room.tiles)
                     {
                         Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
                         //tilemap.SetTile(pos, wallTile); // Remove room tile
+                        //tilemap.SetTile(pos, null); // Clear tile
                         map[tilePos.x, tilePos.y] = true; // Mark as wall
                     }
+                    ColorCodeOneRoom(room); // Optionally color the tiny room before removing
                     rooms.Remove(room);
                     Debug.Log($"Removed tiny room of size {room.Size} at bounds {room.GetBounds()}");
-                    DrawMap(); // Redraw the map after removing tiny rooms
+                    //DrawMapFromRoomsList(rooms); // Redraw the map after removing tiny rooms
+                    //yield return StartCoroutine(generator.DrawWalls());
                     Done = false;
+                    yield return null; // Yield to keep UI responsive
                     break; // Exit loop since we modified the list
                 }
                 else
@@ -450,7 +494,7 @@ public class CellularAutomata : MonoBehaviour
                 }
             }
         }
-        return rooms;
+        return_rooms = new List<Room>(rooms);
     }
     
     void MergeRooms(Room keep, Room merge, List<Vector2Int> corridor)
