@@ -1,12 +1,21 @@
 using UnityEngine;
 using TMPro;
+//using UnityEngine.UIElements;
+using UnityEngine.UI;
+
 
 public class DungeonGUISelector : MonoBehaviour
 {
     public DungeonSettings cfg; // Reference to the DungeonSettings ScriptableObject
     public TMP_Dropdown roomAlgorithmDropdown;
     public TMP_Dropdown tunnelsAlgorithmDropdown;
+    public UnityEngine.UI.Button regenerateButton; // Button to trigger regeneration
     public DungeonGenerator generator;
+
+    public void OnRegenerateClicked()
+    {
+        StartCoroutine(generator.RegenerateDungeon());
+    }
 
     public void OnRoomAlgorithmSelected(int index)
     {
@@ -14,7 +23,7 @@ public class DungeonGUISelector : MonoBehaviour
         Debug.Log("Room Algorithm selected: " + selected);
 
         cfg.RoomAlgorithm = (DungeonSettings.DungeonAlgorithm_e)index;
-        generator.RegenerateDungeon();
+        StartCoroutine(generator.RegenerateDungeon());
     }
 
     public void OnTunnelsAlgorithmSelected(int index)
@@ -23,7 +32,7 @@ public class DungeonGUISelector : MonoBehaviour
         Debug.Log("Tunnels Algorithm selected: " + selected);
 
         cfg.TunnelsAlgorithm = (DungeonSettings.TunnelsAlgorithm_e)index;
-        generator.RegenerateDungeon();
+        StartCoroutine(generator.RegenerateDungeon());
     }
 
     void Start()
@@ -33,5 +42,7 @@ public class DungeonGUISelector : MonoBehaviour
 
         tunnelsAlgorithmDropdown.value = (int)cfg.TunnelsAlgorithm;
         tunnelsAlgorithmDropdown.onValueChanged.AddListener(OnTunnelsAlgorithmSelected);
+
+        regenerateButton.onClick.AddListener(OnRegenerateClicked);
     }
 }

@@ -6,7 +6,7 @@ using UnityEngine;
 public class DungeonSettings : ScriptableObject
 {
     // Shared enumerations
-    public enum DungeonAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata }
+    public enum DungeonAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin }
     public enum TunnelsAlgorithm_e { TunnelsOrthographic, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
 
     [Header("General Settings")]
@@ -24,6 +24,7 @@ public class DungeonSettings : ScriptableObject
     public bool ovalRooms = false;
     public bool directCorridors = false;
     public int corridorWidth = 3;
+    public int wallThickness = 2;
     public float jitterChance = 0.2f; // Chance to introduce a "wiggle" in corridors
 
     public DungeonAlgorithm_e RoomAlgorithm = DungeonAlgorithm_e.Scatter_Overlap;

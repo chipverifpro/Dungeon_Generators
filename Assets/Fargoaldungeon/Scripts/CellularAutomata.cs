@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
+using Unity.Collections;
 
 public class Room
 {
@@ -170,7 +171,7 @@ public class CellularAutomata : MonoBehaviour
         return count;
     }
 
-    void DrawMap()
+    void DrawMap_efficient()
     {
         int w = cfg.mapWidth;
         int h = cfg.mapHeight;
@@ -241,7 +242,7 @@ public class CellularAutomata : MonoBehaviour
             tilemap.SetTiles(changedPos.ToArray(), changedTiles.ToArray());
     }
 
-    void DrawMap_old()
+    void DrawMap()
     {
         tilemap.ClearAllTiles();
 
@@ -256,35 +257,39 @@ public class CellularAutomata : MonoBehaviour
             }
     }
 
+    public void DrawMapFromRoomsList(List<Room> rooms)
+    {
+        tilemap.ClearAllTiles();
+
+        foreach (Room room in rooms)
+        {
+            foreach (Vector2Int tilePos in room.tiles)
+            {
+                Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
+                tilemap.SetTile(pos, floorTile);
+            }
+        }
+    }
+
     bool HasFloorNeighbor(Vector3Int pos)
     {
-        foreach (Vector3Int dir in Directions())
+        for (int x = -cfg.wallThickness; x <= cfg.wallThickness; x++)
+        for (int y = -cfg.wallThickness; y <= cfg.wallThickness; y++)
+        //foreach (Vector3Int dir in Directions())
         {
+            Vector3Int dir = new Vector3Int(x, y, 0);
+            if (dir.x == 0 && dir.y == 0) continue; // Skip self
             if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
-                pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
-                continue; // Out of bounds
+                        pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
+                    continue; // Out of bounds
             if (map[pos.x + dir.x, pos.y + dir.y] == false)
                 return true;
         }
         return false;
     }
-    public List<Vector3Int> Directions() => new()
-    {
-        new Vector3Int(1, 0, 0),
-        new Vector3Int(-1, 0, 0),
-        new Vector3Int(0, 1, 0),
-        new Vector3Int(0, -1, 0),
-        new Vector3Int(-1, -1, 0),
-        new Vector3Int(-1, 1, 0),
-        new Vector3Int(1, 1, 0),
-        new Vector3Int(1, -1, 0)
-
-    };
 
     public List<Room> FindRooms(bool[,] map)
     {
-        Vector2Int close_i = Vector2Int.zero;
-        Vector2Int close_j = Vector2Int.zero;
         int width = map.GetLength(0);
         int height = map.GetLength(1);
         bool[,] visited = new bool[width, height];
@@ -332,6 +337,13 @@ public class CellularAutomata : MonoBehaviour
         rooms = RemoveTinyRooms(rooms);
         ColorCodeRooms(rooms);
 
+        return rooms;
+    }
+    public IEnumerator ConnectRoomsByCorridors(List<Room> rooms)
+    {
+        Vector2Int close_i = Vector2Int.zero;
+        Vector2Int close_j = Vector2Int.zero;
+
         while (rooms.Count > 1)
         {
             List<Vector2Int> corridor_points = new List<Vector2Int>();
@@ -342,7 +354,7 @@ public class CellularAutomata : MonoBehaviour
             close_i = rooms[i].GetClosestPointInRoom(rooms[i].GetCenter());
             close_j = rooms[j].GetClosestPointInRoom(close_i);
             close_i = rooms[i].GetClosestPointInRoom(close_j);
-            
+
             // 1) Carve the corridor (your existing visual/path)
             corridor_points = generator.DrawCorridor(close_i, close_j);
 
@@ -357,14 +369,16 @@ public class CellularAutomata : MonoBehaviour
             }
 */
             // 3) Merge this room into the main room and remove it from the list
+            Debug.Log($"Merging rooms {i}({rooms[i].tiles.Count}) and {j}({rooms[j].tiles.Count}) and Corridor({corridor_points.Count}) tiles");
             MergeRooms(rooms[i], rooms[j], corridor_points);
+            Debug.Log($"Merged room size: {rooms[i].tiles.Count} tiles");
             rooms.RemoveAt(j);
             //i--; // adjust index after removal
+            yield return new WaitForSeconds(cfg.stepDelay);
         }
-        DrawMap();
-
-
-        return rooms;
+        //DrawMapFromRoomsList(rooms);
+        generator.rooms = rooms; // Update the generator's room list
+        yield return null;
     }
 
     public Vector2Int FindTwoClosestRooms (List<Room> rooms)
@@ -443,8 +457,7 @@ public class CellularAutomata : MonoBehaviour
     {
         var combined = new HashSet<Vector2Int>(keep.tiles);
         foreach (var t in merge.tiles) combined.Add(t);
-        if (corridor != null)
-            foreach (var c in corridor) combined.Add(c);
+        foreach (var c in corridor) combined.Add(c);
 
         keep.tiles = new List<Vector2Int>(combined);
     }
