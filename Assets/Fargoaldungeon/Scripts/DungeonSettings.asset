@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   randomizeSeed: 1
-  seed: 5616
+  seed: 3576
   mapWidth: 150
   mapHeight: 150
   roomAttempts: 50
@@ -27,7 +27,7 @@ MonoBehaviour:
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 0
+  RoomAlgorithm: 3
   TunnelsAlgorithm: 3
   fillPercent: 47
   totalSteps: 6

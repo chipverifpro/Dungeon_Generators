@@ -48,12 +48,14 @@ public class DungeonGenerator : MonoBehaviour
             cfg.seed = Random.Range(0, 10000);
         }
         Random.InitState(cfg.seed);
+        Debug.Log("DungeonGenerator started with seed: " + cfg.seed);
+        StopAllCoroutines();
         StartCoroutine(RegenerateDungeon());
     }
 
     public IEnumerator RegenerateDungeon()
     {
-        yield return null;
+        yield return new WaitForSeconds(cfg.stepDelay);
         ca = GetComponent<CellularAutomata>();
         if (ca == null)
         {
@@ -61,7 +63,6 @@ public class DungeonGenerator : MonoBehaviour
             yield break;
         }
 
-        StopAllCoroutines();
         yield return null; // Wait for the end of the frame to ensure all previous operations are complete
         switch (cfg.RoomAlgorithm) // Change this to select different algorithms
         {
