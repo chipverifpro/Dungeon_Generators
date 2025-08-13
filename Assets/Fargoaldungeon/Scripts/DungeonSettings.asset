@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   randomizeSeed: 1
-  seed: 7827
+  seed: 5950
   mapWidth: 300
   mapHeight: 300
   roomAttempts: 50

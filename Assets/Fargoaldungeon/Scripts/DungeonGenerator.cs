@@ -81,6 +81,9 @@ public class DungeonGenerator : MonoBehaviour
                 if (ca != null)
                 {
                     cfg.usePerlin = false; // Disable Perlin for CA
+                    tilemap.ClearAllTiles();
+                    rect_rooms.Clear();
+                    rooms.Clear();
                     yield return StartCoroutine(ca.RunCaveGeneration());
                     //rooms = ca.FindRooms(ca.map);
                     yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
@@ -100,6 +103,9 @@ public class DungeonGenerator : MonoBehaviour
                 if (ca != null)
                 {
                     cfg.usePerlin = true; // Enable Perlin for CA
+                    tilemap.ClearAllTiles();
+                    rect_rooms.Clear();
+                    rooms.Clear();
                     yield return StartCoroutine(ca.RunCaveGeneration());
                     //rooms = ca.FindRooms(ca.map);
                     yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
@@ -272,12 +278,14 @@ public class DungeonGenerator : MonoBehaviour
 
             }
             // connect first and last room
+            /*
             Vector2Int lastPoint = PointInRoom(rect_rooms[rect_rooms.Count - 1]);
             Vector2Int firstPoint = PointInRoom(rect_rooms[0]);
             corridorPoints = DrawCorridor(lastPoint, firstPoint);
             rooms.Add(new Room(corridorPoints));
             rooms[rooms.Count - 1].Name = "Corridor from " + (rect_rooms.Count - 1) + " to " + 0;
             yield return new WaitForSeconds(cfg.stepDelay);
+            */
         }
         // Draw walls around the dungeon
         yield return StartCoroutine(DrawWalls());

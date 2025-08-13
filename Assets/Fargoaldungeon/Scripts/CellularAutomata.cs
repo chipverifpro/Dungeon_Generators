@@ -51,8 +51,8 @@ public class Room
     public Vector2Int GetClosestPointInRoom(Vector2Int point)
     {
         Vector2Int center = point;
-        int min_distance = 9999;
-        int cur_distance = 9999;
+        int min_distance = int.MaxValue;
+        int cur_distance = int.MaxValue;
         Vector2Int closest_point = Vector2Int.zero;
 
         if (tiles.Count == 0) return Vector2Int.zero;
@@ -345,7 +345,7 @@ public class CellularAutomata : MonoBehaviour
                     rooms.Add(newRoom);
                     //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                     // Optionally visualize the room immediately
-                    ColorCodeOneRoom(newRoom);
+                    ColorCodeOneRoom(newRoom, highlight: true);
                     yield return null; // Yield to allow UI updates
                 }
             }   
@@ -372,6 +372,11 @@ public class CellularAutomata : MonoBehaviour
         {
             List<Vector2Int> corridor_points = new List<Vector2Int>();
             Vector2Int closestPair = FindTwoClosestRooms(rooms);
+            if (closestPair == Vector2Int.zero)
+            {
+                Debug.Log("No more pairs of rooms to connect.");
+                break; // No pairs found, exit loop
+            }
             int i = closestPair.x;
             int j = closestPair.y;
             // Closest points between rooom i and j.
@@ -382,9 +387,9 @@ public class CellularAutomata : MonoBehaviour
             // 1) Carve the corridor (your existing visual/path)
             corridor_points = generator.DrawCorridor(close_i, close_j);
             Room corridorRoom = new Room(corridor_points);
-            ColorCodeOneRoom(rooms[i]);
-            ColorCodeOneRoom(rooms[j]);
-            ColorCodeOneRoom(corridorRoom);
+            ColorCodeOneRoom(rooms[i], highlight:false);
+            ColorCodeOneRoom(rooms[j], highlight:false);
+            ColorCodeOneRoom(corridorRoom, highlight:true);
 
             // TODO: Change DrawCorridor to return the corridor tiles
 
@@ -416,7 +421,7 @@ public class CellularAutomata : MonoBehaviour
         Vector2Int closestPair = Vector2Int.zero;
         float minDistance = float.MaxValue;
 
-        for (int i = 0; i < rooms.Count - 1; i++)
+        for (int i = 0; i < rooms.Count; i++)
         {
             for (int j = i + 1; j < rooms.Count; j++)
             {
@@ -450,15 +455,19 @@ public class CellularAutomata : MonoBehaviour
         }
     }
 
-    public void ColorCodeOneRoom(Room room)
+    // you can either specify the color you want, or...
+    //   specify highlight:true for bright colors, :false for dark ones
+    public void ColorCodeOneRoom(Room room, Color? color = null, bool highlight = true)
     {
-        Color color = Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright, visible colors
-
+        Color finalColor = color ?? (highlight
+            ? Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f)   // Bright
+            : Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f) // Dark
+        );
         foreach (Vector2Int tilePos in room.tiles)
         {
             Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
 
-            tilemap.SetColor(pos, color);
+            tilemap.SetColor(pos, finalColor);
         }
     }
 
@@ -479,7 +488,7 @@ public class CellularAutomata : MonoBehaviour
                         //tilemap.SetTile(pos, null); // Clear tile
                         map[tilePos.x, tilePos.y] = true; // Mark as wall
                     }
-                    ColorCodeOneRoom(room); // Optionally color the tiny room before removing
+                    ColorCodeOneRoom(room, highlight: true); // Optionally color the tiny room before removing
                     rooms.Remove(room);
                     Debug.Log($"Removed tiny room of size {room.Size} at bounds {room.GetBounds()}");
                     //DrawMapFromRoomsList(rooms); // Redraw the map after removing tiny rooms
