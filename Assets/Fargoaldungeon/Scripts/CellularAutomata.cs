@@ -105,8 +105,7 @@ public class CellularAutomata : MonoBehaviour
             yield return new WaitForSeconds(cfg.stepDelay);
         }
 
-        Debug.Log("Cave generation complete.");
-
+        Debug.Log("Finding Rooms.");
         yield return StartCoroutine(FindRoomsCoroutine(map));
         //FindRooms(map);
         //DrawMap();
@@ -198,22 +197,22 @@ public class CellularAutomata : MonoBehaviour
             tilemap.ClearAllTiles();
 
             var positions = new List<Vector3Int>(w * h);
-            var tiles     = new List<TileBase>(w * h);
+            var tiles = new List<TileBase>(w * h);
 
             _prevKind = new byte[w, h];
 
             for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-            {
-                byte k = DesiredKindAt(x, y);
-                _prevKind[x, y] = k;
-
-                if (k != 0)
+                for (int x = 0; x < w; x++)
                 {
-                    positions.Add(new Vector3Int(x, y, 0));
-                    tiles.Add(k == 1 ? floorTile : wallTile);
+                    byte k = DesiredKindAt(x, y);
+                    _prevKind[x, y] = k;
+
+                    if (k != 0)
+                    {
+                        positions.Add(new Vector3Int(x, y, 0));
+                        tiles.Add(k == 1 ? floorTile : wallTile);
+                    }
                 }
-            }
 
             if (positions.Count > 0)
                 tilemap.SetTiles(positions.ToArray(), tiles.ToArray());
@@ -223,7 +222,7 @@ public class CellularAutomata : MonoBehaviour
         }
 
         // Incremental diff: only touch cells whose visual kind changed
-        var changedPos   = new List<Vector3Int>(256);
+        var changedPos = new List<Vector3Int>(256);
         var changedTiles = new List<TileBase>(256);
 
         for (int y = 0; y < h; y++)
@@ -238,7 +237,9 @@ public class CellularAutomata : MonoBehaviour
                     // inside the diff loop, after changedTiles.Add(...):
                     _prevKind[x, y] = curr;
                 }
-            /*if (curr == 0)*/ tilemap.SetColor(new Vector3Int(x, y, 0), Color.white);
+                /*if (curr == 0)*/
+                tilemap.SetColor(new Vector3Int(x, y, 0), Color.white);
+                
             }
 
         if (changedPos.Count > 0)
@@ -278,23 +279,24 @@ public class CellularAutomata : MonoBehaviour
     bool HasFloorNeighbor(Vector3Int pos)
     {
         for (int x = -cfg.wallThickness; x <= cfg.wallThickness; x++)
-        for (int y = -cfg.wallThickness; y <= cfg.wallThickness; y++)
-        //foreach (Vector3Int dir in Directions())
-        {
-            Vector3Int dir = new Vector3Int(x, y, 0);
-            if (dir.x == 0 && dir.y == 0) continue; // Skip self
-            if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
-                        pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
+            for (int y = -cfg.wallThickness; y <= cfg.wallThickness; y++)
+            //foreach (Vector3Int dir in Directions())
+            {
+                Vector3Int dir = new Vector3Int(x, y, 0);
+                if (dir.x == 0 && dir.y == 0) continue; // Skip self
+                if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
+                            pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
                     continue; // Out of bounds
-            if (map[pos.x + dir.x, pos.y + dir.y] == false)
-                return true;
-        }
+                if (map[pos.x + dir.x, pos.y + dir.y] == false)
+                    return true;
+            }
         return false;
     }
 
     // Potentially long running so use a coroutine
     public IEnumerator FindRoomsCoroutine(bool[,] map)
     {
+        BottomBanner.Show("Finding rooms...");
         int width = map.GetLength(0);
         int height = map.GetLength(1);
         bool[,] visited = new bool[width, height];
@@ -336,9 +338,9 @@ public class CellularAutomata : MonoBehaviour
                                 queue.Enqueue(new Vector2Int(nx, ny));
                                 visited[nx, ny] = true;
                             }
-                                // 🔑 Yield periodically to keep UI responsive during big rooms
-                                if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
-                                    yield return null;
+                            // 🔑 Yield periodically to keep UI responsive during big rooms
+                            if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
+                                yield return null;
                         }
                     }
 
@@ -348,10 +350,10 @@ public class CellularAutomata : MonoBehaviour
                     ColorCodeOneRoom(newRoom, highlight: true);
                     yield return null; // Yield to allow UI updates
                 }
-            }   
+            }
             Debug.Log($"Processed row {x} of {width}");
         }
-        Debug.Log($"Starting room sorting.");
+        //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
         rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
         Debug.Log($"Finished room sorting.");
         //rooms = RemoveTinyRooms(rooms);
@@ -367,7 +369,7 @@ public class CellularAutomata : MonoBehaviour
     {
         Vector2Int close_i = Vector2Int.zero;
         Vector2Int close_j = Vector2Int.zero;
-
+        BottomBanner.Show($"Connecting {rooms.Count} rooms by corridors...");   
         while (rooms.Count > 1)
         {
             List<Vector2Int> corridor_points = new List<Vector2Int>();
@@ -387,9 +389,9 @@ public class CellularAutomata : MonoBehaviour
             // 1) Carve the corridor (your existing visual/path)
             corridor_points = generator.DrawCorridor(close_i, close_j);
             Room corridorRoom = new Room(corridor_points);
-            ColorCodeOneRoom(rooms[i], highlight:false);
-            ColorCodeOneRoom(rooms[j], highlight:false);
-            ColorCodeOneRoom(corridorRoom, highlight:true);
+            ColorCodeOneRoom(rooms[i], highlight: false);
+            ColorCodeOneRoom(rooms[j], highlight: false);
+            ColorCodeOneRoom(corridorRoom, highlight: true);
 
             // TODO: Change DrawCorridor to return the corridor tiles
 
@@ -402,9 +404,9 @@ public class CellularAutomata : MonoBehaviour
             }
 */
             // 3) Merge this room into the main room and remove it from the list
-            Debug.Log($"Merging rooms {i}({rooms[i].tiles.Count}) and {j}({rooms[j].tiles.Count}) and Corridor({corridor_points.Count}) tiles");
+            //BottomBanner.Show($"Merging rooms {i}({rooms[i].tiles.Count}) and {j}({rooms[j].tiles.Count}) and Corridor({corridor_points.Count}) tiles");
             MergeRooms(rooms[i], rooms[j], corridor_points);
-            Debug.Log($"Merged room size: {rooms[i].tiles.Count} tiles");
+            //BottomBanner.Show($"Merged room size: {rooms[i].tiles.Count} tiles");
             rooms.RemoveAt(j);
             //i--; // adjust index after removal
             yield return new WaitForSeconds(cfg.stepDelay);
@@ -414,7 +416,7 @@ public class CellularAutomata : MonoBehaviour
         yield return null;
     }
 
-    public Vector2Int FindTwoClosestRooms (List<Room> rooms)
+    public Vector2Int FindTwoClosestRooms(List<Room> rooms)
     {
         if (rooms.Count < 2) return Vector2Int.zero;
 
@@ -439,7 +441,7 @@ public class CellularAutomata : MonoBehaviour
 
         return closestPair;
     }
-  
+
     public void ColorCodeRooms(List<Room> rooms)
     {
         foreach (Room room in rooms)
@@ -473,10 +475,15 @@ public class CellularAutomata : MonoBehaviour
 
     IEnumerator RemoveTinyRoomsCoroutine(List<Room> rooms)
     {
+        BottomBanner.Show("Removing tiny rooms...");
         bool Done = false;
+        int countRemoved = 0;
+        int countKept = 0;
         while (!Done)
         {
             Done = true; // Reset for each pass
+            countRemoved = 0;
+            countKept = 0;
             foreach (Room room in rooms)
             {
                 if (room.Size < cfg.MinimumRoomSize) // Threshold for tiny rooms
@@ -485,27 +492,35 @@ public class CellularAutomata : MonoBehaviour
                     {
                         Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
                         //tilemap.SetTile(pos, wallTile); // Remove room tile
+                        //SetTileColorFromHex(tilemap, pos, "#314D79");
                         //tilemap.SetTile(pos, null); // Clear tile
+                        ClearTileAndNeighborWalls(tilemap, pos);
                         map[tilePos.x, tilePos.y] = true; // Mark as wall
+                        //yield return new WaitForSeconds(cfg.stepDelay); 
                     }
-                    ColorCodeOneRoom(room, highlight: true); // Optionally color the tiny room before removing
+                    //ColorCodeOneRoom(room, highlight: true); // Optionally color the tiny room before removing
                     rooms.Remove(room);
-                    Debug.Log($"Removed tiny room of size {room.Size} at bounds {room.GetBounds()}");
+                    Debug.Log($"Removed tiny room {room.Name} of size {room.Size} at bounds {room.GetBounds()}");
                     //DrawMapFromRoomsList(rooms); // Redraw the map after removing tiny rooms
                     //yield return StartCoroutine(generator.DrawWalls());
                     Done = false;
+                    countRemoved++;
                     yield return null; // Yield to keep UI responsive
                     break; // Exit loop since we modified the list
                 }
                 else
                 {
-                    Debug.Log($"Keeping room of size {room.Size} at bounds {room.GetBounds()}");
+                    countKept++;
+                    Debug.Log($"Keeping room of size {room.Size}");
                 }
             }
+
         }
+        //BottomBanner.Show($"Done removing {countRemoved} tiny rooms");
+            
         return_rooms = new List<Room>(rooms);
     }
-    
+
     void MergeRooms(Room keep, Room merge, List<Vector2Int> corridor)
     {
         var combined = new HashSet<Vector2Int>(keep.tiles);
@@ -513,5 +528,36 @@ public class CellularAutomata : MonoBehaviour
         foreach (var c in corridor) combined.Add(c);
 
         keep.tiles = new List<Vector2Int>(combined);
+    }
+
+    void ClearTileAndNeighborWalls(Tilemap tilemap, Vector3Int cellPos)
+    {
+        // Square filled radius 2
+        var squareR2 = NeighborCache.Get(2, NeighborCache.Shape.Square, borderOnly: false, includeDiagonals: true);
+        //Debug.Log($"Clearing tile at {cellPos} and its neighbors with square radius 2");
+
+        foreach (var offset in squareR2)
+        {
+            var neighbor = cellPos + offset;
+            if (tilemap.GetTile(neighbor) == wallTile)
+                tilemap.SetTile(neighbor, null);
+            //SetTileColorFromHex(tilemap, neighbor, "#314D79");
+        }
+
+        tilemap.SetTile(cellPos, null); // Clear the main tile
+        //SetTileColorFromHex(tilemap, cellPos, "#314D79"); // Set color for the cleared tile
+    }
+
+    public void SetTileColorFromHex(Tilemap tilemap, Vector3Int cellPos, string hex)
+    {
+        if (ColorUtility.TryParseHtmlString(hex, out Color color))
+        {
+            tilemap.SetTileFlags(cellPos, TileFlags.None); // Allow color changes
+            tilemap.SetColor(cellPos, color);
+        }
+        else
+        {
+            Debug.LogError("Invalid hex color: " + hex);
+        }
     }
 }

@@ -32,15 +32,18 @@ public class DungeonSettings : ScriptableObject
 
     // Settings for Cellular Automata
     [Header("Cellular Automata Settings")]
+    public bool useCellularAutomata = false;
     [Range(0, 100)] public int fillPercent = 45;
     public int totalSteps = 5;
     public float stepDelay = 0.2f;
 
     [Header("Perlin Noise Settings")]
     public bool usePerlin = true;
-    [Range(0.03f, 0.1f)][Tooltip("Low = big rooms | High = small rooms")]
+    [Range(0.03f, 0.1f)]
+    [Tooltip("Low = big rooms | High = small rooms")]
     public float perlinScale = 0.05f;
-    [Range(0.4f, 0.6f)][Tooltip("Low = many rooms | High = fewer rooms")]
+    [Range(0.4f, 0.6f)]
+    [Tooltip("Low = many rooms | High = fewer rooms")]
     public float perlinThreshold = 0.5f;
     [Tooltip("Percent of white noise overlayed")]
     [Range(0, 100)] public int noiseOverlay = 40; // Percent of white noise overlayed
@@ -52,4 +55,8 @@ public class DungeonSettings : ScriptableObject
     [Header("Bezier Corridor Settings")]
     public float controlOffset = 5f;
     public float max_control = 0.1f;
+    
+    // Neighbor Cache Settings
+    public NeighborCache.Shape neighborShape = NeighborCache.Shape.Square;
+    public bool includeDiagonals = true;
 }

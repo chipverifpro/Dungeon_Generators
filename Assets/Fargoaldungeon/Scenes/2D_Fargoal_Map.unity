@@ -776,6 +776,7 @@ GameObject:
   - component: {fileID: 409665909}
   - component: {fileID: 409665910}
   - component: {fileID: 409665911}
+  - component: {fileID: 409665912}
   m_Layer: 0
   m_Name: Dungeongenerator
   m_TagString: Untagged
@@ -799,7 +800,6 @@ MonoBehaviour:
   tilemap: {fileID: 409665906}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
-  rect_rooms: []
 --- !u!483693784 &409665905
 TilemapRenderer:
   m_ObjectHideFlags: 0
@@ -1006,6 +1006,24 @@ MonoBehaviour:
   tilemap: {fileID: 409665906}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
+--- !u!114 &409665912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 409665903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a28372814860f4b6aa8a3bb73ad12fad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  backgroundColor: {r: 0, g: 0, b: 0, a: 0.5}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  fontSize: 24
+  height: 36
+  sidePadding: 24
+  useSafeArea: 1
 --- !u!1 &428731488
 GameObject:
   m_ObjectHideFlags: 0
