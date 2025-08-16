@@ -11,9 +11,12 @@ public class DungeonGUISelector : MonoBehaviour
     public TMP_Dropdown tunnelsAlgorithmDropdown;
     public UnityEngine.UI.Button regenerateButton; // Button to trigger regeneration
     public DungeonGenerator generator;
+    public CellularAutomata ca; // Reference to the CellularAutomata script
 
     public void OnRegenerateClicked()
     {
+        //generator.StopAllCoroutines();
+        //ca.StopAllCoroutines();
         StartCoroutine(generator.RegenerateDungeon());
     }
 
@@ -23,6 +26,9 @@ public class DungeonGUISelector : MonoBehaviour
         Debug.Log("Room Algorithm selected: " + selected);
 
         cfg.RoomAlgorithm = (DungeonSettings.DungeonAlgorithm_e)index;
+        //generator.StopAllCoroutines();
+        //ca.StopAllCoroutines();
+        //Start();
         StartCoroutine(generator.RegenerateDungeon());
     }
 
@@ -32,6 +38,9 @@ public class DungeonGUISelector : MonoBehaviour
         Debug.Log("Tunnels Algorithm selected: " + selected);
 
         cfg.TunnelsAlgorithm = (DungeonSettings.TunnelsAlgorithm_e)index;
+        //generator.StopAllCoroutines();
+        //ca.StopAllCoroutines();
+        //Start();
         StartCoroutine(generator.RegenerateDungeon());
     }
 

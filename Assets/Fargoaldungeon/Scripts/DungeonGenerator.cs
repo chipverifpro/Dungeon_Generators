@@ -7,6 +7,8 @@ using UnityEngine.Scripting.APIUpdating;
 using UnityEditor.Search;
 using UnityEditor.ProjectWindowCallback;
 using Unity.Mathematics;
+using UnityEditor;
+using UnityEditor.Experimental.GraphView;
 
 
 public class DungeonGenerator : MonoBehaviour
@@ -20,7 +22,7 @@ public class DungeonGenerator : MonoBehaviour
 
     // Different ways to store the map: room(list of points) and mapArray (grid of bytes)
     public List<Room> rooms = new(); // Master List of rooms including list of points and metadata
-
+    public List<RectInt> room_rects = new(); // List of RectInt rooms for ScatterRooms
     public byte[,] mapArray; // each byte represents one of the below constants
     public bool mapArrayStale = true; // Flag to indicate if mapArray needs to be regenerated from rooms
         private const byte WALL = 0;
@@ -54,6 +56,7 @@ public class DungeonGenerator : MonoBehaviour
 
     // RegenerateDungeon is the main coroutine that handles dungeon generation.
     // It orchestrates the various steps involved in creating the dungeon layout.
+    // Step 0: Select settings
     // Step 1: Initialize the dungeon
     // Step 2: Place rooms (ScatterRooms or CellularAutomata)
     // Step 3: Convert rooms to a list of floor tiles (ConvertRectToRoomPoints or findRoomTiles for CA)
@@ -66,88 +69,120 @@ public class DungeonGenerator : MonoBehaviour
 
     public IEnumerator RegenerateDungeon()
     {
+
+        
+        room_rects = new List<RectInt>(); // Clear the list of room rectangles
         yield return null; // Start on a fresh screen render frame
         BottomBanner.Show("Generating dungeon...");
+
+        // Step 0: Select settings
         switch (cfg.RoomAlgorithm) // Change this to select different algorithms
         {
             case DungeonSettings.DungeonAlgorithm_e.Scatter_Overlap:
                 cfg.allowOverlappingRooms = true;
-                yield return StartCoroutine(ScatterRooms());
+                cfg.useCellularAutomata = false;
                 break;
             case DungeonSettings.DungeonAlgorithm_e.Scatter_NoOverlap:
                 cfg.allowOverlappingRooms = false;
-                yield return StartCoroutine(ScatterRooms());
+                cfg.useCellularAutomata = false;
                 break;
             case DungeonSettings.DungeonAlgorithm_e.CellularAutomata:
+                cfg.useCellularAutomata = true;
                 cfg.usePerlin = false; // Disable Perlin for CA
-                tilemap.ClearAllTiles();
-                rooms.Clear();
-                BottomBanner.Show("Cellular Automata cavern generation itterating...");
-                yield return StartCoroutine(ca.RunCaveGeneration());
-                BottomBanner.Show("Locate Discrete rooms...");
-                yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
-                rooms = ca.return_rooms; // Get the rooms found by CA
-                BottomBanner.Show($"Dungeon rooms.Count = {rooms.Count}");
                 break;
             case DungeonSettings.DungeonAlgorithm_e.CellularAutomataPerlin:
+                cfg.useCellularAutomata = true;
                 cfg.usePerlin = true; // Enable Perlin for CA
-                tilemap.ClearAllTiles();
-                rooms.Clear();
-                BottomBanner.Show("Cellular Automata with Perlin Noise cavern generation itterating...");
-                yield return StartCoroutine(ca.RunCaveGeneration());
-                BottomBanner.Show("Locate Discrete rooms...");
-                yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
-                rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
-                BottomBanner.Show($"Dungeon rooms.Count = {rooms.Count}");
                 break;
         }
+
+        BottomBanner.Show("Generating dungeon...");
+
+        // ===== Step 1. Initialize the dungeon
+        tilemap.ClearAllTiles();
+        rooms.Clear();
+        ca.map = new byte[cfg.mapWidth, cfg.mapHeight];
         yield return new WaitForSeconds(cfg.stepDelay);
+
+        // ===== Step 2. Place rooms
+        if (cfg.useCellularAutomata) // Cellular Automata generation
+        {
+            BottomBanner.Show("Cellular Automata cavern generation itterating...");
+            yield return StartCoroutine(ca.RunCaveGeneration());
+            //DrawMapByRooms(rooms);
+            yield return StartCoroutine(DrawWalls());
+        }
+        else // Scatter rooms
+        {
+            BottomBanner.Show("Scattering rooms...");
+            yield return StartCoroutine(ScatterRooms());
+            Debug.Log("ScatterRooms done, room_rects.Count = " + room_rects.Count);
+            DrawMapByRects(room_rects);
+            yield return StartCoroutine(DrawWalls());
+        }
+
+        //DrawMapByRooms(rooms);
+        //ca.ColorCodeRooms(rooms);
+        //yield return StartCoroutine(DrawWalls());
+        yield return new WaitForSeconds(cfg.stepDelay *5f);
+
+        // Step 3: Combine overlapping rooms
+        BottomBanner.Show("Locate Discrete rooms...");
+        if (cfg.useCellularAutomata) // locate rooms from cellular automata
+        {
+            // For Cellular Automata, find rooms from the map
+            yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
+            rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
+
+            BottomBanner.Show("Remove tiny rooms...");
+            yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine(rooms));
+        }
+        else // locate rooms from scattered rooms
+        {
+            rooms = ConvertAllRectToRooms(room_rects, SetTile: true);
+            DrawMapByRooms(rooms);
+            yield return StartCoroutine(DrawWalls());
+            // Step 4: Merge overlapping rooms
+            BottomBanner.Show("Merging Overlapping Rooms...");
+            rooms = RoomMergeUtil.MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: true);
+            yield return new WaitForSeconds(cfg.stepDelay * 5f);
+        }
+
         DrawMapByRooms(rooms);
-        ca.ColorCodeRooms(rooms);
-        //      yield return new WaitForSeconds(cfg.stepDelay);
+        //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
-        yield return new WaitForSeconds(cfg.stepDelay);
-        // Draw the corridors between rooms
+
+        // Step 5: Connect rooms with corridors
         BottomBanner.Show("Connecting Rooms with Corridors...");
         yield return StartCoroutine(ca.ConnectRoomsByCorridors(rooms));
+
         DrawMapByRooms(rooms);
-        // Draw walls around the dungeon
+        //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
-        ca.ColorCodeRooms(rooms);
+        //yield return new WaitForSeconds(cfg.stepDelay *5f);
+
         BottomBanner.Show("Dungeon generation complete!");
     }
 
     // Scatter rooms performs the main room placement for Rectangular or Oval rooms
     IEnumerator ScatterRooms()
     {
-        List<Vector2Int> roomPoints = new List<Vector2Int>();
-        List<RectInt> rect_rooms = new(); // local list of rooms as RectInt
+        //List<Vector2Int> roomPoints = new List<Vector2Int>();
         tilemap.ClearAllTiles();
-        rooms.Clear();
+        room_rects.Clear(); // Clear the list of room rectangles
+        //rooms.Clear();
         BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
-        for (int i = 0; rect_rooms.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
+        for (int i = 0; room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
         {
             int w = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
             int h = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
             int x = UnityEngine.Random.Range(1, cfg.mapWidth - w - 1);
             int y = UnityEngine.Random.Range(1, cfg.mapHeight - h - 1);
             RectInt newRoom = new(x, y, w, h);
-            if (rect_rooms.Count == 0)
-            {
-                // First room, no need to check for overlaps
-                rect_rooms.Add(newRoom);
-
-                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
-                rooms.Add(new Room(roomPoints));
-                rooms[rooms.Count - 1].Name = "First Room";
-                Debug.Log("Created " + rooms[rooms.Count - 1].Name + " size: " + rooms[rooms.Count - 1].Size);
-                yield return new WaitForSeconds(cfg.stepDelay);
-                continue;
-            }
 
             // Check if the new room overlaps with existing rooms
             bool overlaps = false;
-            foreach (var r in rect_rooms)
+            foreach (var r in room_rects)
             {
                 RectInt big_r = new(r.xMin - 1, r.yMin - 1, r.width + 2, r.height + 2);
                 if (newRoom.Overlaps(big_r))
@@ -158,17 +193,38 @@ public class DungeonGenerator : MonoBehaviour
 
             if (!overlaps || cfg.allowOverlappingRooms)
             {
-                rect_rooms.Add(newRoom);
-                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
-                rooms.Add(new Room(roomPoints));
-                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
-                Debug.Log("Created " + rooms[rooms.Count - 1].Name + " size: " + rooms[rooms.Count - 1].Size);
-                yield return new WaitForSeconds(cfg.stepDelay);
+                room_rects.Add(newRoom);
+                DrawRect(newRoom);
+                //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
+                //                rooms.Add(new Room(roomPoints));
+                //                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
+                Debug.Log("Created " + room_rects.Count() + " room_rects");
+                yield return new WaitForSeconds(cfg.stepDelay/3f);
             }
         }
-        Debug.Log("rooms.Count = " + rect_rooms.Count);
-        yield return null; // Ensure all tiles are set before proceeding
+        Debug.Log("room_rects.Count = " + room_rects.Count);
+        BottomBanner.Show($"DONE: Scattered {room_rects.Count} Rooms");
+        //yield return null; // Ensure all tiles are set before proceeding
         //yield return StartCoroutine(ConnectRoomsByCorridors());
+        yield return new WaitForSeconds(cfg.stepDelay); // Pause to see what happened
+    }
+
+    List<Room> ConvertAllRectToRooms(List<RectInt> room_rects, bool SetTile)
+    {
+        List<Vector2Int> PointsList;
+        List<Room> rooms = new List<Room>();
+        Debug.Log("Converting " + room_rects.Count + " Rects to Rooms...");
+        foreach (var room_rect in room_rects)
+        {
+            PointsList = ConvertRectToRoomPoints(room_rect, SetTile);
+            Room room = new Room(PointsList);
+            room.isCorridor = false; // Default to false, can be set later if needed
+            room.Name = "Room " + (rooms.Count + 1);
+            //room.colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
+            room.setColorFloor(highlight: true);
+            rooms.Add(room);
+        }
+        return rooms;
     }
 
     // ConvertRectToRoomPoints generates a list of points within the
@@ -193,6 +249,31 @@ public class DungeonGenerator : MonoBehaviour
         return roomPoints;
     }
 
+    public void DrawMapByRects(List<RectInt> room_rects)
+    {
+        foreach (var room_rect in room_rects)
+        {
+            Debug.Log("Drawing Rect " + room_rect);
+            DrawRect(room_rect);
+        }
+    }
+
+    public void DrawRect(RectInt room_rect)
+    {
+        Debug.Log("Drawing Rect ");
+        Color tempcolor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
+        for (int x = room_rect.xMin; x < room_rect.xMax; x++)
+        {
+            for (int y = room_rect.yMin; y < room_rect.yMax; y++)
+            {
+                if (IsPointInRoomRectOrOval(new Vector2Int(x, y), room_rect)) { }
+                tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
+                tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
+                tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
+            }
+        }
+    }
+
     public void DrawMapByRooms(List<Room> rooms)
     {
         Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
@@ -203,8 +284,10 @@ public class DungeonGenerator : MonoBehaviour
             foreach (var point in room.tiles)
             {
                 tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
+                tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
+                tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
             }
-            ca.ColorCodeOneRoom(room);
+            //ca.ColorCodeOneRoom(room);
         }
     }
 
@@ -260,7 +343,7 @@ public class DungeonGenerator : MonoBehaviour
 
                     if (cfg.RoomAlgorithm == DungeonSettings.DungeonAlgorithm_e.CellularAutomata)
                     {
-                        ca.map[tilePos.x, tilePos.y] = true; //Floor
+                        ca.map[tilePos.x, tilePos.y] = FLOOR; //Floor
                     }
                 }
             }
@@ -591,6 +674,7 @@ public static class RoomMergeUtil
         {
             var r = new Room();
             r.tiles = new List<Vector2Int>(kv.Value);
+            r.setColorFloor(highlight: true);
             merged.Add(r);
         }
 

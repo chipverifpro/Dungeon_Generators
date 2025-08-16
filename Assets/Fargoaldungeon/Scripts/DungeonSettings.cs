@@ -10,6 +10,7 @@ public class DungeonSettings : ScriptableObject
     public enum TunnelsAlgorithm_e { TunnelsOrthographic, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
 
     [Header("General Settings")]
+    public bool showBuildProcess = true;
     public bool randomizeSeed = true;
     public int seed = 0;
     public int mapWidth = 150;

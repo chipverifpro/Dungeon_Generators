@@ -12,23 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
+  showBuildProcess: 1
   randomizeSeed: 1
-  seed: 4020
+  seed: 6258
   mapWidth: 300
   mapHeight: 300
   roomAttempts: 50
   roomsMax: 50
-  minRoomSize: 20
-  maxRoomSize: 40
-  allowOverlappingRooms: 1
+  minRoomSize: 30
+  maxRoomSize: 60
+  allowOverlappingRooms: 0
   shortestTunnels: 0
   ovalRooms: 0
   directCorridors: 0
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 3
+  RoomAlgorithm: 1
   TunnelsAlgorithm: 3
+  useCellularAutomata: 0
   fillPercent: 47
   totalSteps: 6
   stepDelay: 0.3
@@ -40,3 +42,5 @@ MonoBehaviour:
   softBorderSize: 5
   controlOffset: 5
   max_control: 0.1
+  neighborShape: 0
+  includeDiagonals: 1
