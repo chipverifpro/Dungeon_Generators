@@ -560,7 +560,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Tunnels Orthographic
+  m_text: Tunnels Orthogonal
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -800,6 +800,8 @@ MonoBehaviour:
   tilemap: {fileID: 409665906}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
+  room_rects: []
+  mapArrayStale: 1
 --- !u!483693784 &409665905
 TilemapRenderer:
   m_ObjectHideFlags: 0
@@ -1116,7 +1118,7 @@ MonoBehaviour:
   m_MultiSelect: 0
   m_Options:
     m_Options:
-    - m_Text: Tunnels Orthographic
+    - m_Text: Tunnels Orthogonal
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
     - m_Text: Tunnels Straight
@@ -2741,6 +2743,7 @@ MonoBehaviour:
   tunnelsAlgorithmDropdown: {fileID: 428731491}
   regenerateButton: {fileID: 1210548553}
   generator: {fileID: 409665904}
+  ca: {fileID: 0}
 --- !u!1 &1815589282
 GameObject:
   m_ObjectHideFlags: 0

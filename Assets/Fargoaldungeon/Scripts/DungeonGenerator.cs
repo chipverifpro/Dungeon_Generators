@@ -3,14 +3,25 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System.Linq;
-using UnityEngine.Scripting.APIUpdating;
-using UnityEditor.Search;
-using UnityEditor.ProjectWindowCallback;
-using Unity.Mathematics;
-using UnityEditor;
-using UnityEditor.Experimental.GraphView;
 
-
+/* TODO list...
+-- Simplex Noise
+-- Round world
+-- DONE: Nested Perlin / Stacked Perlin
+-- DONE: Filter small wall areas
+-- Presets of interesting dungeons - menu or random selection
+-- Adding extra corridors to break up tree
+-- Dirty MapArray
+-- 3D walls with flythrough
+-- More tile types: stairs, doors, traps
+-- Fix early regeneration button (abort in-progress)
+-- Fix pulldown after recompile
+-- Don't show build progress option
+-- Code cleanup for organization and optimization
+-- Enforce minimum width room connectivity
+ */
+ 
+ // Master Dungeon Generation Class...
 public class DungeonGenerator : MonoBehaviour
 {
     public DungeonSettings cfg; // Configurable settings for project
@@ -19,20 +30,27 @@ public class DungeonGenerator : MonoBehaviour
     public Tilemap tilemap;
     public TileBase floorTile;
     public TileBase wallTile;
-
+    // ---------------------------------------------------------------
     // Different ways to store the map: room(list of points) and mapArray (grid of bytes)
     public List<Room> rooms = new(); // Master List of rooms including list of points and metadata
+
     public List<RectInt> room_rects = new(); // List of RectInt rooms for ScatterRooms
-    public byte[,] mapArray; // each byte represents one of the below constants
-    public bool mapArrayStale = true; // Flag to indicate if mapArray needs to be regenerated from rooms
-        private const byte WALL = 0;
-        private const byte FLOOR = 1;
+    public List<int> room_rects_heights = new(); // List of heights for each room rectangle
+
+    public byte[,] map; // each byte represents one of the below constants
+    public int[,] mapHeights; // 2D array to store height information for each tile
+    public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
+    [HideInInspector] public const byte WALL = 1;
+    [HideInInspector] public const byte FLOOR = 0;
+    [HideInInspector] public const byte RAMP = 2;
     // Additional tile types to be defined here
+
+    public List<Color> room_rects_color = new();
 
     // Reference to CellularAutomata component for variables and methods there
     private CellularAutomata ca;
 
-// ------------------------------------- //
+    // ------------------------------------- //
     // Start is called by Unity before the first frame update
     public void Start()
     {
@@ -70,7 +88,7 @@ public class DungeonGenerator : MonoBehaviour
     public IEnumerator RegenerateDungeon()
     {
 
-        
+
         room_rects = new List<RectInt>(); // Clear the list of room rectangles
         yield return null; // Start on a fresh screen render frame
         BottomBanner.Show("Generating dungeon...");
@@ -117,35 +135,43 @@ public class DungeonGenerator : MonoBehaviour
             BottomBanner.Show("Scattering rooms...");
             yield return StartCoroutine(ScatterRooms());
             Debug.Log("ScatterRooms done, room_rects.Count = " + room_rects.Count);
-            DrawMapByRects(room_rects);
+            DrawMapByRects(room_rects, room_rects_color);
             yield return StartCoroutine(DrawWalls());
         }
 
         //DrawMapByRooms(rooms);
         //ca.ColorCodeRooms(rooms);
         //yield return StartCoroutine(DrawWalls());
-        yield return new WaitForSeconds(cfg.stepDelay *5f);
+        yield return new WaitForSeconds(cfg.stepDelay);
 
         // Step 3: Combine overlapping rooms
         BottomBanner.Show("Locate Discrete rooms...");
         if (cfg.useCellularAutomata) // locate rooms from cellular automata
         {
+            BottomBanner.Show("Remove tiny rocks...");
+            yield return StartCoroutine(ca.RemoveTinyRocksCoroutine());
+
+            BottomBanner.Show("Remove tiny rooms...");
+            yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine());
+
             // For Cellular Automata, find rooms from the map
             yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
             rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
 
-            BottomBanner.Show("Remove tiny rooms...");
-            yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine(rooms));
+
         }
         else // locate rooms from scattered rooms
         {
-            rooms = ConvertAllRectToRooms(room_rects, SetTile: true);
+            rooms = ConvertAllRectToRooms(room_rects, room_rects_color, SetTile: true);
             DrawMapByRooms(rooms);
             yield return StartCoroutine(DrawWalls());
+            yield return new WaitForSeconds(cfg.stepDelay);
             // Step 4: Merge overlapping rooms
             BottomBanner.Show("Merging Overlapping Rooms...");
-            rooms = RoomMergeUtil.MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: true);
-            yield return new WaitForSeconds(cfg.stepDelay * 5f);
+            rooms = MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: true);
+            DrawMapByRooms(rooms);
+            yield return StartCoroutine(DrawWalls());
+            yield return new WaitForSeconds(cfg.stepDelay);
         }
 
         DrawMapByRooms(rooms);
@@ -161,7 +187,7 @@ public class DungeonGenerator : MonoBehaviour
         yield return StartCoroutine(DrawWalls());
         //yield return new WaitForSeconds(cfg.stepDelay *5f);
 
-        BottomBanner.Show("Dungeon generation complete!");
+        BottomBanner.ShowFor("Dungeon generation complete!", 5f);
     }
 
     // Scatter rooms performs the main room placement for Rectangular or Oval rooms
@@ -170,6 +196,7 @@ public class DungeonGenerator : MonoBehaviour
         //List<Vector2Int> roomPoints = new List<Vector2Int>();
         tilemap.ClearAllTiles();
         room_rects.Clear(); // Clear the list of room rectangles
+        room_rects_color.Clear(); // Clear the list of colors for room rectangles
         //rooms.Clear();
         BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
         for (int i = 0; room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
@@ -193,36 +220,42 @@ public class DungeonGenerator : MonoBehaviour
 
             if (!overlaps || cfg.allowOverlappingRooms)
             {
+                var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
                 room_rects.Add(newRoom);
-                DrawRect(newRoom);
+                room_rects_color.Add(newColor);
+                DrawRect(newRoom, newColor);
                 //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
                 //                rooms.Add(new Room(roomPoints));
                 //                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
                 Debug.Log("Created " + room_rects.Count() + " room_rects");
-                yield return new WaitForSeconds(cfg.stepDelay/3f);
+                yield return new WaitForSeconds(cfg.stepDelay / 3f);
             }
         }
         Debug.Log("room_rects.Count = " + room_rects.Count);
-        BottomBanner.Show($"DONE: Scattered {room_rects.Count} Rooms");
+        //BottomBanner.Show($"DONE: Scattered {room_rects.Count} Rooms");
         //yield return null; // Ensure all tiles are set before proceeding
         //yield return StartCoroutine(ConnectRoomsByCorridors());
         yield return new WaitForSeconds(cfg.stepDelay); // Pause to see what happened
     }
 
-    List<Room> ConvertAllRectToRooms(List<RectInt> room_rects, bool SetTile)
+    List<Room> ConvertAllRectToRooms(List<RectInt> room_rects, List<Color> room_rects_color, bool SetTile)
     {
         List<Vector2Int> PointsList;
         List<Room> rooms = new List<Room>();
         Debug.Log("Converting " + room_rects.Count + " Rects to Rooms...");
-        foreach (var room_rect in room_rects)
+        for (int i = 0; i < room_rects.Count; i++)
         {
-            PointsList = ConvertRectToRoomPoints(room_rect, SetTile);
+            var room_rect = room_rects[i];
+            var room_rect_color = room_rects_color[i];
+            PointsList = ConvertRectToRoomPoints(room_rect, room_rect_color, false/*SetTile*/);
             Room room = new Room(PointsList);
             room.isCorridor = false; // Default to false, can be set later if needed
             room.Name = "Room " + (rooms.Count + 1);
             //room.colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
-            room.setColorFloor(highlight: true);
+            room.setColorFloor(room_rect_color);
             rooms.Add(room);
+            DrawMapByRooms(rooms);
+            //StartCoroutine(WaitForSeconds(cfg.stepDelay/3f)); // Pause to see what happened
         }
         return rooms;
     }
@@ -230,7 +263,7 @@ public class DungeonGenerator : MonoBehaviour
     // ConvertRectToRoomPoints generates a list of points within the
     //  given room rectangle or oval.
     // As a side effect, it can also set the corresponding tiles in the tilemap.
-    List<Vector2Int> ConvertRectToRoomPoints(RectInt room_rect, bool SetTile)
+    List<Vector2Int> ConvertRectToRoomPoints(RectInt room_rect, Color room_rect_color, bool SetTile)
     {
         //BottomBanner.Show($"Measuring rooms...");
         List<Vector2Int> roomPoints = new List<Vector2Int>();
@@ -242,34 +275,42 @@ public class DungeonGenerator : MonoBehaviour
                 {
                     roomPoints.Add(new Vector2Int(x, y));
                     if (SetTile)
+                    {
                         tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
+                        tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
+                        tilemap.SetColor(new Vector3Int(x, y, 0), room_rect_color); // Set default color
+                    }
                 }
             }
         }
         return roomPoints;
     }
 
-    public void DrawMapByRects(List<RectInt> room_rects)
+    public void DrawMapByRects(List<RectInt> room_rects, List<Color> colors)
     {
-        foreach (var room_rect in room_rects)
+        for (int i = 0; i < room_rects.Count; i++)
         {
+            var room_rect = room_rects[i];
+            var color = colors[i];
             Debug.Log("Drawing Rect " + room_rect);
-            DrawRect(room_rect);
+            DrawRect(room_rect, color);
         }
     }
 
-    public void DrawRect(RectInt room_rect)
+    public void DrawRect(RectInt room_rect, Color tempcolor)
     {
         Debug.Log("Drawing Rect ");
-        Color tempcolor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
+        //Color tempcolor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
         for (int x = room_rect.xMin; x < room_rect.xMax; x++)
         {
             for (int y = room_rect.yMin; y < room_rect.yMax; y++)
             {
-                if (IsPointInRoomRectOrOval(new Vector2Int(x, y), room_rect)) { }
-                tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
-                tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
-                tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
+                if (IsPointInRoomRectOrOval(new Vector2Int(x, y), room_rect))
+                {
+                    tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
+                    tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
+                    tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
+                }
             }
         }
     }
@@ -556,15 +597,15 @@ public class DungeonGenerator : MonoBehaviour
         }
     }
 
-} // End class DungeonGenerator
+    //} // End class DungeonGenerator
 
 
 
-// ================================================= //
+    // ================================================= //
 
-public static class RoomMergeUtil
-{
-    // Simple Union-Find/Disjoint Set
+    //public static class RoomMergeUtil
+    //{
+    // Simple Union-Find/Disjoint Set (DSU=Disjoint Set Union)
     class DSU
     {
         int[] parent;

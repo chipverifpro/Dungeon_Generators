@@ -13,34 +13,36 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   showBuildProcess: 1
+  stepDelay: 0
   randomizeSeed: 1
-  seed: 6258
+  seed: 8927
   mapWidth: 300
   mapHeight: 300
   roomAttempts: 50
-  roomsMax: 50
+  roomsMax: 15
   minRoomSize: 30
   maxRoomSize: 60
-  allowOverlappingRooms: 0
+  allowOverlappingRooms: 1
   shortestTunnels: 0
   ovalRooms: 0
   directCorridors: 0
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 1
+  RoomAlgorithm: 3
   TunnelsAlgorithm: 3
-  useCellularAutomata: 0
-  fillPercent: 47
+  useCellularAutomata: 1
+  fillPercent: 53
   totalSteps: 6
-  stepDelay: 0.3
   usePerlin: 1
-  perlinScale: 0.0408
-  perlinThreshold: 0.439
-  noiseOverlay: 58
+  perlinScale: 0.026
+  perlin2Scale: 0.052
+  perlinThreshold: 0.468
+  noiseOverlay: 44
   MinimumRoomSize: 200
+  MinimumRockSize: 25
   softBorderSize: 5
-  controlOffset: 5
-  max_control: 0.1
+  controlOffset: 20
+  max_control: 0.2
   neighborShape: 0
   includeDiagonals: 1

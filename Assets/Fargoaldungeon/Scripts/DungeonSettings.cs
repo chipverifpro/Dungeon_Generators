@@ -11,6 +11,8 @@ public class DungeonSettings : ScriptableObject
 
     [Header("General Settings")]
     public bool showBuildProcess = true;
+    public float stepDelay = 0.2f;
+
     public bool randomizeSeed = true;
     public int seed = 0;
     public int mapWidth = 150;
@@ -34,15 +36,17 @@ public class DungeonSettings : ScriptableObject
     // Settings for Cellular Automata
     [Header("Cellular Automata Settings")]
     public bool useCellularAutomata = false;
-    [Range(0, 100)] public int fillPercent = 45;
+    [Range(50, 60)] public int fillPercent = 45;
     public int totalSteps = 5;
-    public float stepDelay = 0.2f;
 
     [Header("Perlin Noise Settings")]
     public bool usePerlin = true;
-    [Range(0.03f, 0.1f)]
+    [Range(0.01f, 0.1f)]
     [Tooltip("Low = big rooms | High = small rooms")]
     public float perlinScale = 0.05f;
+    [Range(0.01f, 0.5f)]
+    [Tooltip("Low = big rooms | High = small rooms")]
+    public float perlin2Scale = 0.05f;
     [Range(0.4f, 0.6f)]
     [Tooltip("Low = many rooms | High = fewer rooms")]
     public float perlinThreshold = 0.5f;
@@ -51,6 +55,7 @@ public class DungeonSettings : ScriptableObject
 
     [Header("Cleanup Settings")]
     public int MinimumRoomSize = 100; // Threshold for tiny rooms
+    public int MinimumRockSize = 20; // Threshold for minimum size of in-room obstacle
     public int softBorderSize = 5; // Size of the border around the map
 
     [Header("Bezier Corridor Settings")]
