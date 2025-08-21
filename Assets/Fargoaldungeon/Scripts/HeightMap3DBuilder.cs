@@ -1,8 +1,10 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.CodeDom.Compiler;
 
 public class HeightMap3DBuilder : MonoBehaviour
 {
+    public DungeonGenerator generator;
     public Grid grid;                         // same Grid as your Tilemap
     public float unitHeight = 1f;             // world Y per step
     public GameObject floorPrefab;
@@ -11,8 +13,12 @@ public class HeightMap3DBuilder : MonoBehaviour
     public Transform root;                    // parent for spawned meshes
     public bool onlyPerimeterWalls = true;    // skip deep interior walls
 
+    [HideInInspector] public byte WALL = 1;
+    [HideInInspector] public byte FLOOR = 2;
+    //[HideInInspector] public byte RAMP = 3;
+
     // If your ramp mesh "forward" is +Z, map directions to rotations:
-    static readonly Vector2Int[] Dir4 = { new(0,1), new(1,0), new(0,-1), new(-1,0) };
+    static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
     static Quaternion RotFromDir(Vector2Int d)
     {
         if (d == new Vector2Int(0,1))  return Quaternion.Euler(0,  0, 0);   // face +Z
@@ -23,6 +29,14 @@ public class HeightMap3DBuilder : MonoBehaviour
 
     public void Build(byte[,] map, int[,] heights)
     {
+        for (int x = 0; x < map.GetLength(0); x++)
+        {
+            for (int z = 0; z < map.GetLength(1); z++)
+            {
+                if (map[x, z] == WALL) heights[x, z] = 2; // raise walls
+            }
+        }
+
         if (root == null) root = new GameObject("Terrain3D").transform;
         // Clear old
         for (int i = root.childCount - 1; i >= 0; i--) Destroy(root.GetChild(i).gameObject);
@@ -33,7 +47,7 @@ public class HeightMap3DBuilder : MonoBehaviour
         for (int x = 0; x < w; x++)
         for (int z = 0; z < h; z++)
         {
-            bool isFloor = map[x, z] == 0; // FLOOR == 0 in your project
+            bool isFloor = map[x, z]==FLOOR;
             int ySteps = heights[x, z];
 
             // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
@@ -41,6 +55,7 @@ public class HeightMap3DBuilder : MonoBehaviour
 
             // Base world position of this tile center
             Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
+            //Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
             // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
             // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
 
@@ -59,7 +74,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                 if (nx < 0 || nz < 0 || nx >= w || nz >= h) continue;
 
                 // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
-                bool nIsFloor = map[nx, nz] == 0;
+                bool nIsFloor = map[nx, nz] == FLOOR;
                 if (!(isFloor && nIsFloor)) continue;
 
                 int nySteps = heights[nx, nz];
@@ -95,10 +110,10 @@ public class HeightMap3DBuilder : MonoBehaviour
     bool HasFloorNeighbor(byte[,] map, int x, int z)
     {
         int w = map.GetLength(0), h = map.GetLength(1);
-        if (z+1 < h && map[x, z+1] == 0) return true;
-        if (x+1 < w && map[x+1, z] == 0) return true;
-        if (z-1 >= 0 && map[x, z-1] == 0) return true;
-        if (x-1 >= 0 && map[x-1, z] == 0) return true;
+        if (z+1 < h && map[x, z+1] == FLOOR) return true;
+        if (x+1 < w && map[x+1, z] == FLOOR) return true;
+        if (z-1 >= 0 && map[x, z-1] == FLOOR) return true;
+        if (x-1 >= 0 && map[x-1, z] == FLOOR) return true;
         return false;
     }
 }
