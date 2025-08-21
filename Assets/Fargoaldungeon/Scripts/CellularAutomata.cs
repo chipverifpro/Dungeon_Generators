@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
+using UnityEngine.PlayerLoop;
 
 
 public class Room
@@ -133,13 +134,19 @@ public class CellularAutomata : MonoBehaviour
     public TileBase floorTile;
 
     public byte[,] map;
-        private const byte WALL = 1;
-        private const byte FLOOR = 0;
+        private byte WALL;
+        private byte FLOOR;
 
     private System.Random rng;
 
     public List<Room> return_rooms = new List<Room>();
 
+    public void Start()
+    {
+        WALL = generator.WALL;
+        FLOOR = generator.FLOOR;
+
+    }
     public IEnumerator RunCaveGeneration()
     {
         map = new byte[cfg.mapWidth, cfg.mapHeight];
@@ -171,7 +178,7 @@ public class CellularAutomata : MonoBehaviour
                     map[x, y] = WALL; // Set border tile to wall
                 else if (borderDistance <= cfg.softBorderSize)
                     // Setting a wide random border makes edges less sharp
-                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? FLOOR : WALL;
+                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? WALL : FLOOR;
                 else
                     if (cfg.usePerlin && rng.Next(0, 100) < (100 - cfg.noiseOverlay))
                 {
@@ -182,7 +189,7 @@ public class CellularAutomata : MonoBehaviour
                 }
                 else
                 {
-                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? FLOOR : WALL;
+                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? WALL : FLOOR;
                 }
             }
         return map;

@@ -12,9 +12,9 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
     [Header("Flight Settings")]
     public float flyDuration = 1.5f;
     [Range(0f, 1f)] public float padding = 0.06f;
-    public float startTiltDeg = 45f; // angled view
-    public float endTiltDeg = 90f;   // straight down
-    public float yawDeg = 30f;       // around Y axis
+    public float startTiltDeg = -90f; // angled view
+    public float endTiltDeg = -45f;   // straight down
+    public float yawDeg = 0f;       // around Y axis
     public bool autoStart = true;
 
     void Reset()

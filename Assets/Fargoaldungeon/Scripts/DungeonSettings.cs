@@ -36,7 +36,7 @@ public class DungeonSettings : ScriptableObject
     // Settings for Cellular Automata
     [Header("Cellular Automata Settings")]
     public bool useCellularAutomata = false;
-    [Range(50, 60)] public int fillPercent = 45;
+    [Range(40, 60)] public int fillPercent = 45;
     public int totalSteps = 5;
 
     [Header("Perlin Noise Settings")]

@@ -20,13 +20,14 @@ using System.Linq;
 -- Code cleanup for organization and optimization
 -- Enforce minimum width room connectivity
  */
- 
- // Master Dungeon Generation Class...
+
+// Master Dungeon Generation Class...
 public class DungeonGenerator : MonoBehaviour
 {
     public DungeonSettings cfg; // Configurable settings for project
 
     // References to game components (set in Unity Inspector)
+    public HeightMap3DBuilder heightBuilder;
     public Tilemap tilemap;
     public TileBase floorTile;
     public TileBase wallTile;
@@ -40,9 +41,9 @@ public class DungeonGenerator : MonoBehaviour
     public byte[,] map; // each byte represents one of the below constants
     public int[,] mapHeights; // 2D array to store height information for each tile
     public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
-    [HideInInspector] public const byte WALL = 1;
-    [HideInInspector] public const byte FLOOR = 0;
-    [HideInInspector] public const byte RAMP = 2;
+    [HideInInspector] public byte WALL = 1;
+    [HideInInspector] public byte FLOOR = 2;
+    [HideInInspector] public byte RAMP = 3;
     // Additional tile types to be defined here
 
     public List<Color> room_rects_color = new();
@@ -89,6 +90,7 @@ public class DungeonGenerator : MonoBehaviour
     {
 
 
+
         room_rects = new List<RectInt>(); // Clear the list of room rectangles
         yield return null; // Start on a fresh screen render frame
         BottomBanner.Show("Generating dungeon...");
@@ -120,6 +122,7 @@ public class DungeonGenerator : MonoBehaviour
         tilemap.ClearAllTiles();
         rooms.Clear();
         ca.map = new byte[cfg.mapWidth, cfg.mapHeight];
+        FillVoidToWalls(ca.map);
         yield return new WaitForSeconds(cfg.stepDelay);
 
         // ===== Step 2. Place rooms
@@ -185,9 +188,24 @@ public class DungeonGenerator : MonoBehaviour
         DrawMapByRooms(rooms);
         //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
-        //yield return new WaitForSeconds(cfg.stepDelay *5f);
+        yield return new WaitForSeconds(cfg.stepDelay * 5f);
+
+        BottomBanner.Show("Height Map Build...");
+
+        // Example: raise room centers by 1 step
+        mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
+        foreach (var room in rooms)
+        {
+            var c = room.GetCenter();
+            mapHeights[c.x, c.y] = 1;
+        }
+        // If Build should be called on an instance:
+        FillVoidToWalls(ca.map);
+        heightBuilder.Build(ca.map, mapHeights);
+        // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
 
         BottomBanner.ShowFor("Dungeon generation complete!", 5f);
+
     }
 
     // Scatter rooms performs the main room placement for Rectangular or Oval rooms
@@ -723,4 +741,14 @@ public class DungeonGenerator : MonoBehaviour
         merged.Sort((a, b) => b.Size.CompareTo(a.Size));
         return merged;
     }
+
+    public void FillVoidToWalls(byte[,] map)
+    {
+        for (var y = 0; y < cfg.mapHeight; y++)
+            for (var x = 0; x < cfg.mapWidth; x++)
+            {
+                if (map[x, y] == 0) map[x,y] = WALL;
+            }
+    }
+
 }
