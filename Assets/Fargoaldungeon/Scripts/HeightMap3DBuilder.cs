@@ -27,8 +27,16 @@ public class HeightMap3DBuilder : MonoBehaviour
         return Quaternion.Euler(0,270, 0); // (-1,0)
     }
 
+    public void Destroy3D()
+    {
+        if (root == null) return;
+        for (int i = root.childCount - 1; i >= 0; i--)
+            Destroy(root.GetChild(i).gameObject);
+
+    }
     public void Build(byte[,] map, int[,] heights)
     {
+        Vector3 mid = new();
         for (int x = 0; x < map.GetLength(0); x++)
         {
             for (int z = 0; z < map.GetLength(1); z++)
@@ -41,70 +49,96 @@ public class HeightMap3DBuilder : MonoBehaviour
         // Clear old
         for (int i = root.childCount - 1; i >= 0; i--) Destroy(root.GetChild(i).gameObject);
 
-        int w = map.GetLength(0), h = map.GetLength(1);
+        int w = map.GetLength(0), hi = map.GetLength(1);
         Vector3 cell = grid.cellSize;
 
         for (int x = 0; x < w; x++)
-        for (int z = 0; z < h; z++)
-        {
-            bool isFloor = map[x, z]==FLOOR;
-            int ySteps = heights[x, z];
-
-            // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
-            if (!isFloor && onlyPerimeterWalls && !HasFloorNeighbor(map, x, z)) continue;
-
-            // Base world position of this tile center
-            Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
-            //Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
-            // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
-            // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
-
-            // Place floor at its height (Y is up)
-            if (isFloor && floorPrefab != null)
+            for (int z = 0; z < hi; z++)
             {
-                var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
-            }
+                bool isFloor = map[x, z] == FLOOR;
+                int ySteps = heights[x, z];
 
-            // Compare with 4 neighbors and add ramps/cliffs
-            for (int i = 0; i < 4; i++)
-            {
-                Vector2Int d = Dir4[i];
-                int nx = x + d.x, nz = z + d.y;
-                if (nx < 0 || nz < 0 || nx >= w || nz >= h) continue;
+                // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
+                if (!isFloor && onlyPerimeterWalls && !HasFloorNeighbor(map, x, z)) continue;
 
-                // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
-                bool nIsFloor = map[nx, nz] == FLOOR;
-                if (!(isFloor && nIsFloor)) continue;
+                // Base world position of this tile center
+                Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
+                //Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
+                // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
+                // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
 
-                int nySteps = heights[nx, nz];
-                int diff = nySteps - ySteps;
-                if (diff == 0) continue;
-
-                // Place transition geometry centered between the two tiles
-                Vector3 mid = (world + grid.CellToWorld(new Vector3Int(nx, nz, 0))) * 0.5f;
-
-                if (Mathf.Abs(diff) == 1 && rampPrefab != null)
+                // Place floor at its height (Y is up)
+                if (isFloor && floorPrefab != null)
                 {
-                    // Ramp spans from lower to higher tile
-                    bool up = diff > 0;
-                    // Place ramp slightly biased toward lower side so the top aligns cleanly
-                    int lower = up ? ySteps : nySteps;
-                    var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
-                    var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 0.5f) * unitHeight, 0), rot, root);
-                    ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
+                    var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
+                    f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
                 }
-                else if (Mathf.Abs(diff) >= 2 && cliffPrefab != null)
+
+                // Compare with 4 neighbors and add ramps/cliffs
+                for (int i = 0; i < 4; i++)
                 {
-                    // Vertical face for a bigger step; center vertically between heights
-                    int minStep = Mathf.Min(ySteps, nySteps);
-                    float heightWorld = Mathf.Abs(diff) * unitHeight;
-                    var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
-                    // Scale so its Y matches the height difference; X/Z to cell dimensions
-                    face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
+                    Vector2Int d = Dir4[i];
+                    int nx = x + d.x, nz = z + d.y;
+                    if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue;
+
+                    bool nIsFloor = map[nx, nz] == FLOOR;
+
+                    // If current is FLOOR and neighbor is WALL => perimeter face
+                    if (isFloor && !nIsFloor && cliffPrefab != null)
+                    {
+                        //Debug.Log("Perimiter");
+                        // midpoint between the two cells
+                        Vector3 nWorld = grid.CellToWorld(new Vector3Int(nx, nz, 0));
+                        mid = 0.5f * (world + nWorld);
+
+                        // choose how tall the perimeter wall should be
+                        int floorSteps = heights[x, z];
+                        // either: fixed height (e.g., 2 steps)
+                        int wallSteps = 3;  //Mathf.Max(2, floorSteps); // tweak to taste
+                        float ht = wallSteps * unitHeight;
+
+                        // center the face vertically rising from the floor
+                        float baseY = floorSteps * unitHeight;
+                        var face = Instantiate(cliffPrefab,
+                                            mid + new Vector3(0, baseY + 0.5f * ht, 0),
+                                            RotFromDir(new Vector2Int(nx - x, nz - z)),
+                                            root);
+
+                        face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f); // thin in Z
+                    }
+
+                    // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
+                    
+                    if (!(isFloor && nIsFloor)) continue;
+
+                    int nySteps = heights[nx, nz];
+                    int diff = nySteps - ySteps;
+                    if (diff == 0) continue;
+
+                    // Place transition geometry centered between the two tiles
+                    mid = (world + grid.CellToWorld(new Vector3Int(nx, nz, 0))) * 0.5f;
+
+                    if (Mathf.Abs(diff) == 1 && rampPrefab != null)
+                    {
+                        // Ramp spans from lower to higher tile
+                        bool up = diff > 0;
+                        // Place ramp slightly biased toward lower side so the top aligns cleanly
+                        int lower = up ? ySteps : nySteps;
+                        var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
+                        var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 0.5f) * unitHeight, 0), rot, root);
+                        ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
+                    }
+                    else if (Mathf.Abs(diff) >= 2 && cliffPrefab != null)
+                    {
+                        // Vertical face for a bigger step; center vertically between heights
+                        int minStep = Mathf.Min(ySteps, nySteps);
+                        float heightWorld = Mathf.Abs(diff) * unitHeight;
+                        var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
+                        // Scale so its Y matches the height difference; X/Z to cell dimensions
+                        face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
+                    }
                 }
             }
-        }
     }
 
     bool HasFloorNeighbor(byte[,] map, int x, int z)

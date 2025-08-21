@@ -88,10 +88,8 @@ public class DungeonGenerator : MonoBehaviour
 
     public IEnumerator RegenerateDungeon()
     {
-
-
-
         room_rects = new List<RectInt>(); // Clear the list of room rectangles
+        heightBuilder.Destroy3D();
         yield return null; // Start on a fresh screen render frame
         BottomBanner.Show("Generating dungeon...");
 
@@ -121,8 +119,8 @@ public class DungeonGenerator : MonoBehaviour
         // ===== Step 1. Initialize the dungeon
         tilemap.ClearAllTiles();
         rooms.Clear();
-        ca.map = new byte[cfg.mapWidth, cfg.mapHeight];
-        FillVoidToWalls(ca.map);
+        map = new byte[cfg.mapWidth, cfg.mapHeight];
+        FillVoidToWalls(map);
         yield return new WaitForSeconds(cfg.stepDelay);
 
         // ===== Step 2. Place rooms
@@ -158,7 +156,7 @@ public class DungeonGenerator : MonoBehaviour
             yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine());
 
             // For Cellular Automata, find rooms from the map
-            yield return StartCoroutine(ca.FindRoomsCoroutine(ca.map));
+            yield return StartCoroutine(ca.FindRoomsCoroutine(map));
             rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
 
 
@@ -200,8 +198,8 @@ public class DungeonGenerator : MonoBehaviour
             mapHeights[c.x, c.y] = 1;
         }
         // If Build should be called on an instance:
-        FillVoidToWalls(ca.map);
-        heightBuilder.Build(ca.map, mapHeights);
+        FillVoidToWalls(map);
+        heightBuilder.Build(map, mapHeights);
         // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
 
         BottomBanner.ShowFor("Dungeon generation complete!", 5f);
@@ -328,6 +326,8 @@ public class DungeonGenerator : MonoBehaviour
                     tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
                     tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
                     tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
+
+                    map[x, y] = FLOOR;
                 }
             }
         }
@@ -400,10 +400,7 @@ public class DungeonGenerator : MonoBehaviour
                     tilemap.SetTile(tilePos, floorTile);
                     hashPath.Add(new Vector2Int(tilePos.x, tilePos.y));
 
-                    if (cfg.RoomAlgorithm == DungeonSettings.DungeonAlgorithm_e.CellularAutomata)
-                    {
-                        ca.map[tilePos.x, tilePos.y] = FLOOR; //Floor
-                    }
+                    map[tilePos.x, tilePos.y] = FLOOR; //Floor
                 }
             }
         }

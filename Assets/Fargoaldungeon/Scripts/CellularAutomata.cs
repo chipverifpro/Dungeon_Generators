@@ -133,7 +133,7 @@ public class CellularAutomata : MonoBehaviour
     public TileBase wallTile;
     public TileBase floorTile;
 
-    public byte[,] map;
+    //public byte[,] map;
         private byte WALL;
         private byte FLOOR;
 
@@ -149,8 +149,8 @@ public class CellularAutomata : MonoBehaviour
     }
     public IEnumerator RunCaveGeneration()
     {
-        map = new byte[cfg.mapWidth, cfg.mapHeight];
-        RandomFillMap(map);
+        generator.map = new byte[cfg.mapWidth, cfg.mapHeight];
+        RandomFillMap(generator.map);
 
         // Draw initial map
         DrawMapFromByteArray();
@@ -158,7 +158,7 @@ public class CellularAutomata : MonoBehaviour
 
         for (int step = 0; step < cfg.totalSteps; step++)
         {
-            map = RunSimulationStep(map);
+            generator.map = RunSimulationStep(generator.map);
             DrawMapFromByteArray();
             yield return new WaitForSeconds(cfg.stepDelay);
         }
@@ -237,7 +237,7 @@ public class CellularAutomata : MonoBehaviour
             for (int y = 0; y < cfg.mapHeight; y++)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
-                if (map[x, y] == FLOOR)
+                if (generator.map[x, y] == FLOOR)
                 {
                     tilemap.SetTile(pos, floorTile);
                     tilemap.SetTileFlags(pos, TileFlags.None);
@@ -287,7 +287,7 @@ public class CellularAutomata : MonoBehaviour
                 if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
                             pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
                     continue; // Out of bounds
-                if (map[pos.x + dir.x, pos.y + dir.y] == FLOOR)
+                if (generator.map[pos.x + dir.x, pos.y + dir.y] == FLOOR)
                     return true;
             }
         return false;
@@ -435,7 +435,7 @@ public class CellularAutomata : MonoBehaviour
                     foreach (var t in room.tiles)
                     {
                         var pos = new Vector3Int(t.x, t.y, 0);
-                        map[t.x, t.y] = replacement; // flip to replacement
+                        generator.map[t.x, t.y] = replacement; // flip to replacement
                         // Clear visuals;
                         if (replacementTile != null)
                             tilemap.SetTile(pos, replacementTile);
@@ -456,7 +456,7 @@ public class CellularAutomata : MonoBehaviour
     {
         // 1) Find Floor clusters
         generator.rooms = new List<Room>();
-        yield return StartCoroutine(FindClustersCoroutine(map, FLOOR, generator.rooms));
+        yield return StartCoroutine(FindClustersCoroutine(generator.map, FLOOR, generator.rooms));
         // 2) Remove the tiny ones by turning them into WALL
         yield return StartCoroutine(RemoveTinyClustersCoroutine(generator.rooms, cfg.MinimumRoomSize, WALL, null));
         // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
@@ -467,7 +467,7 @@ public class CellularAutomata : MonoBehaviour
     {
         // 1) Find WALL clusters
         var islands = new List<Room>(128);
-        yield return StartCoroutine(FindClustersCoroutine(map, WALL, islands));
+        yield return StartCoroutine(FindClustersCoroutine(generator.map, WALL, islands));
         // 2) Remove the tiny ones by turning them into FLOOR
         yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile));
         // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
