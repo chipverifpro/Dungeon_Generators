@@ -139,13 +139,12 @@ public class CellularAutomata : MonoBehaviour
 
     private System.Random rng;
 
-    public List<Room> return_rooms = new List<Room>();
+    //public List<Room> return_rooms = new List<Room>();
 
     public void Start()
     {
         WALL = generator.WALL;
         FLOOR = generator.FLOOR;
-
     }
     public IEnumerator RunCaveGeneration()
     {
@@ -321,11 +320,7 @@ public class CellularAutomata : MonoBehaviour
                     {
                         var pos = queue.Dequeue();
                         newRoom.tiles.Add(pos);
-                        //if ((queue.Count & 1000) == 0)
-                        //{
-                        //    yield return null; // Yield to keep UI responsive
-                        //    Debug.Log($"Queue contains {queue.Count}");
-                        //}
+
                         foreach (var dir in directions)
                         {
                             int nx = pos.x + dir.x;
@@ -337,7 +332,7 @@ public class CellularAutomata : MonoBehaviour
                                 queue.Enqueue(new Vector2Int(nx, ny));
                                 visited[nx, ny] = true;
                             }
-                            // 🔑 Yield periodically to keep UI responsive during big rooms
+                            // Yield periodically to keep UI responsive during big rooms
                             if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
                                 yield return null;
                         }
@@ -346,12 +341,10 @@ public class CellularAutomata : MonoBehaviour
                     newRoom.setColorFloor(highlight: true);
                     rooms.Add(newRoom);
                     //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
-                    // Optionally visualize the room immediately
-                    //ColorCodeOneRoom(newRoom, highlight: true);
-                    yield return null; // Yield to allow UI updates
                 }
             }
             Debug.Log($"Processed row {x} of {width}");
+            yield return null; // Yield to allow UI updates
         }
         //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
         rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
@@ -363,7 +356,7 @@ public class CellularAutomata : MonoBehaviour
         //ColorCodeRooms(rooms);
 
         //return rooms;
-        return_rooms = rooms;
+        //return_rooms = rooms;
     }
 
     // Generic cluster finder: find connected components whose cells equal `target` (FLOOR or WALL)

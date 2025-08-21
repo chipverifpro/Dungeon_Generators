@@ -15,29 +15,29 @@ MonoBehaviour:
   showBuildProcess: 1
   stepDelay: 0.3
   randomizeSeed: 1
-  seed: 7741
+  seed: 1906
   mapWidth: 300
   mapHeight: 300
   roomAttempts: 50
   roomsMax: 15
-  minRoomSize: 5
-  maxRoomSize: 20
-  allowOverlappingRooms: 0
+  minRoomSize: 30
+  maxRoomSize: 60
+  allowOverlappingRooms: 1
   shortestTunnels: 0
   ovalRooms: 0
   directCorridors: 0
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 1
-  TunnelsAlgorithm: 1
-  useCellularAutomata: 0
-  fillPercent: 50
+  RoomAlgorithm: 3
+  TunnelsAlgorithm: 3
+  useCellularAutomata: 1
+  fillPercent: 48
   totalSteps: 6
-  usePerlin: 0
+  usePerlin: 1
   perlinScale: 0.026
   perlin2Scale: 0.052
-  perlinThreshold: 0.555
+  perlinThreshold: 0.45
   noiseOverlay: 44
   MinimumRoomSize: 200
   MinimumRockSize: 25

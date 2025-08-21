@@ -157,7 +157,7 @@ public class DungeonGenerator : MonoBehaviour
 
             // For Cellular Automata, find rooms from the map
             yield return StartCoroutine(ca.FindRoomsCoroutine(map));
-            rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
+            //rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
 
 
         }

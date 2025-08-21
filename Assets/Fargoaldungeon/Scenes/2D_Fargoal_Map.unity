@@ -2125,7 +2125,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 2147483647
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1448055482
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2140,7 +2140,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   generator: {fileID: 409665904}
   grid: {fileID: 409665907}
-  unitHeight: 5
+  unitHeight: 1
   floorPrefab: {fileID: 2725812093829766248, guid: 652bf12d9907a42fcabf588f2cb74913,
     type: 3}
   rampPrefab: {fileID: 8400821247875219537, guid: 9f6acb01f7e574597b5face6e46ae2ad,
@@ -2149,6 +2149,11 @@ MonoBehaviour:
     type: 3}
   root: {fileID: 0}
   onlyPerimeterWalls: 1
+  diagonalWallPrefab: {fileID: 5414593263697328657, guid: fa009060c907045069328a36886a459a,
+    type: 3}
+  useDiagonalCorners: 1
+  skipOrthogonalWhenDiagonal: 1
+  perimeterWallSteps: 3
   WALL: 1
   FLOOR: 2
 --- !u!154 &1448055483
@@ -3024,8 +3029,8 @@ MonoBehaviour:
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
   flyDuration: 1.5
   padding: 0.06
-  startTiltDeg: 90
-  endTiltDeg: 10
+  startTiltDeg: 180
+  endTiltDeg: 90
   yawDeg: 0
   autoStart: 1
 --- !u!1 &1865988241
