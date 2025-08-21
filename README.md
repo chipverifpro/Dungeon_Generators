@@ -22,3 +22,7 @@ Give the user lots of options to tweak the settings of all these algorithms and 
 <br>
 <img width="885" height="799" alt="Unity_Settings" src="https://github.com/user-attachments/assets/eae93658-3abe-461f-90d9-f9e396ba0c0e" />
 <br>
+Add thin 3D walls to the room perimeters.  Option for diagonal walls enabled.  Shown here with a Cellular Automata generated dungeon.
+<img width="611" height="427" alt="Screenshot 2025-08-21 at 2 05 58 PM" src="https://github.com/user-attachments/assets/6d572f41-b311-4fa1-8101-63b33da1becc" />
+<br>
+
