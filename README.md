@@ -29,4 +29,7 @@ Use two Perlin Noise layers added together with different XY scales to get both 
 Add thin 3D walls to the room perimeters.  Option for diagonal walls enabled.  Shown here with a Cellular Automata generated dungeon.
 <img width="611" height="427" alt="Screenshot 2025-08-21 at 2 05 58 PM" src="https://github.com/user-attachments/assets/6d572f41-b311-4fa1-8101-63b33da1becc" />
 <br>
+Adding some elevation to the map.  Here, the circular rooms are at different heights, and the corridors contain ramps to connect them.
+<img width="744" height="435" alt="Screenshot 2025-08-22 at 4 45 59 PM" src="https://github.com/user-attachments/assets/5ca11a8d-4a97-427e-a560-86ec9929bf6f" />
+<br>
 
