@@ -38,11 +38,22 @@ public class HeightMap3DBuilder : MonoBehaviour
     static readonly Quaternion Yaw225 = Quaternion.Euler(0, -225, 0);
     static readonly Quaternion Yaw315 = Quaternion.Euler(0, -315, 0);
 
-    
+    // experiments with terrain height...
+    void randomFloorHeights()
+    {
+        for (int x = 0; x < generator.map.GetLength(0); x++)
+        {
+            for (int z = 0; z < generator.map.GetLength(1); z++)
+            {
+                if (generator.map[x, z] == FLOOR) generator.mapHeights[x, z] = UnityEngine.Random.Range(0, 3); ; // raise floors
+            }
+        }
+    }
+
     static Vector3 CornerOffset(bool east, bool north, Vector3 cell)
     {
         // Don't offset, leaving wall diagonally across the center of the tile.
-        float ox = (east  ? +1f : -1f) * (cell.x * 0f);
+        float ox = (east ? +1f : -1f) * (cell.x * 0f);
         float oz = (north ? +1f : -1f) * (cell.y * 0f); // grid.y maps to world Z
 
         // Offset from tile center toward a corner (¼ cell each axis)
@@ -51,7 +62,6 @@ public class HeightMap3DBuilder : MonoBehaviour
         return new Vector3(ox, 0f, oz);
     }
 
-    
     static float DiagonalInsideLength(Vector3 cell)
     {
         // Lenght of strip across the center of the tile (corner to corner):
@@ -70,20 +80,17 @@ public class HeightMap3DBuilder : MonoBehaviour
             Destroy(root.GetChild(i).gameObject);
 
     }
+    
     public void Build(byte[,] map, int[,] heights)
     {
         Vector3 mid = new();
-        for (int x = 0; x < map.GetLength(0); x++)
-        {
-            for (int z = 0; z < map.GetLength(1); z++)
-            {
-                if (map[x, z] == WALL) heights[x, z] = 2; // raise walls
-            }
-        }
+        Vector3 world = new();
+        Vector3 nWorld = new();
 
         if (root == null) root = new GameObject("Terrain3D").transform;
         // Clear old
-        for (int i = root.childCount - 1; i >= 0; i--) Destroy(root.GetChild(i).gameObject);
+        Destroy3D();
+        //for (int i = root.childCount - 1; i >= 0; i--) Destroy(root.GetChild(i).gameObject);
 
         int w = map.GetLength(0), hi = map.GetLength(1);
         Vector3 cell = grid.cellSize;
@@ -92,13 +99,14 @@ public class HeightMap3DBuilder : MonoBehaviour
             for (int z = 0; z < hi; z++)
             {
                 bool isFloor = map[x, z] == FLOOR;
+                bool isWall = map[x, z] == WALL;
                 int ySteps = heights[x, z];
 
                 // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
                 if (!isFloor && onlyPerimeterWalls && !HasFloorNeighbor(map, x, z)) continue;
 
                 // Base world position of this tile center
-                Vector3 world = grid.CellToWorld(new Vector3Int(x, z, 0));
+                world = grid.CellToWorld(new Vector3Int(x, z, 0));
 
                 // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
                 // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
@@ -110,7 +118,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                 {
                     bool N = (z + 1 < hi) && map[x, z + 1] == WALL;
                     bool S = (z - 1 >= 0) && map[x, z - 1] == WALL;
-                    bool E = (x + 1 <  w) && map[x + 1, z] == WALL;
+                    bool E = (x + 1 < w) && map[x + 1, z] == WALL;
                     bool W = (x - 1 >= 0) && map[x - 1, z] == WALL;
 
                     // Optional: require the true corner tile to also be wall (uncomment if desired)
@@ -119,16 +127,16 @@ public class HeightMap3DBuilder : MonoBehaviour
                     // bool SE = (x+1 < w && z-1 >= 0) && map[x+1, z-1] == WALL;
                     // bool SW = (x-1 >= 0 && z-1 >= 0) && map[x-1, z-1] == WALL;
 
-                    float floorY   = ySteps * unitHeight;
-                    float wallH    = Mathf.Max(1, perimeterWallSteps) * unitHeight;
-                    float diagLen  = DiagonalInsideLength(cell);
-                    Vector3 baseY  = new Vector3(0f, floorY + wallH * 0.5f, 0f);
+                    float floorY = ySteps * unitHeight;
+                    float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
+                    float diagLen = DiagonalInsideLength(cell);
+                    Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
 
                     // NE corner (N & E)
                     if (N && E /* && NE */)
                     {
                         var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east:true, north:true, cell) + baseY,
+                            world + CornerOffset(east: true, north: true, cell) + baseY,
                             Yaw45, root);
                         t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                         if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
@@ -137,7 +145,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (N && W /* && NW */)
                     {
                         var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east:false, north:true, cell) + baseY,
+                            world + CornerOffset(east: false, north: true, cell) + baseY,
                             Yaw315, root);
                         t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                         if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
@@ -146,7 +154,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (S && E /* && SE */)
                     {
                         var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east:true, north:false, cell) + baseY,
+                            world + CornerOffset(east: true, north: false, cell) + baseY,
                             Yaw135, root);
                         t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                         if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
@@ -155,7 +163,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (S && W /* && SW */)
                     {
                         var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east:false, north:false, cell) + baseY,
+                            world + CornerOffset(east: false, north: false, cell) + baseY,
                             Yaw225, root);
                         t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                         if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
@@ -171,6 +179,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                 }
 
                 // Compare with 4 neighbors and add ramps/cliffs
+                //for (int i = 0; i < 4; i++)
                 for (int i = 0; i < 4; i++)
                 {
                     Vector2Int d = Dir4[i];
@@ -178,13 +187,14 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue;
 
                     bool nIsFloor = map[nx, nz] == FLOOR;
+                    bool nIsWall = map[nx, nz] == WALL;
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
-                    if (isFloor && !nIsFloor && cliffPrefab != null)
+                    if (isFloor && nIsWall && cliffPrefab != null)
                     {
                         // Respect suppress flags for the matching direction
-                        if ((d.x == 0 && d.y == 1  && /*N*/ suppressN) ||
-                            (d.x == 1 && d.y == 0  && /*E*/ suppressE) ||
+                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressN) ||
+                            (d.x == 1 && d.y == 0 && /*E*/ suppressE) ||
                             (d.x == 0 && d.y == -1 && /*S*/ suppressS) ||
                             (d.x == -1 && d.y == 0 && /*W*/ suppressW))
                         {
@@ -192,8 +202,9 @@ public class HeightMap3DBuilder : MonoBehaviour
                         }
                         else
                         {
+                            // location of the neighboring cell
+                            nWorld = grid.CellToWorld(new Vector3Int(nx, nz, 0));
                             // midpoint between the two cells
-                            Vector3 nWorld = grid.CellToWorld(new Vector3Int(nx, nz, 0));
                             mid = 0.5f * (world + nWorld);
 
                             int floorSteps = heights[x, z];
@@ -204,6 +215,10 @@ public class HeightMap3DBuilder : MonoBehaviour
                                 mid + new Vector3(0, baseY + 0.5f * ht, 0),
                                 RotFromDir(new Vector2Int(nx - x, nz - z)),
                                 root);
+                            //                            var face = Instantiate(cliffPrefab,
+                            //                                mid + new Vector3(0, baseY + 0.5f * ht, 0),
+                            //                                RotFromDir(new Vector2Int(nx - x, nz - z)),
+                            //                                root);
 
                             face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
                         }
@@ -217,22 +232,26 @@ public class HeightMap3DBuilder : MonoBehaviour
                     int diff = nySteps - ySteps;
                     if (diff == 0) continue;
 
-                    // Place transition geometry centered between the two tiles
-                    mid = (world + grid.CellToWorld(new Vector3Int(nx, nz, 0))) * 0.5f;
+                    // Place transition geometry centered between the two tiles (for walls only)
+                    nWorld = grid.CellToWorld(new Vector3Int(nx, nz, 0));
+                    mid = (world + nWorld) * 0.5f;
 
                     if (Mathf.Abs(diff) == 1 && rampPrefab != null)
                     {
                         // Ramp spans from lower to higher tile
                         bool up = diff > 0;
+                        if (up) continue; // don't create two ramps, one from each side, instead pick 'down'
                         // Place ramp slightly biased toward lower side so the top aligns cleanly
                         int lower = up ? ySteps : nySteps;
                         var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
                         //var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
-                        var ramp = Instantiate(rampPrefab, grid.CellToWorld(new Vector3Int(nx, nz, 0)) + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
+                        var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
                         ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
                     }
                     else if (Mathf.Abs(diff) >= 2 && cliffPrefab != null)
                     {
+                        bool up = diff > 0;
+                        if (up) continue; // don't create two walls, one from each side, instead pick 'down'
                         // Vertical face for a bigger step; center vertically between heights
                         int minStep = Mathf.Min(ySteps, nySteps);
                         float heightWorld = Mathf.Abs(diff) * unitHeight;

@@ -196,6 +196,7 @@ public class DungeonGenerator : MonoBehaviour
         {
             var c = room.GetCenter();
             mapHeights[c.x, c.y] = 1;
+            mapHeights[c.x + 1, c.y] = 2;
         }
         // If Build should be called on an instance:
         FillVoidToWalls(map);
