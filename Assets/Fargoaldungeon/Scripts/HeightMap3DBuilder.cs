@@ -73,14 +73,16 @@ public class HeightMap3DBuilder : MonoBehaviour
         return Mathf.Sqrt(hx * hx + hz * hz);
     }
 
+    // if root exists, destroy all 3D objects under it.
     public void Destroy3D()
     {
         if (root == null) return;
         for (int i = root.childCount - 1; i >= 0; i--)
             Destroy(root.GetChild(i).gameObject);
-
     }
-    
+
+    // 3D Build routine.  Scans map and heights, placing prefabs in correct places.
+    //   Includes floors, walls, ramps, cliffs
     public void Build(byte[,] map, int[,] heights)
     {
         Vector3 mid = new();
@@ -88,9 +90,8 @@ public class HeightMap3DBuilder : MonoBehaviour
         Vector3 nWorld = new();
 
         if (root == null) root = new GameObject("Terrain3D").transform;
-        // Clear old
+        // Clear old objects
         Destroy3D();
-        //for (int i = root.childCount - 1; i >= 0; i--) Destroy(root.GetChild(i).gameObject);
 
         int w = map.GetLength(0), hi = map.GetLength(1);
         Vector3 cell = grid.cellSize;
@@ -215,10 +216,6 @@ public class HeightMap3DBuilder : MonoBehaviour
                                 mid + new Vector3(0, baseY + 0.5f * ht, 0),
                                 RotFromDir(new Vector2Int(nx - x, nz - z)),
                                 root);
-                            //                            var face = Instantiate(cliffPrefab,
-                            //                                mid + new Vector3(0, baseY + 0.5f * ht, 0),
-                            //                                RotFromDir(new Vector2Int(nx - x, nz - z)),
-                            //                                root);
 
                             face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
                         }
