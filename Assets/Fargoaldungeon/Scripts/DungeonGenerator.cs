@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System.Linq;
+//using System.Drawing;
+using System;
 
 /* TODO list...
 -- Simplex Noise
@@ -89,6 +91,7 @@ public class DungeonGenerator : MonoBehaviour
     public IEnumerator RegenerateDungeon()
     {
         room_rects = new List<RectInt>(); // Clear the list of room rectangles
+        mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
         heightBuilder.Destroy3D();
         yield return null; // Start on a fresh screen render frame
         BottomBanner.Show("Generating dungeon...");
@@ -190,21 +193,13 @@ public class DungeonGenerator : MonoBehaviour
 
         BottomBanner.Show("Height Map Build...");
 
-        // Example: raise room centers by 1 step
-        mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
-        foreach (var room in rooms)
-        {
-            var c = room.GetCenter();
-            mapHeights[c.x, c.y] = 1;
-            mapHeights[c.x + 1, c.y] = 2;
-        }
-        // If Build should be called on an instance:
         FillVoidToWalls(map);
         heightBuilder.Build(map, mapHeights);
         // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
 
-        BottomBanner.ShowFor("Dungeon generation complete!", 5f);
+        yield return new WaitForSeconds(cfg.stepDelay * 5f);
 
+        BottomBanner.ShowFor("Dungeon generation complete!", 5f);
     }
 
     // Scatter rooms performs the main room placement for Rectangular or Oval rooms
@@ -258,6 +253,7 @@ public class DungeonGenerator : MonoBehaviour
     List<Room> ConvertAllRectToRooms(List<RectInt> room_rects, List<Color> room_rects_color, bool SetTile)
     {
         List<Vector2Int> PointsList;
+        List<int> HeightsList = new();
         List<Room> rooms = new List<Room>();
         Debug.Log("Converting " + room_rects.Count + " Rects to Rooms...");
         for (int i = 0; i < room_rects.Count; i++)
@@ -265,14 +261,17 @@ public class DungeonGenerator : MonoBehaviour
             var room_rect = room_rects[i];
             var room_rect_color = room_rects_color[i];
             PointsList = ConvertRectToRoomPoints(room_rect, room_rect_color, false/*SetTile*/);
-            Room room = new Room(PointsList);
+            HeightsList = new();
+            for (int h = 0; h < PointsList.Count; h++) HeightsList.Add(i);
+            Room room = new Room(PointsList, HeightsList);
             room.isCorridor = false; // Default to false, can be set later if needed
             room.Name = "Room " + (rooms.Count + 1);
             //room.colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f); // Bright Random
             room.setColorFloor(room_rect_color);
             rooms.Add(room);
             DrawMapByRooms(rooms);
-            //StartCoroutine(WaitForSeconds(cfg.stepDelay/3f)); // Pause to see what happened
+            //StartCoroutine(WaitForSecond{s(cfg.stepDelay/3f)); // Pause to see what happened
+            Debug.Log($"ConvertRectsToRooms: room {i} height = {room.heights[0]}");
         }
         return rooms;
     }
@@ -346,6 +345,9 @@ public class DungeonGenerator : MonoBehaviour
                 tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
                 tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
                 tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
+
+                map[point.x, point.y] = FLOOR;
+                mapHeights[point.x, point.y] = ca.GetHeightOfLocationFromRooms(rooms, point);
             }
             //ca.ColorCodeOneRoom(room);
         }
@@ -382,7 +384,6 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
-
         int brush_neg = -cfg.corridorWidth / 2;
         int brush_pos = brush_neg + cfg.corridorWidth;
 
@@ -406,6 +407,77 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
         return hashPath.ToList();
+    }
+
+    public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height)
+    {
+        CellularAutomata ca = GetComponent<CellularAutomata>();
+        List<Vector2Int> path;
+        HashSet<Vector2Int> hashPath = new HashSet<Vector2Int>();
+        Room room = new();
+
+        switch (cfg.TunnelsAlgorithm)
+        {
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrthographic:
+                BottomBanner.Show("Drawing orthogonal corridors...");
+                path = GridedLine(start, end);
+                break;
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsStraight:
+                BottomBanner.Show("Drawing straight corridors...");
+                path = BresenhamLine(start.x, start.y, end.x, end.y);
+                break;
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrganic:
+                BottomBanner.Show("Drawing organic corridors...");
+                path = OrganicLine(start, end);
+                break;
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsCurved:
+                BottomBanner.Show("Drawing curved corridors...");
+                path = GetComponent<BezierDraw>().DrawBezierCorridor(start, end);
+                break;
+            default:
+                BottomBanner.Show("Drawing Bresenham corridors...");
+                path = BresenhamLine(start.x, start.y, end.x, end.y);
+                break;
+        }
+
+        int path_length = path.Count;
+        float delta_h = (float)(end_height - start_height) / (float)path_length;
+
+        Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
+        Debug.Log("start_height=" + start_height + " end_height=" + end_height);
+        int brush_neg = -cfg.corridorWidth / 2;
+        int brush_pos = brush_neg + cfg.corridorWidth;
+
+        //foreach (Vector2Int point in path)
+        for (int i=0; i<path.Count; i++)
+        {
+            Vector2Int point = path[i];
+            int height = start_height + (int)Math.Round(i * delta_h);
+            // Square brush around each line point
+            for (int dx = brush_neg; dx < brush_pos; dx++)
+            {
+                for (int dy = brush_neg; dy < brush_pos; dy++)
+                {
+                    Vector3Int tilePos = new Vector3Int(point.x + dx, point.y + dy, 0);
+                    if (tilePos.x < 0 || tilePos.x >= cfg.mapWidth || tilePos.y < 0 || tilePos.y >= cfg.mapHeight)
+                    {
+                        continue; // Skip out-of-bounds tiles
+                    }
+                    tilemap.SetTile(tilePos, floorTile);
+                    if (hashPath.Add(new Vector2Int(tilePos.x, tilePos.y)))
+                    {
+                        room.tiles.Add(new Vector2Int(tilePos.x, tilePos.y));
+                        room.heights.Add(height);
+                    }
+
+                    map[tilePos.x, tilePos.y] = FLOOR; //Floor
+                    mapHeights[tilePos.x, tilePos.y] = height;
+                }
+            }
+        }
+        room.isCorridor = true;
+        return room;
+        //return hashPath.ToList();
     }
 
     // Grided Line algorithm: creates an orthogonal line between two points.
@@ -711,6 +783,107 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
 
+        // 3) Fold tiles into their root groups while PRESERVING order and height pairing
+        var groupedTiles = new Dictionary<int, List<Vector2Int>>();
+        var groupedHeights = new Dictionary<int, List<int>>();
+        var groupedSeen = new Dictionary<int, HashSet<Vector2Int>>();
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            int root = dsu.Find(i);
+            if (!groupedTiles.ContainsKey(root))
+            {
+                groupedTiles[root] = new List<Vector2Int>(rooms[i].tiles.Count);
+                groupedHeights[root] = new List<int>(rooms[i].tiles.Count);
+                groupedSeen[root] = new HashSet<Vector2Int>();
+            }
+
+            var rTiles = rooms[i].tiles;
+            var rHeights = rooms[i].heights; // may be null or shorter
+
+            for (int k = 0; k < rTiles.Count; k++)
+            {
+                var t = rTiles[k];
+                if (!groupedSeen[root].Add(t))
+                    continue; // skip duplicates while preserving first-seen order
+
+                int h = 0;
+                if (rHeights != null && rHeights.Count > k)
+                    h = rHeights[k];
+
+                groupedTiles[root].Add(t);
+                groupedHeights[root].Add(h);
+            }
+        }
+
+        // 4) Emit merged rooms with preserved tile/height order
+        var merged = new List<Room>(groupedTiles.Count);
+        foreach (var root in groupedTiles.Keys)
+        {
+            var newRoom = new Room(groupedTiles[root], groupedHeights[root]);
+            newRoom.setColorFloor(highlight: true);
+            merged.Add(newRoom);
+        }
+
+        // (Optional) sort by size descending like your existing code
+        merged.Sort((a, b) => b.Size.CompareTo(a.Size));
+        return merged;
+    }
+
+    public static List<Room> MergeOverlappingRooms_Original(List<Room> rooms, bool considerAdjacency = false, bool eightWay = true)
+    {
+        //BottomBanner.Show("Merging overlapping rooms...");
+        if (rooms == null || rooms.Count == 0) return new List<Room>();
+
+        var dsu = new DSU(rooms.Count);
+        var owner = new Dictionary<Vector2Int, int>(1024);
+
+        // Optional neighbor offsets for adjacency merging
+        Vector2Int[] n4 = new[]
+        {
+            new Vector2Int( 1, 0),
+            new Vector2Int(-1, 0),
+            new Vector2Int( 0, 1),
+            new Vector2Int( 0,-1)
+        };
+        Vector2Int[] n8 = new[]
+        {
+            new Vector2Int( 1, 0), new Vector2Int(-1, 0), new Vector2Int(0, 1), new Vector2Int(0,-1),
+            new Vector2Int( 1, 1), new Vector2Int( 1,-1), new Vector2Int(-1, 1), new Vector2Int(-1,-1)
+        };
+        var neighbors = eightWay ? n8 : n4;
+
+        // 1) Scan all tiles, union rooms that share tiles (overlap)
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            var tiles = rooms[i].tiles;
+            for (int k = 0; k < tiles.Count; k++)
+            {
+                var t = tiles[k];
+
+                if (!owner.TryGetValue(t, out int j))
+                {
+                    owner[t] = i; // first time we see this tile, claim it
+                }
+                else
+                {
+                    // tile already owned by room j => overlap with i
+                    dsu.Union(i, j);
+                }
+
+                // 2) Optional: adjacency-based merging (touching rooms)
+                if (considerAdjacency)
+                {
+                    foreach (var d in neighbors)
+                    {
+                        var n = t + d;
+                        if (owner.TryGetValue(n, out int kOwner))
+                            dsu.Union(i, kOwner);
+                    }
+                }
+            }
+        }
+
         // 3) Fold tiles into their root groups
         var grouped = new Dictionary<int, HashSet<Vector2Int>>();
         for (int i = 0; i < rooms.Count; i++)
@@ -745,7 +918,7 @@ public class DungeonGenerator : MonoBehaviour
         for (var y = 0; y < cfg.mapHeight; y++)
             for (var x = 0; x < cfg.mapWidth; x++)
             {
-                if (map[x, y] == 0) map[x,y] = WALL;
+                if (map[x, y] == 0) map[x, y] = WALL;
             }
     }
 

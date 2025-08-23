@@ -295,6 +295,7 @@ public class CellularAutomata : MonoBehaviour
     public IEnumerator FindRoomsCoroutine(byte[,] map)
     {
         BottomBanner.Show("Finding rooms...");
+        int this_room_height = 0;
         int width = map.GetLength(0);
         int height = map.GetLength(1);
         bool[,] visited = new bool[width, height];
@@ -320,6 +321,7 @@ public class CellularAutomata : MonoBehaviour
                     {
                         var pos = queue.Dequeue();
                         newRoom.tiles.Add(pos);
+                        newRoom.heights.Add(this_room_height);
 
                         foreach (var dir in directions)
                         {
@@ -340,6 +342,7 @@ public class CellularAutomata : MonoBehaviour
                     newRoom.Name = $"Room {rooms.Count + 1} ({newRoom.tiles.Count} tiles)";
                     newRoom.setColorFloor(highlight: true);
                     rooms.Add(newRoom);
+                    this_room_height++;  // change for the next room to be found
                     //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                 }
             }
@@ -357,6 +360,7 @@ public class CellularAutomata : MonoBehaviour
 
         //return rooms;
         //return_rooms = rooms;
+        generator.rooms = rooms;
     }
 
     // Generic cluster finder: find connected components whose cells equal `target` (FLOOR or WALL)
@@ -467,6 +471,30 @@ public class CellularAutomata : MonoBehaviour
         //DrawMapFromByteArray();
     }
 
+    public Room SetRoomToHeight(Room room, int setHeight)
+    {
+        for (int i=0;i<room.heights.Count;i++)
+        {
+            room.heights[i] = setHeight;
+        }
+        return room;
+    }
+
+    public int GetHeightOfLocationFromRooms(List<Room> rooms, Vector2Int pos)
+    {
+        foreach (var room in rooms)
+        {
+            for (int i = 0; i < room.Size; i++)
+            {
+                if (room.tiles[i] == pos)
+                {
+                    return room.heights[i];
+                }
+            }
+        }
+        Debug.Log("location not found in rooms");
+        return 0; //int.MaxValue;
+    }
 
     public IEnumerator ConnectRoomsByCorridors(List<Room> master_list_of_rooms)
     {
@@ -490,9 +518,14 @@ public class CellularAutomata : MonoBehaviour
             close_j = connected_rooms[j].GetClosestPointInRoom(close_i);
             close_i = connected_rooms[i].GetClosestPointInRoom(close_j);
 
+            // find height of each corridor endpoint
+            int height_i = GetHeightOfLocationFromRooms(generator.rooms,close_i);
+            int height_j = GetHeightOfLocationFromRooms(generator.rooms,close_j);
+
             // 1) Carve the corridor (your existing visual/path)
-            corridor_points = generator.DrawCorridor(close_i, close_j);
-            Room corridorRoom = new Room(corridor_points);
+            Room corridorRoom = generator.DrawCorridorSloped(close_i, close_j, height_i, height_j);
+            generator.rooms.Add(corridorRoom); // add me to the master list
+            //Room corridorRoom = new Room(corridor_points);
             //ColorCodeOneRoom(connected_rooms[i], highlight: false);
             //ColorCodeOneRoom(connected_rooms[j], highlight: false);
             //ColorCodeOneRoom(corridorRoom, highlight: false);
@@ -514,7 +547,7 @@ public class CellularAutomata : MonoBehaviour
 */
             // 3) Merge this room into the main room and remove it from the list
             //BottomBanner.Show($"Merging rooms {i}({rooms[i].tiles.Count}) and {j}({rooms[j].tiles.Count}) and Corridor({corridor_points.Count}) tiles");
-            MergeRooms(connected_rooms[i], connected_rooms[j], corridor_points);
+            //MergeRooms(connected_rooms[i], connected_rooms[j], corridor_points);
             generator.rooms.Add(corridorRoom); // Add corridor to the generator's room list
             //BottomBanner.Show($"Merged room size: {connected_rooms[i].tiles.Count} tiles");
             connected_rooms.RemoveAt(j);
