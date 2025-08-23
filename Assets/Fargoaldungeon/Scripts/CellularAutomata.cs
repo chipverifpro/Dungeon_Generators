@@ -172,11 +172,16 @@ public class CellularAutomata : MonoBehaviour
         for (int x = 0; x < cfg.mapWidth; x++)
             for (int y = 0; y < cfg.mapHeight; y++)
             {
+                if (!generator.IsPointInWorld(new Vector2Int(x, y)))
+                {
+                    map[x, y] = WALL;
+                    continue;
+                }
                 int borderDistance = Mathf.Min(x, y, cfg.mapWidth - x - 1, cfg.mapHeight - y - 1);
                 if (borderDistance == 1)
                     map[x, y] = WALL; // Set border tile to wall
                 else if (borderDistance <= cfg.softBorderSize)
-                    // Setting a wide random border makes edges less sharp
+                    // Setting a wide random border makes square world edges less sharp
                     map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? WALL : FLOOR;
                 else
                     if (cfg.usePerlin && rng.Next(0, 100) < (100 - cfg.noiseOverlay))

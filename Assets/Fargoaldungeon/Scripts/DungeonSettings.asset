@@ -18,23 +18,24 @@ MonoBehaviour:
   seed: 7529
   mapWidth: 300
   mapHeight: 300
+  roundWorld: 1
   roomAttempts: 50
   roomsMax: 15
   minRoomSize: 30
   maxRoomSize: 60
   allowOverlappingRooms: 0
   shortestTunnels: 0
-  ovalRooms: 1
+  ovalRooms: 0
   directCorridors: 0
   corridorWidth: 3
   wallThickness: 2
   jitterChance: 0.2
-  RoomAlgorithm: 2
-  TunnelsAlgorithm: 3
-  useCellularAutomata: 1
+  RoomAlgorithm: 1
+  TunnelsAlgorithm: 0
+  useCellularAutomata: 0
   fillPercent: 48
   totalSteps: 6
-  usePerlin: 0
+  usePerlin: 1
   perlinScale: 0.026
   perlin2Scale: 0.052
   perlinThreshold: 0.45

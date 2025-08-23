@@ -5,22 +5,33 @@ using System.Collections;
 using System.Linq;
 //using System.Drawing;
 using System;
+using UnityEngine.EventSystems;
+//using System.Drawing;
 
 /* TODO list...
 -- Simplex Noise
--- Round world
+-- Round world including fast oval room bounds checking
 -- DONE: Nested Perlin / Stacked Perlin
 -- DONE: Filter small wall areas
 -- Presets of interesting dungeons - menu or random selection
 -- Adding extra corridors to break up tree
 -- Dirty MapArray
--- 3D walls with flythrough
+-- IN PROGRESS: 3D walls with flythrough
 -- More tile types: stairs, doors, traps
 -- Fix early regeneration button (abort in-progress)
 -- Fix pulldown after recompile
 -- Don't show build progress option
--- Code cleanup for organization and optimization
+-- DONE: Code cleanup for organization and optimization
 -- Enforce minimum width room connectivity
+-- Add walkthrough capability
+-- Camera flight controls
+
+Strenghten 3D mode:
+-- Use Rooms list to draw 3D, not a copy of the 2D map.
+   (allows corridors above/below rooms)
+-- Clamp ramp slopes at 1.
+-- Don't draw diagonals when 3 walls on one tile.
+-- Change 3D routines to coroutines.
  */
 
 // Master Dungeon Generation Class...
@@ -209,15 +220,21 @@ public class DungeonGenerator : MonoBehaviour
         tilemap.ClearAllTiles();
         room_rects.Clear(); // Clear the list of room rectangles
         room_rects_color.Clear(); // Clear the list of colors for room rectangles
+        RectInt newRoom = new();
         //rooms.Clear();
         BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
         for (int i = 0; room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
         {
-            int w = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
-            int h = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
-            int x = UnityEngine.Random.Range(1, cfg.mapWidth - w - 1);
-            int y = UnityEngine.Random.Range(1, cfg.mapHeight - h - 1);
-            RectInt newRoom = new(x, y, w, h);
+            bool fits = false;
+            while (fits == false)
+            {
+                int w = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
+                int h = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
+                int x = UnityEngine.Random.Range(1, cfg.mapWidth - w - 1);
+                int y = UnityEngine.Random.Range(1, cfg.mapHeight - h - 1);
+                newRoom = new(x, y, w, h);
+                fits = RoomFitsWorld(newRoom, 32, 0.5f);
+            }
 
             // Check if the new room overlaps with existing rooms
             bool overlaps = false;
@@ -244,9 +261,6 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
         Debug.Log("room_rects.Count = " + room_rects.Count);
-        //BottomBanner.Show($"DONE: Scattered {room_rects.Count} Rooms");
-        //yield return null; // Ensure all tiles are set before proceeding
-        //yield return StartCoroutine(ConnectRoomsByCorridors());
         yield return new WaitForSeconds(cfg.stepDelay); // Pause to see what happened
     }
 
@@ -442,6 +456,12 @@ public class DungeonGenerator : MonoBehaviour
 
         int path_length = path.Count;
         float delta_h = (float)(end_height - start_height) / (float)path_length;
+        if (Math.Abs(delta_h) > 1f)
+        {
+            Debug.Log($"Slope of corridor is too great Abs({delta_h}) > 1");
+            delta_h = Math.Clamp(delta_h, -1f, 1f); // Don't allow ramps too steep to climb.
+            // Should we generate a new corridor that is longer? TODO
+        }
 
         Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
         Debug.Log("start_height=" + start_height + " end_height=" + end_height);
@@ -477,9 +497,17 @@ public class DungeonGenerator : MonoBehaviour
         }
         room.isCorridor = true;
         return room;
-        //return hashPath.ToList();
     }
 
+    // --------- Corridor line algorithms ----------
+    // These return a list of points, which the DrawCorrior function will follow
+    // while handling the width and slope to generate a corridor Room:
+    // Gridded (orthogonal)
+    // Bresenham (straight)
+    // Noisy Bresenham (slightly wiggly)
+    // Organic (kinda jiggles while going 45 degrees and then vertical or horizontal)
+    // Bezier (curved, implemented in it's own file)
+    
     // Grided Line algorithm: creates an orthogonal line between two points.
     // Randomly starts with either x or y direction and makes just one turn.
     public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
@@ -624,7 +652,9 @@ public class DungeonGenerator : MonoBehaviour
         return path;
     }
 
-    public IEnumerator DrawWalls()  // from tilemap
+    // ---------------- End Corridor line algorithms ----------------
+
+    public IEnumerator DrawWalls()  // from tilemap, adds walls to th existing tilemap
     {
         BoundsInt bounds = tilemap.cellBounds;
         //BottomBanner.Show("Drawing walls...");
@@ -668,23 +698,107 @@ public class DungeonGenerator : MonoBehaviour
 
     bool IsPointInRoomRectOrOval(Vector2Int point, RectInt room_rect)
     {
-        if (cfg.ovalRooms == false)
-        {
-            // rectangular room check
-            return point.x >= room_rect.xMin && point.x < room_rect.xMax && point.y >= room_rect.yMin && point.y < room_rect.yMax;
-        }
-        else
-        {
-            // Check if the point is within the ellipse defined by the room
-            float centerX = room_rect.xMin + room_rect.width / 2f;
-            float centerY = room_rect.yMin + room_rect.height / 2f;
-            float radiusX = room_rect.width / 2f;
-            float radiusY = room_rect.height / 2f;
+        // start by checking the rectangular bounds
+        bool isInRect = (point.x >= room_rect.xMin && point.x < room_rect.xMax
+                        && point.y >= room_rect.yMin && point.y < room_rect.yMax);
 
-            return Mathf.Pow((point.x - centerX) / radiusX, 2) + Mathf.Pow((point.y - centerY) / radiusY, 2) <= 1;
-        }
+        if (!isInRect) return false; // outside rectangular bounds for either shape
+        if (cfg.ovalRooms == false) return true; // inside rectangular room bounds
+
+        // Check if the point is within the ellipse defined by the room
+        float centerX = room_rect.xMin + room_rect.width / 2f;
+        float centerY = room_rect.yMin + room_rect.height / 2f;
+        float radiusX = room_rect.width / 2f;
+        float radiusY = room_rect.height / 2f;
+
+        return Mathf.Pow((point.x - centerX) / radiusX, 2) + Mathf.Pow((point.y - centerY) / radiusY, 2) <= 1;
     }
 
+    // point bounds checking for rectangular or oval world maps
+    public bool IsPointInWorld(Vector2Int point)
+    {
+        if (point.x < 0 || point.y < 0 ||
+            point.x > cfg.mapWidth || point.y > cfg.mapHeight)
+            return false; // out of the world
+        if (!cfg.roundWorld) return true; // square world, limits are sufficient
+
+        // Round world (axis-aligned ellipse) inscribed in the map.
+        Vector2 Cw = new Vector2(cfg.mapWidth * 0.5f, cfg.mapHeight * 0.5f);
+        float margin = 0.5f; // hardcoded
+        float Rx = cfg.mapWidth  * 0.5f - margin;
+        float Ry = cfg.mapHeight * 0.5f - margin;
+        float Rx2 = Rx * Rx, Ry2 = Ry * Ry;
+        float dx = point.x - Cw.x, dy = point.y - Cw.y;
+        return ((dx * dx) / Rx2 + (dy * dy) / Ry2) <= 1f; // <= 1 means inside world ellipse
+    }
+
+    // Returns true if the proposed room bounds fit inside the world according to config flags.
+    // (1) cfg.ovalRooms   — RectInt room treated as an inscribed axis-aligned ellipse when true.
+    // (2) cfg.roundWorld — world bounds are an axis-aligned ellipse inscribed in the map when true;
+    //                       otherwise world is the rectangular map.
+    // "samples" controls boundary sampling for oval-in-oval; "margin" shrinks world a bit to avoid edge bleed.
+    // 
+    // Works for: Rect in Rect, Oval in Rect, Rect in Oval, and Oval in Oval.
+    bool RoomFitsWorld(RectInt roomRect, int samples = 32, float margin = 0.5f)
+    {
+        // Quick early-reject: roomRect must at least fit inside the map rectangle.
+        // works for all room shapes and map shapes.
+        if (roomRect.xMin < 0 || roomRect.yMin < 0 ||
+                    roomRect.xMax > cfg.mapWidth || roomRect.yMax > cfg.mapHeight)
+            return false;
+
+        // Any shape in a rectangular world:
+        if (!cfg.roundWorld)
+        {
+            return true; // already proved it fits the map rectangle
+        }
+
+        // Round world (axis-aligned ellipse) inscribed in the map.
+        Vector2 Cw = new Vector2(cfg.mapWidth * 0.5f, cfg.mapHeight * 0.5f);
+        float Rx = cfg.mapWidth  * 0.5f - margin;
+        float Ry = cfg.mapHeight * 0.5f - margin;
+        float Rx2 = Rx * Rx, Ry2 = Ry * Ry;
+
+        float UnitCircle(Vector2 p)
+        {
+            float dx = p.x - Cw.x, dy = p.y - Cw.y;
+            return (dx * dx) / Rx2 + (dy * dy) / Ry2; // <= 1 means inside world ellipse
+        }
+
+        if (cfg.ovalRooms) // oval room in oval world:
+        {
+            // Room is an axis-aligned ellipse inscribed in the rect
+            Vector2 Cr = new Vector2(roomRect.xMin + roomRect.width  * 0.5f,
+                                    roomRect.yMin + roomRect.height * 0.5f);
+            float rx = roomRect.width  * 0.5f;
+            float ry = roomRect.height * 0.5f;
+
+            // Sample boundary n times, reject on any violation
+            for (int i = 0; i < samples; i++)
+            {
+                float t = (2f * Mathf.PI * i) / samples;
+                Vector2 p = Cr + new Vector2(rx * Mathf.Cos(t), ry * Mathf.Sin(t));
+                if (UnitCircle(p) > 1f) return false;
+            }
+            return true;
+        }
+        else // rectangular room in oval world:
+        {
+            // Room is a rectangle: checking corners is exact for axis-aligned containment in an ellipse space
+            float cx = roomRect.xMin + roomRect.width  * 0.5f;
+            float cy = roomRect.yMin + roomRect.height * 0.5f;
+            float hx = roomRect.width  * 0.5f;
+            float hy = roomRect.height * 0.5f;
+
+            Vector2 c1 = new Vector2(cx - hx, cy - hy);
+            Vector2 c2 = new Vector2(cx + hx, cy - hy);
+            Vector2 c3 = new Vector2(cx - hx, cy + hy);
+            Vector2 c4 = new Vector2(cx + hx, cy + hy);
+
+            return UnitCircle(c1) <= 1f && UnitCircle(c2) <= 1f &&
+                UnitCircle(c3) <= 1f && UnitCircle(c4) <= 1f;
+        }
+    }
     //} // End class DungeonGenerator
 
 

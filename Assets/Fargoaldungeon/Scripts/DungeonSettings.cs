@@ -17,6 +17,7 @@ public class DungeonSettings : ScriptableObject
     public int seed = 0;
     public int mapWidth = 150;
     public int mapHeight = 150;
+    public bool roundWorld = false;
     public int roomAttempts = 50;
     public int roomsMax = 10;
 

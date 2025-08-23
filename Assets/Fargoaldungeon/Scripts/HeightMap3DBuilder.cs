@@ -122,52 +122,58 @@ public class HeightMap3DBuilder : MonoBehaviour
                     bool E = (x + 1 < w) && map[x + 1, z] == WALL;
                     bool W = (x - 1 >= 0) && map[x - 1, z] == WALL;
 
-                    // Optional: require the true corner tile to also be wall (uncomment if desired)
-                    // bool NE = (x+1 < w && z+1 < hi) && map[x+1, z+1] == WALL;
-                    // bool NW = (x-1 >= 0 && z+1 < hi) && map[x-1, z+1] == WALL;
-                    // bool SE = (x+1 < w && z-1 >= 0) && map[x+1, z-1] == WALL;
-                    // bool SW = (x-1 >= 0 && z-1 >= 0) && map[x-1, z-1] == WALL;
+                    // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
+                    // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
+                    int num_walls = (N ? 1 : 0) + (S ? 1 : 0) + (E ? 1 : 0) + (W ? 1 : 0);
+                    if ((num_walls != 3) || (num_walls <=1))
+                    {
+                        // Optional: require the true corner tile to also be wall (uncomment if desired)
+                        // bool NE = (x+1 < w && z+1 < hi) && map[x+1, z+1] == WALL;
+                        // bool NW = (x-1 >= 0 && z+1 < hi) && map[x-1, z+1] == WALL;
+                        // bool SE = (x+1 < w && z-1 >= 0) && map[x+1, z-1] == WALL;
+                        // bool SW = (x-1 >= 0 && z-1 >= 0) && map[x-1, z-1] == WALL;
 
-                    float floorY = ySteps * unitHeight;
-                    float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
-                    float diagLen = DiagonalInsideLength(cell);
-                    Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
+                        float floorY = ySteps * unitHeight;
+                        float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
+                        float diagLen = DiagonalInsideLength(cell);
+                        Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
 
-                    // NE corner (N & E)
-                    if (N && E /* && NE */)
-                    {
-                        var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east: true, north: true, cell) + baseY,
-                            Yaw45, root);
-                        t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
-                        if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
-                    }
-                    // NW corner (N & W)
-                    if (N && W /* && NW */)
-                    {
-                        var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east: false, north: true, cell) + baseY,
-                            Yaw315, root);
-                        t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
-                        if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
-                    }
-                    // SE corner (S & E)
-                    if (S && E /* && SE */)
-                    {
-                        var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east: true, north: false, cell) + baseY,
-                            Yaw135, root);
-                        t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
-                        if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
-                    }
-                    // SW corner (S & W)
-                    if (S && W /* && SW */)
-                    {
-                        var t = Instantiate(diagonalWallPrefab,
-                            world + CornerOffset(east: false, north: false, cell) + baseY,
-                            Yaw225, root);
-                        t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
-                        if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
+                        // NE corner (N & E)
+                        if (N && E /* && NE */)
+                        {
+                            var t = Instantiate(diagonalWallPrefab,
+                                world + CornerOffset(east: true, north: true, cell) + baseY,
+                                Yaw45, root);
+                            t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                            if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
+                        }
+                        // NW corner (N & W)
+                        if (N && W /* && NW */)
+                        {
+                            var t = Instantiate(diagonalWallPrefab,
+                                world + CornerOffset(east: false, north: true, cell) + baseY,
+                                Yaw315, root);
+                            t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                            if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
+                        }
+                        // SE corner (S & E)
+                        if (S && E /* && SE */)
+                        {
+                            var t = Instantiate(diagonalWallPrefab,
+                                world + CornerOffset(east: true, north: false, cell) + baseY,
+                                Yaw135, root);
+                            t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                            if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
+                        }
+                        // SW corner (S & W)
+                        if (S && W /* && SW */)
+                        {
+                            var t = Instantiate(diagonalWallPrefab,
+                                world + CornerOffset(east: false, north: false, cell) + baseY,
+                                Yaw225, root);
+                            t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                            if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
+                        }
                     }
                 }
                 // -------- end diagonal corner smoothing --------
@@ -179,8 +185,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
                 }
 
-                // Compare with 4 neighbors and add ramps/cliffs
-                //for (int i = 0; i < 4; i++)
+                // Compare with 4 neighbors and add perimeter walls or ramps/cliffs
                 for (int i = 0; i < 4; i++)
                 {
                     Vector2Int d = Dir4[i];
@@ -222,7 +227,6 @@ public class HeightMap3DBuilder : MonoBehaviour
                     }
 
                     // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
-
                     if (!(isFloor && nIsFloor)) continue;
 
                     int nySteps = heights[nx, nz];
