@@ -1,14 +1,12 @@
 using UnityEngine;
-using System.Collections.Generic;
-using System.CodeDom.Compiler;
 
 public class HeightMap3DBuilder : MonoBehaviour
 {
     public DungeonGenerator generator;
-    public Grid grid;                         // same Grid as your Tilemap
+    public Grid grid;                         // same Grid as the 2D Tilemap
     public float unitHeight = 1f;             // world Y per step
     public GameObject floorPrefab;
-    public GameObject rampPrefab;             // oriented to face +Z by default (configurable below)
+    public GameObject rampPrefab;             // oriented to face +Z
     public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
     public Transform root;                    // parent for spawned meshes
     public bool onlyPerimeterWalls = true;    // skip deep interior walls
@@ -81,7 +79,10 @@ public class HeightMap3DBuilder : MonoBehaviour
             Destroy(root.GetChild(i).gameObject);
     }
 
-    // 3D Build routine.  Scans map and heights, placing prefabs in correct places.
+    // TODO: make a version that does Build from Rooms list
+    //  --This would allow rooms above/below other rooms
+
+    // 3D Build routine from map and heights.  Places prefabs in correct places.
     //   Includes floors, walls, ramps, cliffs
     public void Build(byte[,] map, int[,] heights)
     {
@@ -125,7 +126,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
                     int num_walls = (N ? 1 : 0) + (S ? 1 : 0) + (E ? 1 : 0) + (W ? 1 : 0);
-                    if ((num_walls != 3) || (num_walls <=1))
+                    if ((num_walls != 3) || (num_walls <= 1))
                     {
                         // Optional: require the true corner tile to also be wall (uncomment if desired)
                         // bool NE = (x+1 < w && z+1 < hi) && map[x+1, z+1] == WALL;

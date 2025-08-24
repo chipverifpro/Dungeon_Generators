@@ -2,18 +2,18 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
-using UnityEngine.PlayerLoop;
-
+using System;
 
 public class Room
 {
     // == Properties of the room
-    public List<Vector2Int> tiles = new List<Vector2Int>();
-    public List<int> heights = new List<int>(); // Heights for each tile in the room, used for 3D generation
+    public List<Vector2Int> tiles = new();
+    public List<Vector2Int> walls = new();
+    public List<int> heights = new(); // Heights for each tile in the room, used for 3D generation
     public int Size => tiles.Count;
     public string Name = "";
     public Color colorFloor = Color.white;
-    public List<Room> neighbors = new List<Room>(); // List of neighboring rooms
+    public List<int> neighbors = new(); // List of neighboring rooms by index
     public bool isCorridor = false; // Indicate if this room is a corridor
 
     // == constructors...
@@ -41,7 +41,7 @@ public class Room
     }
 
     // == Helper functions...
-    public RectInt GetBounds() // Ignores height
+    public RectInt GetBounds2D() // Ignores height
     {
         BoundsInt bounds = GetBounds3D();
         return new RectInt(bounds.xMin, bounds.yMin, bounds.size.x, bounds.size.y);
@@ -70,9 +70,10 @@ public class Room
         return new BoundsInt(new Vector3Int(minX, minY, minZ), new Vector3Int(maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1));
     }
 
+    /*
     public Vector2Int GetCenter()
     {
-        RectInt bounds = GetBounds();
+        RectInt bounds = GetBounds2D();
         return new Vector2Int(bounds.xMin + bounds.width / 2, bounds.yMin + bounds.height / 2);
     }
 
@@ -97,6 +98,7 @@ public class Room
 
         return closest_point;
     }
+    */
 
     // Set the color for the floor tiles in this room many ways...
     // room.setColorFloor(Color.white);        // White
@@ -113,9 +115,9 @@ public class Room
         else if ((!string.IsNullOrEmpty(rgba)) && (ColorUtility.TryParseHtmlString(rgba, out colorrgba)))
             colorFloor = colorrgba;
         else if (highlight)
-            colorFloor = Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
+            colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
         else // highlight == false
-            colorFloor = Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
+            colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
 
         return colorFloor;
     }
@@ -167,8 +169,8 @@ public class CellularAutomata : MonoBehaviour
     {
         rng = new System.Random();
 
-        float seedX = Random.Range(0f, 10000f);
-        float seedY = Random.Range(0f, 10000f);
+        float seedX = UnityEngine.Random.Range(0f, 10000f);
+        float seedY = UnityEngine.Random.Range(0f, 10000f);
         for (int x = 0; x < cfg.mapWidth; x++)
             for (int y = 0; y < cfg.mapHeight; y++)
             {
@@ -351,7 +353,7 @@ public class CellularAutomata : MonoBehaviour
                     //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                 }
             }
-            Debug.Log($"Processed row {x} of {width}");
+            //Debug.Log($"Processed row {x} of {width}");
             yield return null; // Yield to allow UI updates
         }
         //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
@@ -485,99 +487,146 @@ public class CellularAutomata : MonoBehaviour
         return room;
     }
 
-    public int GetHeightOfLocationFromRooms(List<Room> rooms, Vector2Int pos)
+    public int GetHeightOfLocationFromOneRoom(Room room, Vector2Int pos)
     {
+        for (int i = 0; i < room.Size; i++)
+        {
+            if (room.tiles[i] == pos)
+            {
+                return room.heights[i];
+            }
+        }
+        //Debug.Log("location not found in room");
+        return int.MaxValue; // not found
+    }
+
+    public int GetHeightOfLocationFromAllRooms(List<Room> rooms, Vector2Int pos)
+    {
+        int height;
         foreach (var room in rooms)
         {
-            for (int i = 0; i < room.Size; i++)
-            {
-                if (room.tiles[i] == pos)
-                {
-                    return room.heights[i];
-                }
-            }
+            height = GetHeightOfLocationFromOneRoom(room, pos);
+            if (height != int.MaxValue) return height; // found it
         }
         Debug.Log("location not found in rooms");
         return 0; //int.MaxValue;
     }
 
-    public IEnumerator ConnectRoomsByCorridors(List<Room> master_list_of_rooms)
+    public String ListOfIntToString(List<int> ilist, bool do_sort=true)
     {
-        List<Room> connected_rooms = new(master_list_of_rooms);
+        String result = "List: ";
+        if (do_sort) ilist.Sort();
+        foreach (int i in ilist)
+        {
+            result = result + i + ",";
+        }
+        return result;
+    }
+
+    // replaced local rooms list by indexes to global rooms list
+    public IEnumerator ConnectRoomsByCorridors()
+    {
+        List<int> unconnected_rooms = new(); // start with all, and then remove as rooms are merged
+        Vector2Int center_i = Vector2Int.zero;
         Vector2Int close_i = Vector2Int.zero;
         Vector2Int close_j = Vector2Int.zero;
-        BottomBanner.Show($"Connecting {connected_rooms.Count} rooms by corridors...");
-        while (connected_rooms.Count > 1)
+
+        BottomBanner.Show($"Connecting {generator.rooms.Count} rooms by corridors...");
+
+        // initialize unconnected rooms to include all room indexes
+        for (int room_no = 0; room_no < generator.rooms.Count; room_no++)
+            unconnected_rooms.Add(room_no);
+
+        while (unconnected_rooms.Count > 1)
         {
-            List<Vector2Int> corridor_points = new List<Vector2Int>();
-            Vector2Int closestPair = FindTwoClosestRooms(connected_rooms);
+            //Debug.Log("unconnected_rooms = " + ListOfIntToString(unconnected_rooms));
+
+            for (int xx = 0; xx < generator.rooms.Count; xx++)
+            {
+                List<int> all_connected_to_xx = get_union_of_connected_room_indexes(xx);
+                Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
+            }
+
+            // Find two closest rooms (i and j),
+            // and a point in each close to the other (close_i, close_j)
+            // (not guaranteed to be THE closest, but good enough for room connections)
+            Vector2Int closestPair = FindTwoClosestRooms(unconnected_rooms);
             if (closestPair == Vector2Int.zero)
             {
-                Debug.Log("No more pairs of rooms to connect.");
-                break; // No pairs found, exit loop
+                Debug.Log("Problem? No pairs found but unconnected_rooms.Count = " + unconnected_rooms.Count);
+                break; // no pairs found, exit loop
             }
             int i = closestPair.x;
             int j = closestPair.y;
-            // Closest points between rooom i and j.
-            close_i = connected_rooms[i].GetClosestPointInRoom(connected_rooms[i].GetCenter());
-            close_j = connected_rooms[j].GetClosestPointInRoom(close_i);
-            close_i = connected_rooms[i].GetClosestPointInRoom(close_j);
+            List<Vector2Int> all_tiles_i = get_union_of_connected_room_cells(i);
+            List<Vector2Int> all_tiles_j = get_union_of_connected_room_cells(j);
 
-            // find height of each corridor endpoint
-            int height_i = GetHeightOfLocationFromRooms(generator.rooms,close_i);
-            int height_j = GetHeightOfLocationFromRooms(generator.rooms,close_j);
+            // Closest points between rooom i and room j.
+            center_i = GetCenterOfTiles(all_tiles_i);
+            close_j = GetClosestPointInTilesList(all_tiles_j, center_i);
+            close_i = GetClosestPointInTilesList(all_tiles_i, close_j);
 
-            // 1) Carve the corridor (your existing visual/path)
+            // find height of each corridor endpoint, limiting search to specific room
+            int height_i = GetHeightOfLocationFromAllRooms(generator.rooms, close_i);
+            int height_j = GetHeightOfLocationFromAllRooms(generator.rooms, close_j);
+
+            // Carve the corridor and create a new room of it
             Room corridorRoom = generator.DrawCorridorSloped(close_i, close_j, height_i, height_j);
-            generator.rooms.Add(corridorRoom); // add me to the master list
-            //Room corridorRoom = new Room(corridor_points);
-            //ColorCodeOneRoom(connected_rooms[i], highlight: false);
-            //ColorCodeOneRoom(connected_rooms[j], highlight: false);
-            //ColorCodeOneRoom(corridorRoom, highlight: false);
             corridorRoom.isCorridor = true; // Mark as corridor
             corridorRoom.Name = $"Corridor {i}-{j}";
             corridorRoom.setColorFloor(highlight: false); // Set corridor color
-            corridorRoom.neighbors.Add(connected_rooms[i]);
-            corridorRoom.neighbors.Add(connected_rooms[j]);
-            connected_rooms[i].neighbors.Add(corridorRoom);
-            connected_rooms[j].neighbors.Add(corridorRoom);
+            corridorRoom.neighbors = new();
 
-            // 2) Compute the cells along the corridor and mark them as floor in the map
-            /*var corridorTiles = GetLineTiles(close_zero, close_i);
-            foreach (var p in corridorTiles)
+            // connect the two rooms and the new corridor via connected_rooms lists
+            corridorRoom.neighbors.Add(i);
+            corridorRoom.neighbors.Add(j);
+            generator.rooms.Add(corridorRoom); // add new corridor room to the master list
+            int corridor_room_no = generator.rooms.Count - 1;
+            generator.rooms[i].neighbors.Add(corridor_room_no);
+            generator.rooms[j].neighbors.Add(corridor_room_no);
+
+            // Remove second room (j) from unconnected rooms list
+            for (var index = 0; index < unconnected_rooms.Count; index++)
             {
-                if (p.x >= 0 && p.y >= 0 && p.x < cfg.mapWidth && p.y < cfg.mapHeight)
-                    map[p.x, p.y] = false; // corridor is floor
+                if (unconnected_rooms[index] == j)
+                {
+                    unconnected_rooms.RemoveAt(index);
+                    break; // found it, done removing j from unconnected rooms list
+                }
             }
-*/
-            // 3) Merge this room into the main room and remove it from the list
-            //BottomBanner.Show($"Merging rooms {i}({rooms[i].tiles.Count}) and {j}({rooms[j].tiles.Count}) and Corridor({corridor_points.Count}) tiles");
-            //MergeRooms(connected_rooms[i], connected_rooms[j], corridor_points);
-            generator.rooms.Add(corridorRoom); // Add corridor to the generator's room list
-            //BottomBanner.Show($"Merged room size: {connected_rooms[i].tiles.Count} tiles");
-            connected_rooms.RemoveAt(j);
+
             DrawMapFromRoomsList(generator.rooms);
             yield return StartCoroutine(generator.DrawWalls());
             yield return new WaitForSeconds(cfg.stepDelay / 3f);
         }
         //DrawMapFromRoomsList(connected_rooms);
+        //yield return StartCoroutine(generator.DrawWalls());
         yield return null;
     }
 
-    public Vector2Int FindTwoClosestRooms(List<Room> rooms)
+    // TODO: not very efficient
+    public Vector2Int FindTwoClosestRooms(List<int> unconnected_rooms)
     {
-        if (rooms.Count < 2) return Vector2Int.zero;
+        if (unconnected_rooms.Count < 2) return Vector2Int.zero; // not enough rooms
 
         Vector2Int closestPair = Vector2Int.zero;
         float minDistance = float.MaxValue;
 
-        for (int i = 0; i < rooms.Count; i++)
+        for (int i = 0; i < generator.rooms.Count; i++)
         {
-            for (int j = i + 1; j < rooms.Count; j++)
+            if (!unconnected_rooms.Contains(i)) continue;  // i is not a unique room
+
+            List<Vector2Int> room_cells_i = get_union_of_connected_room_cells(i);
+            Vector2Int center_i = GetCenterOfTiles (room_cells_i);
+
+            for (int j = i + 1; j < generator.rooms.Count; j++)
             {
-                Vector2Int centerA = rooms[i].GetCenter();
-                Vector2Int centerB = rooms[j].GetCenter();
-                float distance = Vector2Int.Distance(centerA, centerB);
+                if (!unconnected_rooms.Contains(j)) continue;  // j is not a unique room
+
+                List<Vector2Int> room_cells_j = get_union_of_connected_room_cells(j);
+                Vector2Int center_j = GetCenterOfTiles (room_cells_j);
+
+                float distance = Vector2Int.Distance(center_i, center_j);
 
                 if (distance < minDistance)
                 {
@@ -589,7 +638,93 @@ public class CellularAutomata : MonoBehaviour
 
         return closestPair;
     }
-      
+
+    public Vector2Int GetCenterOfTiles(List<Vector2Int> tiles)
+    {
+        if (tiles.Count == 0) return new Vector2Int(0,0);
+
+        int minX = int.MaxValue, minY = int.MaxValue;
+        int maxX = int.MinValue, maxY = int.MinValue;
+
+        foreach (var t in tiles)
+        {
+            if (t.x < minX) minX = t.x;
+            if (t.y < minY) minY = t.y;
+            if (t.x > maxX) maxX = t.x;
+            if (t.y > maxY) maxY = t.y;
+        }
+
+        return new Vector2Int(((minX + maxX) / 2), (minY + maxY) / 2);
+    }
+
+    // create a complete list of all rooms connected, ignoring duplicates
+    List<int> get_union_of_connected_room_indexes(int start_room_number)
+    {
+        bool added = true;
+        List<int> rooms_to_connect = new();
+        rooms_to_connect.Add(start_room_number);
+        rooms_to_connect.AddRange(generator.rooms[start_room_number].neighbors);
+
+        // create a complete list of all rooms connected, ignoring duplicates
+        // keep going over the list until no more to add
+        while (added == true)
+        {
+            added = false;
+
+            for (int i = 0; i < rooms_to_connect.Count; i++)
+            {
+                for (int j = 0; j < generator.rooms[rooms_to_connect[i]].neighbors.Count; j++)
+                {
+                    if (!rooms_to_connect.Contains(generator.rooms[rooms_to_connect[i]].neighbors[j]))
+                    {
+                        rooms_to_connect.Add(generator.rooms[rooms_to_connect[i]].neighbors[j]);
+                        added = true;
+                    }
+                }
+            }
+        }
+        return rooms_to_connect;
+    }
+
+    public List<Vector2Int> get_union_of_connected_room_cells(int start_room_number)
+    {
+        List<Vector2Int> union_of_cells = new();
+        // create a complete list of all rooms connected, ignoring duplicates
+        List<int> rooms_to_connect = get_union_of_connected_room_indexes(start_room_number);
+
+        // add tiles from all connected rooms to the list (union of cells)
+        for (int i = 0; i < rooms_to_connect.Count; i++)
+        {
+            union_of_cells.AddRange(generator.rooms[rooms_to_connect[i]].tiles);
+        }
+
+        //Debug.Log("get_union_of_connected_room_cells(" + start_room_number + ") -> length " + union_of_cells.Count + " END");
+        return union_of_cells;
+    }
+
+    // Get the closest floor tile location in this room to a given target location
+    public Vector2Int GetClosestPointInTilesList(List<Vector2Int> tile_list, Vector2Int target)
+    {
+        int min_distance = int.MaxValue;
+        int cur_distance = int.MaxValue;
+        Vector2Int closest_point = Vector2Int.zero;
+
+        if (tile_list.Count == 0) return Vector2Int.zero;
+
+        foreach (var t in tile_list)
+        {
+            cur_distance = (t - target).sqrMagnitude;
+            if (cur_distance < min_distance)
+            {
+                min_distance = cur_distance;
+                closest_point = t;
+            }
+        }
+
+        return closest_point;
+    }
+
+    // Obsolete?
     void MergeRooms(Room keep, Room merge, List<Vector2Int> corridor)
     {
         var combined = new HashSet<Vector2Int>(keep.tiles);

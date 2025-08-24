@@ -29,8 +29,8 @@ using UnityEngine.EventSystems;
 Strenghten 3D mode:
 -- Use Rooms list to draw 3D, not a copy of the 2D map.
    (allows corridors above/below rooms)
--- Clamp ramp slopes at 1.
--- Don't draw diagonals when 3 walls on one tile.
+-- DONE: Clamp ramp slopes at 1.
+-- DONE: Don't draw diagonals when 3 walls on one tile.
 -- Change 3D routines to coroutines.
  */
 
@@ -195,12 +195,12 @@ public class DungeonGenerator : MonoBehaviour
 
         // Step 5: Connect rooms with corridors
         BottomBanner.Show("Connecting Rooms with Corridors...");
-        yield return StartCoroutine(ca.ConnectRoomsByCorridors(rooms));
+        yield return StartCoroutine(ca.ConnectRoomsByCorridors());
 
         DrawMapByRooms(rooms);
         //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
-        yield return new WaitForSeconds(cfg.stepDelay * 5f);
+        yield return new WaitForSeconds(cfg.stepDelay);
 
         BottomBanner.Show("Height Map Build...");
 
@@ -361,7 +361,7 @@ public class DungeonGenerator : MonoBehaviour
                 tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
 
                 map[point.x, point.y] = FLOOR;
-                mapHeights[point.x, point.y] = ca.GetHeightOfLocationFromRooms(rooms, point);
+                mapHeights[point.x, point.y] = ca.GetHeightOfLocationFromAllRooms(rooms, point);
             }
             //ca.ColorCodeOneRoom(room);
         }
