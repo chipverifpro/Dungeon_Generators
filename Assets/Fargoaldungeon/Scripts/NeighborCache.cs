@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using UnityEngine;
 
 /* ChatGPT developed this interesting class for caching neighbor offsets in a grid.
@@ -8,6 +7,7 @@ using UnityEngine;
    such as radius, border-only, and diagonal inclusion.
    I'm putting it here for possible future use or reference.
 */
+// now used in RemoveTinyRooms and RemoveTinyRocks
 
 public static class NeighborCache
 {

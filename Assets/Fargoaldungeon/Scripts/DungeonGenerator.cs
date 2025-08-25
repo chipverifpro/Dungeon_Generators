@@ -3,14 +3,13 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System.Linq;
-//using System.Drawing;
 using System;
-using UnityEngine.EventSystems;
-//using System.Drawing;
+using UnityEditor;
+using UnityEditor.Experimental.GraphView;
 
 /* TODO list...
 -- Simplex Noise
--- Round world including fast oval room bounds checking
+-- DONE; Round world including fast oval room bounds checking
 -- DONE: Nested Perlin / Stacked Perlin
 -- DONE: Filter small wall areas
 -- Presets of interesting dungeons - menu or random selection
@@ -50,13 +49,15 @@ public class DungeonGenerator : MonoBehaviour
 
     public List<RectInt> room_rects = new(); // List of RectInt rooms for ScatterRooms
     public List<int> room_rects_heights = new(); // List of heights for each room rectangle
-
+    public HashSet<Vector2Int> floor_hash_map = new();
+    public HashSet<Vector2Int> wall_hash_map = new();
     public byte[,] map; // each byte represents one of the below constants
     public int[,] mapHeights; // 2D array to store height information for each tile
     public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
-    [HideInInspector] public byte WALL = 1;
-    [HideInInspector] public byte FLOOR = 2;
-    [HideInInspector] public byte RAMP = 3;
+    [HideInInspector] public const byte WALL = 1;
+    [HideInInspector] public const byte FLOOR = 2;
+    [HideInInspector] public const byte RAMP = 3;
+    [HideInInspector] public const byte UNKNOWN = 99;
     // Additional tile types to be defined here
 
     public List<Color> room_rects_color = new();
@@ -110,19 +111,19 @@ public class DungeonGenerator : MonoBehaviour
         // Step 0: Select settings
         switch (cfg.RoomAlgorithm) // Change this to select different algorithms
         {
-            case DungeonSettings.DungeonAlgorithm_e.Scatter_Overlap:
-                cfg.allowOverlappingRooms = true;
+            case DungeonSettings.RoomAlgorithm_e.Scatter_Overlap:
+                cfg.generateOverlappingRooms = true;
                 cfg.useCellularAutomata = false;
                 break;
-            case DungeonSettings.DungeonAlgorithm_e.Scatter_NoOverlap:
-                cfg.allowOverlappingRooms = false;
+            case DungeonSettings.RoomAlgorithm_e.Scatter_NoOverlap:
+                cfg.generateOverlappingRooms = false;
                 cfg.useCellularAutomata = false;
                 break;
-            case DungeonSettings.DungeonAlgorithm_e.CellularAutomata:
+            case DungeonSettings.RoomAlgorithm_e.CellularAutomata:
                 cfg.useCellularAutomata = true;
                 cfg.usePerlin = false; // Disable Perlin for CA
                 break;
-            case DungeonSettings.DungeonAlgorithm_e.CellularAutomataPerlin:
+            case DungeonSettings.RoomAlgorithm_e.CellularAutomataPerlin:
                 cfg.useCellularAutomata = true;
                 cfg.usePerlin = true; // Enable Perlin for CA
                 break;
@@ -170,10 +171,8 @@ public class DungeonGenerator : MonoBehaviour
             yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine());
 
             // For Cellular Automata, find rooms from the map
+            BottomBanner.Show("Locate Discrete rooms...");
             yield return StartCoroutine(ca.FindRoomsCoroutine(map));
-            //rooms = new List<Room>(ca.return_rooms); // Get the rooms found by CA
-
-
         }
         else // locate rooms from scattered rooms
         {
@@ -183,14 +182,14 @@ public class DungeonGenerator : MonoBehaviour
             yield return new WaitForSeconds(cfg.stepDelay);
             // Step 4: Merge overlapping rooms
             BottomBanner.Show("Merging Overlapping Rooms...");
-            rooms = MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: true);
+            if (cfg.MergeScatteredRooms)
+                rooms = MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: false);
             DrawMapByRooms(rooms);
             yield return StartCoroutine(DrawWalls());
             yield return new WaitForSeconds(cfg.stepDelay);
         }
 
         DrawMapByRooms(rooms);
-        //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
 
         // Step 5: Connect rooms with corridors
@@ -198,17 +197,20 @@ public class DungeonGenerator : MonoBehaviour
         yield return StartCoroutine(ca.ConnectRoomsByCorridors());
 
         DrawMapByRooms(rooms);
-        //ca.ColorCodeRooms(rooms);
         yield return StartCoroutine(DrawWalls());
         yield return new WaitForSeconds(cfg.stepDelay);
 
+        GenerateMapHashes(); // no wall data yet, so only does floor hashes
+        GenerateWallLists(); // needs floor hashes to run
+        GenerateMapHashes(); // run again to create wall hashes
+
         BottomBanner.Show("Height Map Build...");
 
-        FillVoidToWalls(map);
-        heightBuilder.Build(map, mapHeights);
+        // FillVoidToWalls(map);
+        heightBuilder.Build3DFromRooms(); // TODO: make into coroutine
         // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
 
-        yield return new WaitForSeconds(cfg.stepDelay * 5f);
+        yield return new WaitForSeconds(cfg.stepDelay);
 
         BottomBanner.ShowFor("Dungeon generation complete!", 5f);
     }
@@ -247,7 +249,7 @@ public class DungeonGenerator : MonoBehaviour
                 }
             }
 
-            if (!overlaps || cfg.allowOverlappingRooms)
+            if (!overlaps || cfg.generateOverlappingRooms)
             {
                 var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
                 room_rects.Add(newRoom);
@@ -349,11 +351,11 @@ public class DungeonGenerator : MonoBehaviour
 
     public void DrawMapByRooms(List<Room> rooms)
     {
-        Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
+        //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
         tilemap.ClearAllTiles();
         foreach (var room in rooms)
         {
-            Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
+            //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
             foreach (var point in room.tiles)
             {
                 tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
@@ -371,7 +373,8 @@ public class DungeonGenerator : MonoBehaviour
     {
         CellularAutomata ca = GetComponent<CellularAutomata>();
         List<Vector2Int> path;
-        HashSet<Vector2Int> hashPath = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> hashPath = new();
+        List<Vector2Int> listPath = new();
 
         switch (cfg.TunnelsAlgorithm)
         {
@@ -397,7 +400,7 @@ public class DungeonGenerator : MonoBehaviour
                 break;
         }
 
-        Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
+        //Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
         int brush_neg = -cfg.corridorWidth / 2;
         int brush_pos = brush_neg + cfg.corridorWidth;
 
@@ -414,20 +417,24 @@ public class DungeonGenerator : MonoBehaviour
                         continue; // Skip out-of-bounds tiles
                     }
                     tilemap.SetTile(tilePos, floorTile);
-                    hashPath.Add(new Vector2Int(tilePos.x, tilePos.y));
+                    if (hashPath.Add(new Vector2Int(tilePos.x, tilePos.y)))
 
+                    {
+                        listPath.Add(new Vector2Int(tilePos.x, tilePos.y));
+                    }
                     map[tilePos.x, tilePos.y] = FLOOR; //Floor
                 }
             }
         }
-        return hashPath.ToList();
+        //return hashPath.ToList();  // hashPath result needs sort
+        return listPath;             // doesn't need sort
     }
 
     public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height)
     {
-        CellularAutomata ca = GetComponent<CellularAutomata>();
+        //CellularAutomata ca = GetComponent<CellularAutomata>();
         List<Vector2Int> path;
-        HashSet<Vector2Int> hashPath = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> hashPath = new();
         Room room = new();
 
         switch (cfg.TunnelsAlgorithm)
@@ -463,13 +470,13 @@ public class DungeonGenerator : MonoBehaviour
             // Should we generate a new corridor that is longer? TODO
         }
 
-        Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
-        Debug.Log("start_height=" + start_height + " end_height=" + end_height);
+        //Debug.Log("Drawing corridor length " + path.Count + " from " + start + " to " + end + " width " + cfg.corridorWidth + " using " + cfg.TunnelsAlgorithm);
+        Debug.Log("Corridor: start_height=" + start_height + " end_height=" + end_height + " length=" + path_length);
         int brush_neg = -cfg.corridorWidth / 2;
         int brush_pos = brush_neg + cfg.corridorWidth;
 
         //foreach (Vector2Int point in path)
-        for (int i=0; i<path.Count; i++)
+        for (int i = 0; i < path.Count; i++)
         {
             Vector2Int point = path[i];
             int height = start_height + (int)Math.Round(i * delta_h);
@@ -507,7 +514,7 @@ public class DungeonGenerator : MonoBehaviour
     // Noisy Bresenham (slightly wiggly)
     // Organic (kinda jiggles while going 45 degrees and then vertical or horizontal)
     // Bezier (curved, implemented in it's own file)
-    
+
     // Grided Line algorithm: creates an orthogonal line between two points.
     // Randomly starts with either x or y direction and makes just one turn.
     public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
@@ -571,7 +578,7 @@ public class DungeonGenerator : MonoBehaviour
     public List<Vector2Int> NoisyBresenham(Vector2Int start, Vector2Int end)
     {
         List<Vector2Int> path = new List<Vector2Int>();
-        float noiseStrength = cfg.jitterChance;
+        float noiseStrength = cfg.organicJitterChance;
         int x0 = start.x;
         int y0 = start.y;
         int x1 = end.x;
@@ -635,7 +642,7 @@ public class DungeonGenerator : MonoBehaviour
             int dy = Mathf.Clamp(direction.y, -1, 1);
 
             // Introduce a slight chance to “wiggle”
-            if (UnityEngine.Random.value < cfg.jitterChance)
+            if (UnityEngine.Random.value < cfg.organicJitterChance)
             {
                 if (UnityEngine.Random.value < 0.5f)
                     //dx = 0; // favor y
@@ -725,7 +732,7 @@ public class DungeonGenerator : MonoBehaviour
         // Round world (axis-aligned ellipse) inscribed in the map.
         Vector2 Cw = new Vector2(cfg.mapWidth * 0.5f, cfg.mapHeight * 0.5f);
         float margin = 0.5f; // hardcoded
-        float Rx = cfg.mapWidth  * 0.5f - margin;
+        float Rx = cfg.mapWidth * 0.5f - margin;
         float Ry = cfg.mapHeight * 0.5f - margin;
         float Rx2 = Rx * Rx, Ry2 = Ry * Ry;
         float dx = point.x - Cw.x, dy = point.y - Cw.y;
@@ -755,7 +762,7 @@ public class DungeonGenerator : MonoBehaviour
 
         // Round world (axis-aligned ellipse) inscribed in the map.
         Vector2 Cw = new Vector2(cfg.mapWidth * 0.5f, cfg.mapHeight * 0.5f);
-        float Rx = cfg.mapWidth  * 0.5f - margin;
+        float Rx = cfg.mapWidth * 0.5f - margin;
         float Ry = cfg.mapHeight * 0.5f - margin;
         float Rx2 = Rx * Rx, Ry2 = Ry * Ry;
 
@@ -768,9 +775,9 @@ public class DungeonGenerator : MonoBehaviour
         if (cfg.ovalRooms) // oval room in oval world:
         {
             // Room is an axis-aligned ellipse inscribed in the rect
-            Vector2 Cr = new Vector2(roomRect.xMin + roomRect.width  * 0.5f,
+            Vector2 Cr = new Vector2(roomRect.xMin + roomRect.width * 0.5f,
                                     roomRect.yMin + roomRect.height * 0.5f);
-            float rx = roomRect.width  * 0.5f;
+            float rx = roomRect.width * 0.5f;
             float ry = roomRect.height * 0.5f;
 
             // Sample boundary n times, reject on any violation
@@ -785,9 +792,9 @@ public class DungeonGenerator : MonoBehaviour
         else // rectangular room in oval world:
         {
             // Room is a rectangle: checking corners is exact for axis-aligned containment in an ellipse space
-            float cx = roomRect.xMin + roomRect.width  * 0.5f;
+            float cx = roomRect.xMin + roomRect.width * 0.5f;
             float cy = roomRect.yMin + roomRect.height * 0.5f;
-            float hx = roomRect.width  * 0.5f;
+            float hx = roomRect.width * 0.5f;
             float hy = roomRect.height * 0.5f;
 
             Vector2 c1 = new Vector2(cx - hx, cy - hy);
@@ -799,42 +806,85 @@ public class DungeonGenerator : MonoBehaviour
                 UnitCircle(c3) <= 1f && UnitCircle(c4) <= 1f;
         }
     }
-    //} // End class DungeonGenerator
 
-
-
-    // ================================================= //
-
-    //public static class RoomMergeUtil
-    //{
-    // Simple Union-Find/Disjoint Set (DSU=Disjoint Set Union)
-    class DSU
+    void GenerateWallLists()
     {
-        int[] parent;
-        int[] rank;
+        List<Vector2Int> wall_list_room;
+        HashSet<Vector2Int> new_wall_hash;
 
-        public DSU(int n)
-        {
-            parent = new int[n];
-            rank = new int[n];
-            for (int i = 0; i < n; i++) parent[i] = i;
-        }
+        Vector2Int[] directions = {
+            Vector2Int.up, Vector2Int.down,
+            Vector2Int.left, Vector2Int.right
+        };
 
-        public int Find(int x)
+        for (int room_number = 0; room_number < rooms.Count; room_number++)
         {
-            if (parent[x] != x) parent[x] = Find(parent[x]);
-            return parent[x];
-        }
-
-        public void Union(int a, int b)
-        {
-            a = Find(a); b = Find(b);
-            if (a == b) return;
-            if (rank[a] < rank[b]) parent[a] = b;
-            else if (rank[a] > rank[b]) parent[b] = a;
-            else { parent[b] = a; rank[a]++; }
+            wall_list_room = new();
+            new_wall_hash = new();
+            foreach (Vector2Int pos in rooms[room_number].tiles)
+            {
+                foreach (Vector2Int dir in directions)
+                {
+                    //if (!floor_hash_map.Contains(pos + dir))
+                    if (!rooms[room_number].floor_hash_neighborhood.Contains(pos + dir))
+                    {
+                        if (new_wall_hash.Add(pos + dir))
+                        {
+                            wall_list_room.Add(pos + dir);
+                        }
+                    }
+                }
+            }
+            rooms[room_number].walls = wall_list_room; // Save to rooms[].walls
         }
     }
+
+    // Run GenerateMapHashes() once all rooms are created.
+    // Allows quickly looking up room contents from world xy position.
+    void GenerateMapHashes()
+    {
+        // Initialize whole-map hashes
+        floor_hash_map = new();
+        wall_hash_map = new();
+
+        // generate the per-room floor and wall hashes
+        for (int room_number = 0; room_number < rooms.Count; room_number++)
+        {
+            // create per-room hashes
+            rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(rooms[room_number].tiles);
+            rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(rooms[room_number].walls);
+
+            // Accumulate whole-map hashes
+            floor_hash_map.UnionWith(rooms[room_number].floor_hash_room);
+            wall_hash_map.UnionWith(rooms[room_number].wall_hash_room);
+        }
+
+        // Generate the neighborhood floor and wall hashes
+        // (neighborhood means the room and it's directly connected neighbor rooms)
+        for (int room_number = 0; room_number < rooms.Count; room_number++)
+        {
+            // Start with the room itself
+            rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].floor_hash_room);
+            rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].wall_hash_room);
+            // Add the direct neighbors
+            for (int neighbor_index = 0; neighbor_index < rooms[room_number].neighbors.Count; neighbor_index++)
+            {
+                int neighbor_num = rooms[room_number].neighbors[neighbor_index];
+                rooms[room_number].floor_hash_neighborhood.UnionWith(rooms[neighbor_num].floor_hash_room);
+                rooms[room_number].wall_hash_neighborhood.UnionWith(rooms[neighbor_num].wall_hash_room);
+            }
+        }
+    }
+
+    public void FillVoidToWalls(byte[,] map)
+    {
+        for (var y = 0; y < cfg.mapHeight; y++)
+            for (var x = 0; x < cfg.mapWidth; x++)
+            {
+                if (map[x, y] == 0) map[x, y] = WALL;
+            }
+    }
+
 
     /// <summary>
     /// Merge rooms that overlap (share at least one tile).
@@ -1026,14 +1076,39 @@ public class DungeonGenerator : MonoBehaviour
         merged.Sort((a, b) => b.Size.CompareTo(a.Size));
         return merged;
     }
+}
+    //} // End class DungeonGenerator
 
-    public void FillVoidToWalls(byte[,] map)
+// ================================================= //
+
+//public static class RoomMergeUtil
+//{
+// Simple Union-Find/Disjoint Set (DSU=Disjoint Set Union)
+class DSU
+{
+    int[] parent;
+    int[] rank;
+
+    public DSU(int n)
     {
-        for (var y = 0; y < cfg.mapHeight; y++)
-            for (var x = 0; x < cfg.mapWidth; x++)
-            {
-                if (map[x, y] == 0) map[x, y] = WALL;
-            }
+        parent = new int[n];
+        rank = new int[n];
+        for (int i = 0; i < n; i++) parent[i] = i;
+    }
+
+    public int Find(int x)
+    {
+        if (parent[x] != x) parent[x] = Find(parent[x]);
+        return parent[x];
+    }
+
+    public void Union(int a, int b)
+    {
+        a = Find(a); b = Find(b);
+        if (a == b) return;
+        if (rank[a] < rank[b]) parent[a] = b;
+        else if (rank[a] > rank[b]) parent[b] = a;
+        else { parent[b] = a; rank[a]++; }
     }
 
 }

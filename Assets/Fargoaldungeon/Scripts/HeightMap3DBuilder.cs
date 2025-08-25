@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using Unity.Collections;
+using UnityEditor.Rendering;
 using UnityEngine;
 
 public class HeightMap3DBuilder : MonoBehaviour
@@ -11,42 +14,32 @@ public class HeightMap3DBuilder : MonoBehaviour
     public Transform root;                    // parent for spawned meshes
     public bool onlyPerimeterWalls = true;    // skip deep interior walls
 
-    public GameObject diagonalWallPrefab; // thin strip or quad oriented along +Z
+    public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
     public bool useDiagonalCorners = true;
     public bool skipOrthogonalWhenDiagonal = true;
     public int perimeterWallSteps = 3; // height of perimeter faces in steps
 
-    [HideInInspector] public byte WALL = 1;
-    [HideInInspector] public byte FLOOR = 2;
-    //[HideInInspector] public byte RAMP = 3;
+    [HideInInspector] public const byte WALL = 1;
+    [HideInInspector] public const byte FLOOR = 2;
+    [HideInInspector] public const byte RAMP = 3;
+    [HideInInspector] public const byte UNKNOWN = 99;
+
 
     // If your ramp mesh "forward" is +Z, map directions to rotations:
     static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
     static Quaternion RotFromDir(Vector2Int d)
     {
-        if (d == new Vector2Int(0,1))  return Quaternion.Euler(0,  0, 0);   // face +Z
-        if (d == new Vector2Int(1,0))  return Quaternion.Euler(0, 90, 0);
-        if (d == new Vector2Int(0,-1)) return Quaternion.Euler(0,180, 0);
-        return Quaternion.Euler(0,270, 0); // (-1,0)
+        if (d == new Vector2Int(0, 1)) return Quaternion.Euler(0, 0, 0);   // face +Z
+        if (d == new Vector2Int(1, 0)) return Quaternion.Euler(0, 90, 0);
+        if (d == new Vector2Int(0, -1)) return Quaternion.Euler(0, 180, 0);
+        return Quaternion.Euler(0, 270, 0); // (-1,0)
     }
 
     // 45° yaw helpers
-    static readonly Quaternion Yaw45  = Quaternion.Euler(0,  -45, 0);
+    static readonly Quaternion Yaw45 = Quaternion.Euler(0, -45, 0);
     static readonly Quaternion Yaw135 = Quaternion.Euler(0, -135, 0);
     static readonly Quaternion Yaw225 = Quaternion.Euler(0, -225, 0);
     static readonly Quaternion Yaw315 = Quaternion.Euler(0, -315, 0);
-
-    // experiments with terrain height...
-    void randomFloorHeights()
-    {
-        for (int x = 0; x < generator.map.GetLength(0); x++)
-        {
-            for (int z = 0; z < generator.map.GetLength(1); z++)
-            {
-                if (generator.map[x, z] == FLOOR) generator.mapHeights[x, z] = UnityEngine.Random.Range(0, 3); ; // raise floors
-            }
-        }
-    }
 
     static Vector3 CornerOffset(bool east, bool north, Vector3 cell)
     {
@@ -81,31 +74,36 @@ public class HeightMap3DBuilder : MonoBehaviour
 
     // TODO: make a version that does Build from Rooms list
     //  --This would allow rooms above/below other rooms
-
     // 3D Build routine from map and heights.  Places prefabs in correct places.
     //   Includes floors, walls, ramps, cliffs
-    public void Build(byte[,] map, int[,] heights)
+    public void Build3DFromRooms()
     {
         Vector3 mid = new();
         Vector3 world = new();
         Vector3 nWorld = new();
 
-        if (root == null) root = new GameObject("Terrain3D").transform;
+        if (root == null) root = new GameObject("Terrain3D").transform; // TODO: get existing game object?
         // Clear old objects
         Destroy3D();
 
-        int w = map.GetLength(0), hi = map.GetLength(1);
+        //int w = map.GetLength(0), hi = map.GetLength(1);
         Vector3 cell = grid.cellSize;
 
-        for (int x = 0; x < w; x++)
-            for (int z = 0; z < hi; z++)
+        for (int room_number = 0; room_number < generator.rooms.Count; room_number++)
+        {
+            int num_tiles = generator.rooms[room_number].tiles.Count;
+            for (int tile_number = 0; tile_number < num_tiles; tile_number++)
             {
-                bool isFloor = map[x, z] == FLOOR;
-                bool isWall = map[x, z] == WALL;
-                int ySteps = heights[x, z];
+                Vector2Int pos = generator.rooms[room_number].tiles[tile_number];
+                int x = pos.x;
+                int z = pos.y;
+                int ySteps = generator.rooms[room_number].heights[tile_number];
+                bool isFloor = true;
+                //bool isWall = false; //unused
 
+                // NOT RELEVANT: DEFINITELY FLOOR
                 // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
-                if (!isFloor && onlyPerimeterWalls && !HasFloorNeighbor(map, x, z)) continue;
+                if (!isFloor && onlyPerimeterWalls && HasAdjacentTileFromRoom(room_number, pos, WALL)) continue;
 
                 // Base world position of this tile center
                 world = grid.CellToWorld(new Vector3Int(x, z, 0));
@@ -118,22 +116,17 @@ public class HeightMap3DBuilder : MonoBehaviour
 
                 if (useDiagonalCorners && isFloor && diagonalWallPrefab != null)
                 {
-                    bool N = (z + 1 < hi) && map[x, z + 1] == WALL;
-                    bool S = (z - 1 >= 0) && map[x, z - 1] == WALL;
-                    bool E = (x + 1 < w) && map[x + 1, z] == WALL;
-                    bool W = (x - 1 >= 0) && map[x - 1, z] == WALL;
+                    bool N = IsTileFromRoom(room_number, pos + Dir4[0], WALL);
+                    bool E = IsTileFromRoom(room_number, pos + Dir4[1], WALL);
+                    bool S = IsTileFromRoom(room_number, pos + Dir4[2], WALL);
+                    bool W = IsTileFromRoom(room_number, pos + Dir4[3], WALL);
 
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
                     int num_walls = (N ? 1 : 0) + (S ? 1 : 0) + (E ? 1 : 0) + (W ? 1 : 0);
-                    if ((num_walls != 3) || (num_walls <= 1))
-                    {
-                        // Optional: require the true corner tile to also be wall (uncomment if desired)
-                        // bool NE = (x+1 < w && z+1 < hi) && map[x+1, z+1] == WALL;
-                        // bool NW = (x-1 >= 0 && z+1 < hi) && map[x-1, z+1] == WALL;
-                        // bool SE = (x+1 < w && z-1 >= 0) && map[x+1, z-1] == WALL;
-                        // bool SW = (x-1 >= 0 && z-1 >= 0) && map[x-1, z-1] == WALL;
 
+                    if (num_walls == 2)  // must have exactly two walls to use diagonal wall
+                    {
                         float floorY = ySteps * unitHeight;
                         float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
                         float diagLen = DiagonalInsideLength(cell);
@@ -190,11 +183,12 @@ public class HeightMap3DBuilder : MonoBehaviour
                 for (int i = 0; i < 4; i++)
                 {
                     Vector2Int d = Dir4[i];
-                    int nx = x + d.x, nz = z + d.y;
-                    if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue;
+                    int nx = x + d.x;
+                    int nz = z + d.y;
+                    //if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue; // off-map
 
-                    bool nIsFloor = map[nx, nz] == FLOOR;
-                    bool nIsWall = map[nx, nz] == WALL;
+                    bool nIsFloor = IsTileFromRoom(room_number, new Vector2Int(nx, nz), FLOOR);
+                    bool nIsWall = IsTileFromRoom(room_number, new Vector2Int(nx, nz), WALL);
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
@@ -214,7 +208,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                             // midpoint between the two cells
                             mid = 0.5f * (world + nWorld);
 
-                            int floorSteps = heights[x, z];
+                            int floorSteps = GetHeightFromRoom(room_number, pos);
                             float ht = Mathf.Max(1, perimeterWallSteps) * unitHeight;
                             float baseY = floorSteps * unitHeight;
 
@@ -230,7 +224,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
                     if (!(isFloor && nIsFloor)) continue;
 
-                    int nySteps = heights[nx, nz];
+                    int nySteps = GetHeightFromRoom(room_number, new Vector2Int(nx, nz));
                     int diff = nySteps - ySteps;
                     if (diff == 0) continue;
 
@@ -243,10 +237,10 @@ public class HeightMap3DBuilder : MonoBehaviour
                         // Ramp spans from lower to higher tile
                         bool up = diff > 0;
                         if (up) continue; // don't create two ramps, one from each side, instead pick 'down'
-                        // Place ramp slightly biased toward lower side so the top aligns cleanly
+                                          // Place ramp slightly biased toward lower side so the top aligns cleanly
                         int lower = up ? ySteps : nySteps;
                         var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
-                        //var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
+                                                                 //var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
                         var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
                         ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
                     }
@@ -254,7 +248,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     {
                         bool up = diff > 0;
                         if (up) continue; // don't create two walls, one from each side, instead pick 'down'
-                        // Vertical face for a bigger step; center vertically between heights
+                                          // Vertical face for a bigger step; center vertically between heights
                         int minStep = Mathf.Min(ySteps, nySteps);
                         float heightWorld = Mathf.Abs(diff) * unitHeight;
                         var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
@@ -263,15 +257,67 @@ public class HeightMap3DBuilder : MonoBehaviour
                     }
                 }
             }
+        }
     }
 
+
+    // floor neighbor check (not including diagonals)
     bool HasFloorNeighbor(byte[,] map, int x, int z)
     {
         int w = map.GetLength(0), h = map.GetLength(1);
-        if (z+1 < h && map[x, z+1] == FLOOR) return true;
-        if (x+1 < w && map[x+1, z] == FLOOR) return true;
-        if (z-1 >= 0 && map[x, z-1] == FLOOR) return true;
-        if (x-1 >= 0 && map[x-1, z] == FLOOR) return true;
+        if (z + 1 < h && map[x, z + 1] == FLOOR) return true;
+        if (x + 1 < w && map[x + 1, z] == FLOOR) return true;
+        if (z - 1 >= 0 && map[x, z - 1] == FLOOR) return true;
+        if (x - 1 >= 0 && map[x - 1, z] == FLOOR) return true;
+        return false;
+    }
+
+    int GetHeightFromRoom(int room_number, Vector2Int pos)
+    {
+        for (int i = 0; i < generator.rooms[room_number].tiles.Count; i++)
+        {
+            if (generator.rooms[room_number].tiles[i] == pos)
+                return generator.rooms[room_number].heights[i];
+        }
+        return 999;
+    }
+    byte GetTileFromRoom(int room_number, Vector2Int pos)
+    {  
+        if (generator.rooms[room_number].wall_hash_room.Contains(pos))
+            return FLOOR;
+        if (generator.rooms[room_number].floor_hash_room.Contains(pos))
+            return WALL;
+        return UNKNOWN;
+    }
+
+    bool IsTileFromRoom(int room_number, Vector2Int pos, byte tile_type)
+    {
+        // TODO: get hash_room and hash_walls from room_number
+        if (tile_type == FLOOR)
+            if (generator.rooms[room_number].floor_hash_room.Contains(pos))
+                return true;
+        if (tile_type == WALL)
+            if (generator.rooms[room_number].wall_hash_room.Contains(pos))
+                return true;
+        return false;
+    }
+
+    bool HasAdjacentTileFromRoom(int room_number, Vector2Int pos, byte tile_type)
+    {
+        HashSet<Vector2Int> hash_room = new();
+        Vector2Int npos;
+        // TODO: get hash_room(room_number) and hash_walls(room_number)
+        
+        for (int dir = 0; dir < 4; dir++) // look for a floor in 4 directions
+            {
+                npos = pos + Dir4[dir];
+                if (tile_type == FLOOR)
+                    if (generator.rooms[room_number].floor_hash_room.Contains(npos))
+                        return true;
+                if (tile_type == WALL)
+                    if (generator.rooms[room_number].wall_hash_room.Contains(npos))
+                        return true;
+            }
         return false;
     }
 }

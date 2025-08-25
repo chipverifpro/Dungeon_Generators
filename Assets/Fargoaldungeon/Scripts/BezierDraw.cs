@@ -18,10 +18,10 @@ public class BezierDraw : MonoBehaviour
         length = (int)Vector2.Distance(p0, p3);
 
         // Short corridors need less control offset or they go crazy
-        if (cfg.controlOffset > (int)(length / cfg.max_control))
-            controlOffsetLimited = (int)(length / cfg.max_control);
+        if (cfg.bezierControlOffset > (int)(length / cfg.bezierMaxControl))
+            controlOffsetLimited = (int)(length / cfg.bezierMaxControl);
         else
-            controlOffsetLimited = (int)cfg.controlOffset;
+            controlOffsetLimited = (int)cfg.bezierControlOffset;
 
         // Improved control points: pull toward midpoint + random bend
         Vector2 p1 = Vector2.Lerp(p0, mid, 0.5f) + perp * Random.Range(-controlOffsetLimited, controlOffsetLimited);

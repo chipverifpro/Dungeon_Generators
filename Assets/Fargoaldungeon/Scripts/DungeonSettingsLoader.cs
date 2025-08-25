@@ -22,16 +22,12 @@ public static class DungeonSettingsLoader
         {
             width = so.mapWidth,
             height = so.mapHeight,
-            allowOverlappingRooms = so.allowOverlappingRooms,
-            
         };
 
         public void ApplyToSO(DungeonSettings so)
         {
             so.mapWidth = width;
-            so.mapHeight = height;
-            so.allowOverlappingRooms = allowOverlappingRooms;
-            
+            so.mapHeight = height;    
         }
     }
 

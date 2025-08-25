@@ -3,10 +3,12 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
 using System;
+using UnityEditor.MemoryProfiler;
 
 public class Room
 {
     // == Properties of the room
+    public int my_room_number = -1; // Uniquely identifies this room
     public List<Vector2Int> tiles = new();
     public List<Vector2Int> walls = new();
     public List<int> heights = new(); // Heights for each tile in the room, used for 3D generation
@@ -15,6 +17,12 @@ public class Room
     public Color colorFloor = Color.white;
     public List<int> neighbors = new(); // List of neighboring rooms by index
     public bool isCorridor = false; // Indicate if this room is a corridor
+
+    // HashSets contain tiles or walls for this room or room + immediate neighbors.
+    public HashSet<Vector2Int> floor_hash_room = new();
+    public HashSet<Vector2Int> wall_hash_room = new();
+    public HashSet<Vector2Int> floor_hash_neighborhood = new();
+    public HashSet<Vector2Int> wall_hash_neighborhood = new();
 
     // == constructors...
     public Room() { }
@@ -136,8 +144,8 @@ public class CellularAutomata : MonoBehaviour
     public TileBase floorTile;
 
     //public byte[,] map;
-        private byte WALL;
-        private byte FLOOR;
+    private byte WALL;
+    private byte FLOOR;
 
     private System.Random rng;
 
@@ -145,8 +153,8 @@ public class CellularAutomata : MonoBehaviour
 
     public void Start()
     {
-        WALL = generator.WALL;
-        FLOOR = generator.FLOOR;
+        WALL = DungeonGenerator.WALL;
+        FLOOR = DungeonGenerator.FLOOR;
     }
     public IEnumerator RunCaveGeneration()
     {
@@ -157,7 +165,7 @@ public class CellularAutomata : MonoBehaviour
         DrawMapFromByteArray();
         yield return new WaitForSeconds(cfg.stepDelay);
 
-        for (int step = 0; step < cfg.totalSteps; step++)
+        for (int step = 0; step < cfg.CellularGrowthSteps; step++)
         {
             generator.map = RunSimulationStep(generator.map);
             DrawMapFromByteArray();
@@ -181,21 +189,21 @@ public class CellularAutomata : MonoBehaviour
                 }
                 int borderDistance = Mathf.Min(x, y, cfg.mapWidth - x - 1, cfg.mapHeight - y - 1);
                 if (borderDistance == 1)
-                    map[x, y] = WALL; // Set border tile to wall
+                    map[x, y] = WALL; // Set hard border tile to wall
                 else if (borderDistance <= cfg.softBorderSize)
                     // Setting a wide random border makes square world edges less sharp
-                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? WALL : FLOOR;
+                    map[x, y] = rng.Next(0, 100) < cfg.cellularFillPercent ? WALL : FLOOR;
                 else
-                    if (cfg.usePerlin && rng.Next(0, 100) < (100 - cfg.noiseOverlay))
+                    if (cfg.usePerlin)
                 {
-                    float perlin1 = Mathf.PerlinNoise((x + seedX) * cfg.perlinScale, (y + seedY) * cfg.perlinScale);
-                    float perlin2 = Mathf.PerlinNoise((x - seedX) * cfg.perlin2Scale, (y - seedY) * cfg.perlin2Scale);
+                    float perlin1 = Mathf.PerlinNoise((x + seedX) * cfg.perlinWavelength, (y + seedY) * cfg.perlinWavelength);
+                    float perlin2 = Mathf.PerlinNoise((x - seedX) * cfg.perlin2Wavelength, (y - seedY) * cfg.perlin2Wavelength);
                     float noise = (perlin1 + perlin2) / 2f; // Combine two noise layers
                     map[x, y] = noise > cfg.perlinThreshold ? WALL : FLOOR;
                 }
-                else
+                else // Non Perlin noise
                 {
-                    map[x, y] = rng.Next(0, 100) < cfg.fillPercent ? WALL : FLOOR;
+                    map[x, y] = rng.Next(0, 100) < cfg.cellularFillPercent ? WALL : FLOOR;
                 }
             }
         return map;
@@ -262,7 +270,7 @@ public class CellularAutomata : MonoBehaviour
                         tilemap.SetTile(pos, null); // optional: don't draw deep interior walls
                     }
                 }
-                
+
             }
     }
 
@@ -346,9 +354,12 @@ public class CellularAutomata : MonoBehaviour
                                 yield return null;
                         }
                     }
-                    newRoom.Name = $"Room {rooms.Count + 1} ({newRoom.tiles.Count} tiles)";
+
+                    newRoom.my_room_number = rooms.Count;
+                    newRoom.Name = $"Room {newRoom.my_room_number} ({newRoom.tiles.Count} tiles)";
                     newRoom.setColorFloor(highlight: true);
                     rooms.Add(newRoom);
+                    
                     this_room_height++;  // change for the next room to be found
                     //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                 }
@@ -480,7 +491,7 @@ public class CellularAutomata : MonoBehaviour
 
     public Room SetRoomToHeight(Room room, int setHeight)
     {
-        for (int i=0;i<room.heights.Count;i++)
+        for (int i = 0; i < room.heights.Count; i++)
         {
             room.heights[i] = setHeight;
         }
@@ -512,7 +523,7 @@ public class CellularAutomata : MonoBehaviour
         return 0; //int.MaxValue;
     }
 
-    public String ListOfIntToString(List<int> ilist, bool do_sort=true)
+    public String ListOfIntToString(List<int> ilist, bool do_sort = true)
     {
         String result = "List: ";
         if (do_sort) ilist.Sort();
@@ -530,6 +541,7 @@ public class CellularAutomata : MonoBehaviour
         Vector2Int center_i = Vector2Int.zero;
         Vector2Int close_i = Vector2Int.zero;
         Vector2Int close_j = Vector2Int.zero;
+        int connection_room_i=-1, connection_room_j=-1;
 
         BottomBanner.Show($"Connecting {generator.rooms.Count} rooms by corridors...");
 
@@ -540,10 +552,11 @@ public class CellularAutomata : MonoBehaviour
         while (unconnected_rooms.Count > 1)
         {
             //Debug.Log("unconnected_rooms = " + ListOfIntToString(unconnected_rooms));
-
+            //Debug.Log("Room "+ +" neighbor_rooms = " + ListOfIntToString(unconnected_rooms));
             for (int xx = 0; xx < generator.rooms.Count; xx++)
             {
                 List<int> all_connected_to_xx = get_union_of_connected_room_indexes(xx);
+                Debug.Log("NEIGHBORS of Room " + xx + "; neighbors  = " + ListOfIntToString(generator.rooms[xx].neighbors));
                 Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
             }
 
@@ -566,24 +579,48 @@ public class CellularAutomata : MonoBehaviour
             close_j = GetClosestPointInTilesList(all_tiles_j, center_i);
             close_i = GetClosestPointInTilesList(all_tiles_i, close_j);
 
+            connection_room_i = -1;  // initial assumptions to be adjusted in for loop
+            connection_room_j = -1;
+            for (int rn = 0; rn < generator.rooms.Count; rn++)
+            {
+                if (generator.rooms[rn].tiles.Contains(close_i))
+                {
+                    connection_room_i = rn;
+                }
+                if (generator.rooms[rn].tiles.Contains(close_j))
+                {
+                    connection_room_j = rn;
+                }
+            }
+            if (connection_room_i == -1)
+            {
+                Debug.Log("No connection_room_i(" + i + ") found");
+                yield return new WaitForSeconds(5f);
+            }
+            if (connection_room_j == -1)
+            {
+                Debug.Log("No connection_room_j(" + j + ") found");
+                yield return new WaitForSeconds(5f);
+            }
             // find height of each corridor endpoint, limiting search to specific room
-            int height_i = GetHeightOfLocationFromAllRooms(generator.rooms, close_i);
-            int height_j = GetHeightOfLocationFromAllRooms(generator.rooms, close_j);
+            int height_i = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_i], close_i);
+            int height_j = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_j], close_j);
 
             // Carve the corridor and create a new room of it
             Room corridorRoom = generator.DrawCorridorSloped(close_i, close_j, height_i, height_j);
             corridorRoom.isCorridor = true; // Mark as corridor
-            corridorRoom.Name = $"Corridor {i}-{j}";
+            corridorRoom.Name = $"Corridor {connection_room_i}-{connection_room_j}";
             corridorRoom.setColorFloor(highlight: false); // Set corridor color
             corridorRoom.neighbors = new();
 
             // connect the two rooms and the new corridor via connected_rooms lists
-            corridorRoom.neighbors.Add(i);
-            corridorRoom.neighbors.Add(j);
+            corridorRoom.neighbors.Add(connection_room_i);
+            corridorRoom.neighbors.Add(connection_room_j);
+            int corridor_room_no = generator.rooms.Count;
+            corridorRoom.my_room_number = corridor_room_no;
             generator.rooms.Add(corridorRoom); // add new corridor room to the master list
-            int corridor_room_no = generator.rooms.Count - 1;
-            generator.rooms[i].neighbors.Add(corridor_room_no);
-            generator.rooms[j].neighbors.Add(corridor_room_no);
+            generator.rooms[connection_room_i].neighbors.Add(corridor_room_no);
+            generator.rooms[connection_room_j].neighbors.Add(corridor_room_no);
 
             // Remove second room (j) from unconnected rooms list
             for (var index = 0; index < unconnected_rooms.Count; index++)
@@ -617,14 +654,14 @@ public class CellularAutomata : MonoBehaviour
             if (!unconnected_rooms.Contains(i)) continue;  // i is not a unique room
 
             List<Vector2Int> room_cells_i = get_union_of_connected_room_cells(i);
-            Vector2Int center_i = GetCenterOfTiles (room_cells_i);
+            Vector2Int center_i = GetCenterOfTiles(room_cells_i);
 
             for (int j = i + 1; j < generator.rooms.Count; j++)
             {
                 if (!unconnected_rooms.Contains(j)) continue;  // j is not a unique room
 
                 List<Vector2Int> room_cells_j = get_union_of_connected_room_cells(j);
-                Vector2Int center_j = GetCenterOfTiles (room_cells_j);
+                Vector2Int center_j = GetCenterOfTiles(room_cells_j);
 
                 float distance = Vector2Int.Distance(center_i, center_j);
 
@@ -641,7 +678,7 @@ public class CellularAutomata : MonoBehaviour
 
     public Vector2Int GetCenterOfTiles(List<Vector2Int> tiles)
     {
-        if (tiles.Count == 0) return new Vector2Int(0,0);
+        if (tiles.Count == 0) return new Vector2Int(0, 0);
 
         int minX = int.MaxValue, minY = int.MaxValue;
         int maxX = int.MinValue, maxY = int.MinValue;
@@ -658,12 +695,16 @@ public class CellularAutomata : MonoBehaviour
     }
 
     // create a complete list of all rooms connected, ignoring duplicates
-    List<int> get_union_of_connected_room_indexes(int start_room_number)
+    List<int> get_union_of_connected_room_indexes(int start_room_number, bool everything = true)
     {
         bool added = true;
         List<int> rooms_to_connect = new();
         rooms_to_connect.Add(start_room_number);
         rooms_to_connect.AddRange(generator.rooms[start_room_number].neighbors);
+
+        // if everything, include all neighboring rooms of neighbors
+        // if !everything, only include direct neighbors
+        if (!everything) return rooms_to_connect;
 
         // create a complete list of all rooms connected, ignoring duplicates
         // keep going over the list until no more to add
@@ -686,11 +727,11 @@ public class CellularAutomata : MonoBehaviour
         return rooms_to_connect;
     }
 
-    public List<Vector2Int> get_union_of_connected_room_cells(int start_room_number)
+    public List<Vector2Int> get_union_of_connected_room_cells(int start_room_number, bool everything=true)
     {
         List<Vector2Int> union_of_cells = new();
         // create a complete list of all rooms connected, ignoring duplicates
-        List<int> rooms_to_connect = get_union_of_connected_room_indexes(start_room_number);
+        List<int> rooms_to_connect = get_union_of_connected_room_indexes(start_room_number, everything);
 
         // add tiles from all connected rooms to the list (union of cells)
         for (int i = 0; i < rooms_to_connect.Count; i++)
@@ -750,4 +791,28 @@ public class CellularAutomata : MonoBehaviour
         tilemap.SetTile(cellPos, null); // Clear the main tile
     }
 
+    Vector2Int[] directions_xy = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
+                                   Vector2Int.up + Vector2Int.left, Vector2Int.up + Vector2Int.right,
+                                   Vector2Int.down + Vector2Int.left, Vector2Int.down + Vector2Int.right };
+
+    void BuildWallListsFromRooms()
+    {
+        for (var room_number = 0; room_number < generator.rooms.Count; room_number++)
+        {
+            List<Vector2Int> connected_floor_tiles = get_union_of_connected_room_cells(room_number, false);
+            generator.rooms[room_number].walls = new();
+            foreach (var pos in generator.rooms[room_number].tiles)
+            {
+                foreach (var dir in directions_xy)
+                {
+                    if (!connected_floor_tiles.Contains(pos + dir))
+                    {
+                        generator.rooms[room_number].walls.Add(pos + dir);
+                        // Do we need to set height for walls?
+                    }
+                }
+            }
+        }
+        
+    }
 }

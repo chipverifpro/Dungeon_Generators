@@ -25,7 +25,7 @@ public class DungeonGUISelector : MonoBehaviour
         string selected = roomAlgorithmDropdown.options[index].text;
         Debug.Log("Room Algorithm selected: " + selected);
 
-        cfg.RoomAlgorithm = (DungeonSettings.DungeonAlgorithm_e)index;
+        cfg.RoomAlgorithm = (DungeonSettings.RoomAlgorithm_e)index;
         //generator.StopAllCoroutines();
         //ca.StopAllCoroutines();
         //Start();
