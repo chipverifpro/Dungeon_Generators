@@ -156,21 +156,27 @@ public class CellularAutomata : MonoBehaviour
         WALL = DungeonGenerator.WALL;
         FLOOR = DungeonGenerator.FLOOR;
     }
-    public IEnumerator RunCaveGeneration()
+    public IEnumerator RunCaveGeneration(TimeTask tm = null)
     {
-        generator.map = new byte[cfg.mapWidth, cfg.mapHeight];
-        RandomFillMap(generator.map);
-
-        // Draw initial map
-        DrawMapFromByteArray();
-        yield return new WaitForSeconds(cfg.stepDelay);
-
-        for (int step = 0; step < cfg.CellularGrowthSteps; step++)
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("RunCaveGeneration"); local_tm = true;}
+        try
         {
-            generator.map = RunSimulationStep(generator.map);
+            generator.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            RandomFillMap(generator.map);
+
+            // Draw initial map
             DrawMapFromByteArray();
-            yield return new WaitForSeconds(cfg.stepDelay);
+            yield return tm.YieldOrDelay(cfg.stepDelay);
+
+            for (int step = 0; step < cfg.CellularGrowthSteps; step++)
+            {
+                generator.map = RunSimulationStep(generator.map);
+                DrawMapFromByteArray();
+                yield return tm.YieldOrDelay(cfg.stepDelay);
+            }
         }
+        finally { if(local_tm) tm.End(); }
     }
 
     public byte[,] RandomFillMap(byte[,] map)
@@ -307,186 +313,218 @@ public class CellularAutomata : MonoBehaviour
         return false;
     }
 
-    public IEnumerator FindRoomsCoroutine(byte[,] map)
+    public IEnumerator FindRoomsCoroutine(byte[,] map, TimeTask tm)
     {
-        BottomBanner.Show("Finding rooms...");
-        int this_room_height = 0;
-        int width = map.GetLength(0);
-        int height = map.GetLength(1);
-        bool[,] visited = new bool[width, height];
-        List<Room> rooms = new List<Room>();
+        bool local_tm = false;
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("FindRoomsCoroutine"); local_tm = true; }
+        try
+        {
+            BottomBanner.Show("Finding rooms...");
+            int this_room_height = 0;
+            int width = map.GetLength(0);
+            int height = map.GetLength(1);
+            bool[,] visited = new bool[width, height];
+            List<Room> rooms = new List<Room>();
 
-        Vector2Int[] directions = {
+            Vector2Int[] directions = {
             Vector2Int.up, Vector2Int.down,
             Vector2Int.left, Vector2Int.right
         };
 
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
+            for (int x = 0; x < width; x++)
             {
-                if (!visited[x, y] && (map[x, y] == FLOOR)) // Floor and unvisited
+                for (int y = 0; y < height; y++)
                 {
-                    Room newRoom = new Room();
-                    Queue<Vector2Int> queue = new Queue<Vector2Int>(16);
-                    queue.Enqueue(new Vector2Int(x, y));
-                    visited[x, y] = true;
-
-                    while (queue.Count > 0)
+                    if (!visited[x, y] && (map[x, y] == FLOOR)) // Floor and unvisited
                     {
-                        var pos = queue.Dequeue();
-                        newRoom.tiles.Add(pos);
-                        newRoom.heights.Add(this_room_height);
+                        Room newRoom = new Room();
+                        Queue<Vector2Int> queue = new Queue<Vector2Int>(16);
+                        queue.Enqueue(new Vector2Int(x, y));
+                        visited[x, y] = true;
 
-                        foreach (var dir in directions)
+                        while (queue.Count > 0)
                         {
-                            int nx = pos.x + dir.x;
-                            int ny = pos.y + dir.y;
+                            var pos = queue.Dequeue();
+                            newRoom.tiles.Add(pos);
+                            newRoom.heights.Add(this_room_height);
 
-                            if (nx >= 0 && ny >= 0 && nx < width && ny < height &&
-                                !visited[nx, ny] && (map[nx, ny] == FLOOR))
+                            foreach (var dir in directions)
                             {
-                                queue.Enqueue(new Vector2Int(nx, ny));
-                                visited[nx, ny] = true;
+                                int nx = pos.x + dir.x;
+                                int ny = pos.y + dir.y;
+
+                                if (nx >= 0 && ny >= 0 && nx < width && ny < height &&
+                                    !visited[nx, ny] && (map[nx, ny] == FLOOR))
+                                {
+                                    queue.Enqueue(new Vector2Int(nx, ny));
+                                    visited[nx, ny] = true;
+                                }
+                                // Yield periodically to keep UI responsive during big rooms
+                                if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
+                                    yield return tm.YieldOrDelay(cfg.stepDelay / 3);
                             }
-                            // Yield periodically to keep UI responsive during big rooms
-                            if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
-                                yield return null;
                         }
+
+                        newRoom.my_room_number = rooms.Count;
+                        newRoom.Name = $"Room {newRoom.my_room_number} ({newRoom.tiles.Count} tiles)";
+                        newRoom.setColorFloor(highlight: true);
+                        rooms.Add(newRoom);
+
+                        this_room_height++;  // change for the next room to be found
+                                             //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                     }
-
-                    newRoom.my_room_number = rooms.Count;
-                    newRoom.Name = $"Room {newRoom.my_room_number} ({newRoom.tiles.Count} tiles)";
-                    newRoom.setColorFloor(highlight: true);
-                    rooms.Add(newRoom);
-                    
-                    this_room_height++;  // change for the next room to be found
-                    //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                 }
+                //Debug.Log($"Processed row {x} of {width}");
+                if (tm.IfYield()) yield return null; // Yield to allow UI updates
             }
-            //Debug.Log($"Processed row {x} of {width}");
-            yield return null; // Yield to allow UI updates
-        }
-        //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
-        rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
-        Debug.Log($"Finished room sorting.");
-        //rooms = RemoveTinyRooms(rooms);
-        generator.DrawMapByRooms(rooms);
-        yield return StartCoroutine(RemoveTinyRoomsCoroutine());
-        //rooms = new List<Room>(return_rooms);
-        //ColorCodeRooms(rooms);
+            //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
+            rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
+            Debug.Log($"Finished room sorting.");
+            //rooms = RemoveTinyRooms(rooms);
+            generator.DrawMapByRooms(rooms);
+            //yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm:null));
+            //rooms = new List<Room>(return_rooms);
+            //ColorCodeRooms(rooms);
 
-        //return rooms;
-        //return_rooms = rooms;
-        generator.rooms = rooms;
+            //return rooms;
+            //return_rooms = rooms;
+            generator.rooms = rooms;
+        }
+        finally { if(local_tm) tm.End(); }
     }
 
     // Generic cluster finder: find connected components whose cells equal `target` (FLOOR or WALL)
     // Uses 4-way adjacency like FindRoomsCoroutine did.
-    public IEnumerator FindClustersCoroutine(byte[,] map, byte target, List<Room> outRooms)
+    public IEnumerator FindClustersCoroutine(byte[,] map, byte target, List<Room> outRooms, TimeTask tm=null)
     {
-        outRooms.Clear();
-        int width = map.GetLength(0);
-        int height = map.GetLength(1);
-        bool[,] visited = new bool[width, height];
-
-        Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-
-        for (int x = 0; x < width; x++)
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("FindClustersCoroutine"); local_tm = true;}
+        try
         {
-            for (int y = 0; y < height; y++)
+            outRooms.Clear();
+            int width = map.GetLength(0);
+            int height = map.GetLength(1);
+            bool[,] visited = new bool[width, height];
+
+            Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+            for (int x = 0; x < width; x++)
             {
-                if (!visited[x, y] && map[x, y] == target)
+                for (int y = 0; y < height; y++)
                 {
-                    Room cluster = new Room();
-                    Queue<Vector2Int> q = new Queue<Vector2Int>(16);
-                    q.Enqueue(new Vector2Int(x, y));
-                    visited[x, y] = true;
-
-                    while (q.Count > 0)
+                    if (!visited[x, y] && map[x, y] == target)
                     {
-                        var p = q.Dequeue();
-                        cluster.tiles.Add(p);
+                        Room cluster = new Room();
+                        Queue<Vector2Int> q = new Queue<Vector2Int>(16);
+                        q.Enqueue(new Vector2Int(x, y));
+                        visited[x, y] = true;
 
-                        foreach (var d in directions)
+                        while (q.Count > 0)
                         {
-                            int nx = p.x + d.x;
-                            int ny = p.y + d.y;
-                            if (nx >= 0 && ny >= 0 && nx < width && ny < height &&
-                                !visited[nx, ny] && map[nx, ny] == target)
+                            var p = q.Dequeue();
+                            cluster.tiles.Add(p);
+
+                            foreach (var d in directions)
                             {
-                                q.Enqueue(new Vector2Int(nx, ny));
-                                visited[nx, ny] = true;
+                                int nx = p.x + d.x;
+                                int ny = p.y + d.y;
+                                if (nx >= 0 && ny >= 0 && nx < width && ny < height &&
+                                    !visited[nx, ny] && map[nx, ny] == target)
+                                {
+                                    q.Enqueue(new Vector2Int(nx, ny));
+                                    visited[nx, ny] = true;
+                                }
                             }
+
+                            // Periodic yield to keep UI responsive on large clusters
+                            if ((cluster.tiles.Count & 0x1FFF) == 0)
+                                if (tm.IfYield()) yield return null;
                         }
 
-                        // Periodic yield to keep UI responsive on large clusters
-                        if ((cluster.tiles.Count & 0x1FFF) == 0)
-                            yield return null;
+                        cluster.Name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
+                        outRooms.Add(cluster);
+                        if (tm.IfYield()) yield return null; // let UI breathe between clusters
                     }
-
-                    cluster.Name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
-                    outRooms.Add(cluster);
-                    yield return null; // let UI breathe between clusters
                 }
+                // optional progress log
+                // Debug.Log($"Cluster finder processed col {x} of {width}");
             }
-            // optional progress log
-            // Debug.Log($"Cluster finder processed col {x} of {width}");
         }
+        finally { if(local_tm) tm.End(); }
     }
 
     // Remove clusters smaller than cfg.MinimumRoomSize by repainting them to `replacement` (FLOOR or WALL)
-    public IEnumerator RemoveTinyClustersCoroutine(List<Room> clusters, int minimumSize, byte replacement, TileBase replacementTile = null)
+    public IEnumerator RemoveTinyClustersCoroutine(List<Room> clusters, int minimumSize, byte replacement, TileBase replacementTile = null, TimeTask tm=null)
     {
-        bool Done = false;
-        while (!Done)
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyClustersCoroutine"); local_tm = true;}
+        try
         {
-            Done = true;
-            for (int i = 0; i < clusters.Count; i++)
+            bool Done = false;
+            while (!Done)
             {
-                var room = clusters[i];
-                if (room.Size < minimumSize)
+                Done = true;
+                for (int i = 0; i < clusters.Count; i++)
                 {
-                    foreach (var t in room.tiles)
+                    var room = clusters[i];
+                    if (room.Size < minimumSize)
                     {
-                        var pos = new Vector3Int(t.x, t.y, 0);
-                        generator.map[t.x, t.y] = replacement; // flip to replacement
-                        // Clear visuals;
-                        if (replacementTile != null)
-                            tilemap.SetTile(pos, replacementTile);
-                        else
-                            ClearTileAndNeighborWalls(tilemap, pos);
+                        foreach (var t in room.tiles)
+                        {
+                            var pos = new Vector3Int(t.x, t.y, 0);
+                            generator.map[t.x, t.y] = replacement; // flip to replacement
+                                                                   // Clear visuals;
+                            if (replacementTile != null)
+                                tilemap.SetTile(pos, replacementTile);
+                            else
+                                ClearTileAndNeighborWalls(tilemap, pos);
+                        }
+                        clusters.RemoveAt(i);
+                        Done = false;
+                        if (tm.IfYield()) yield return null; // UI breathe
+                        break;
                     }
-                    clusters.RemoveAt(i);
-                    Done = false;
-                    yield return null; // UI breathe
-                    break;
                 }
             }
+            if (tm.IfYield()) yield return null;
         }
-        yield return null;
+        finally { if(local_tm) tm.End(); }
     }
 
-    public IEnumerator RemoveTinyRoomsCoroutine()
+    public IEnumerator RemoveTinyRoomsCoroutine(TimeTask tm=null)
     {
-        // 1) Find Floor clusters
-        generator.rooms = new List<Room>();
-        yield return StartCoroutine(FindClustersCoroutine(generator.map, FLOOR, generator.rooms));
-        // 2) Remove the tiny ones by turning them into WALL
-        yield return StartCoroutine(RemoveTinyClustersCoroutine(generator.rooms, cfg.MinimumRoomSize, WALL, null));
-        // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
-        //DrawMapFromByteArray();
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyRoomsCoroutine"); local_tm = true;}
+        try
+        {
+            // 1) Find Floor clusters
+            generator.rooms = new List<Room>();
+            yield return StartCoroutine(FindClustersCoroutine(generator.map, FLOOR, generator.rooms, tm:null));
+            // 2) Remove the tiny ones by turning them into WALL
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(generator.rooms, cfg.MinimumRoomSize, WALL, null, tm:null));
+            // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
+            //DrawMapFromByteArray();
+            if (tm.IfYield()) yield return null;
+        }
+        finally { if (local_tm) tm.End(); }
     }
 
-    public IEnumerator RemoveTinyRocksCoroutine()
+    public IEnumerator RemoveTinyRocksCoroutine(TimeTask tm = null)
     {
-        // 1) Find WALL clusters
-        var islands = new List<Room>(128);
-        yield return StartCoroutine(FindClustersCoroutine(generator.map, WALL, islands));
-        // 2) Remove the tiny ones by turning them into FLOOR
-        yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile));
-        // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
-        //DrawMapFromByteArray();
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyRocksCoroutine"); local_tm = true;}
+        try
+        {
+            // 1) Find WALL clusters
+            var islands = new List<Room>(128);
+            yield return StartCoroutine(FindClustersCoroutine(generator.map, WALL, islands, tm:null));
+            // 2) Remove the tiny ones by turning them into FLOOR
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile, tm:null));
+            // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
+            //DrawMapFromByteArray();
+            if (tm.IfYield()) yield return null;
+        }
+        finally { if (local_tm) tm.End(); }
     }
 
     public Room SetRoomToHeight(Room room, int setHeight)
@@ -535,110 +573,117 @@ public class CellularAutomata : MonoBehaviour
     }
 
     // replaced local rooms list by indexes to global rooms list
-    public IEnumerator ConnectRoomsByCorridors()
+    public IEnumerator ConnectRoomsByCorridors(TimeTask tm=null)
     {
-        List<int> unconnected_rooms = new(); // start with all, and then remove as rooms are merged
-        Vector2Int center_i = Vector2Int.zero;
-        Vector2Int close_i = Vector2Int.zero;
-        Vector2Int close_j = Vector2Int.zero;
-        int connection_room_i=-1, connection_room_j=-1;
-
-        BottomBanner.Show($"Connecting {generator.rooms.Count} rooms by corridors...");
-
-        // initialize unconnected rooms to include all room indexes
-        for (int room_no = 0; room_no < generator.rooms.Count; room_no++)
-            unconnected_rooms.Add(room_no);
-
-        while (unconnected_rooms.Count > 1)
+        bool local_tm = false;
+        if (tm==null) {tm = TimeManager.Instance.BeginTask("ConnectRoomsByCorridors"); local_tm = true;}
+        try
         {
-            //Debug.Log("unconnected_rooms = " + ListOfIntToString(unconnected_rooms));
-            //Debug.Log("Room "+ +" neighbor_rooms = " + ListOfIntToString(unconnected_rooms));
-            for (int xx = 0; xx < generator.rooms.Count; xx++)
-            {
-                List<int> all_connected_to_xx = get_union_of_connected_room_indexes(xx);
-                Debug.Log("NEIGHBORS of Room " + xx + "; neighbors  = " + ListOfIntToString(generator.rooms[xx].neighbors));
-                Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
-            }
+            List<int> unconnected_rooms = new(); // start with all, and then remove as rooms are merged
+            Vector2Int center_i = Vector2Int.zero;
+            Vector2Int close_i = Vector2Int.zero;
+            Vector2Int close_j = Vector2Int.zero;
+            int connection_room_i = -1, connection_room_j = -1;
 
-            // Find two closest rooms (i and j),
-            // and a point in each close to the other (close_i, close_j)
-            // (not guaranteed to be THE closest, but good enough for room connections)
-            Vector2Int closestPair = FindTwoClosestRooms(unconnected_rooms);
-            if (closestPair == Vector2Int.zero)
-            {
-                Debug.Log("Problem? No pairs found but unconnected_rooms.Count = " + unconnected_rooms.Count);
-                break; // no pairs found, exit loop
-            }
-            int i = closestPair.x;
-            int j = closestPair.y;
-            List<Vector2Int> all_tiles_i = get_union_of_connected_room_cells(i);
-            List<Vector2Int> all_tiles_j = get_union_of_connected_room_cells(j);
+            BottomBanner.Show($"Connecting {generator.rooms.Count} rooms by corridors...");
 
-            // Closest points between rooom i and room j.
-            center_i = GetCenterOfTiles(all_tiles_i);
-            close_j = GetClosestPointInTilesList(all_tiles_j, center_i);
-            close_i = GetClosestPointInTilesList(all_tiles_i, close_j);
+            // initialize unconnected rooms to include all room indexes
+            for (int room_no = 0; room_no < generator.rooms.Count; room_no++)
+                unconnected_rooms.Add(room_no);
 
-            connection_room_i = -1;  // initial assumptions to be adjusted in for loop
-            connection_room_j = -1;
-            for (int rn = 0; rn < generator.rooms.Count; rn++)
+            while (unconnected_rooms.Count > 1)
             {
-                if (generator.rooms[rn].tiles.Contains(close_i))
+                //Debug.Log("unconnected_rooms = " + ListOfIntToString(unconnected_rooms));
+                //Debug.Log("Room "+ +" neighbor_rooms = " + ListOfIntToString(unconnected_rooms));
+                for (int xx = 0; xx < generator.rooms.Count; xx++)
                 {
-                    connection_room_i = rn;
+                    List<int> all_connected_to_xx = get_union_of_connected_room_indexes(xx);
+                    Debug.Log("NEIGHBORS of Room " + xx + "; neighbors  = " + ListOfIntToString(generator.rooms[xx].neighbors));
+                    Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
                 }
-                if (generator.rooms[rn].tiles.Contains(close_j))
+
+                // Find two closest rooms (i and j),
+                // and a point in each close to the other (close_i, close_j)
+                // (not guaranteed to be THE closest, but good enough for room connections)
+                Vector2Int closestPair = FindTwoClosestRooms(unconnected_rooms);
+                if (closestPair == Vector2Int.zero)
                 {
-                    connection_room_j = rn;
+                    Debug.Log("Problem? No pairs found but unconnected_rooms.Count = " + unconnected_rooms.Count);
+                    break; // no pairs found, exit loop
                 }
-            }
-            if (connection_room_i == -1)
-            {
-                Debug.Log("No connection_room_i(" + i + ") found");
-                yield return new WaitForSeconds(5f);
-            }
-            if (connection_room_j == -1)
-            {
-                Debug.Log("No connection_room_j(" + j + ") found");
-                yield return new WaitForSeconds(5f);
-            }
-            // find height of each corridor endpoint, limiting search to specific room
-            int height_i = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_i], close_i);
-            int height_j = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_j], close_j);
+                int i = closestPair.x;
+                int j = closestPair.y;
+                List<Vector2Int> all_tiles_i = get_union_of_connected_room_cells(i);
+                List<Vector2Int> all_tiles_j = get_union_of_connected_room_cells(j);
 
-            // Carve the corridor and create a new room of it
-            Room corridorRoom = generator.DrawCorridorSloped(close_i, close_j, height_i, height_j);
-            corridorRoom.isCorridor = true; // Mark as corridor
-            corridorRoom.Name = $"Corridor {connection_room_i}-{connection_room_j}";
-            corridorRoom.setColorFloor(highlight: false); // Set corridor color
-            corridorRoom.neighbors = new();
+                // Closest points between rooom i and room j.
+                center_i = GetCenterOfTiles(all_tiles_i);
+                close_j = GetClosestPointInTilesList(all_tiles_j, center_i);
+                close_i = GetClosestPointInTilesList(all_tiles_i, close_j);
 
-            // connect the two rooms and the new corridor via connected_rooms lists
-            corridorRoom.neighbors.Add(connection_room_i);
-            corridorRoom.neighbors.Add(connection_room_j);
-            int corridor_room_no = generator.rooms.Count;
-            corridorRoom.my_room_number = corridor_room_no;
-            generator.rooms.Add(corridorRoom); // add new corridor room to the master list
-            generator.rooms[connection_room_i].neighbors.Add(corridor_room_no);
-            generator.rooms[connection_room_j].neighbors.Add(corridor_room_no);
-
-            // Remove second room (j) from unconnected rooms list
-            for (var index = 0; index < unconnected_rooms.Count; index++)
-            {
-                if (unconnected_rooms[index] == j)
+                connection_room_i = -1;  // initial assumptions to be adjusted in for loop
+                connection_room_j = -1;
+                for (int rn = 0; rn < generator.rooms.Count; rn++)
                 {
-                    unconnected_rooms.RemoveAt(index);
-                    break; // found it, done removing j from unconnected rooms list
+                    if (generator.rooms[rn].tiles.Contains(close_i))
+                    {
+                        connection_room_i = rn;
+                    }
+                    if (generator.rooms[rn].tiles.Contains(close_j))
+                    {
+                        connection_room_j = rn;
+                    }
                 }
-            }
+                if (connection_room_i == -1)
+                {
+                    Debug.Log("ERROR: No connection_room_i(" + i + ") found");
+                    //yield return tm.YieldOrDelay(5f);
+                }
+                if (connection_room_j == -1)
+                {
+                    Debug.Log("ERROR: No connection_room_j(" + j + ") found");
+                    //yield return tm.YieldOrDelay(5f);
+                }
+                // find height of each corridor endpoint, limiting search to specific room
+                int height_i = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_i], close_i);
+                int height_j = GetHeightOfLocationFromOneRoom(generator.rooms[connection_room_j], close_j);
 
-            DrawMapFromRoomsList(generator.rooms);
-            yield return StartCoroutine(generator.DrawWalls());
-            yield return new WaitForSeconds(cfg.stepDelay / 3f);
+                // Carve the corridor and create a new room of it
+                Room corridorRoom = generator.DrawCorridorSloped(close_i, close_j, height_i, height_j);
+                corridorRoom.isCorridor = true; // Mark as corridor
+                corridorRoom.Name = $"Corridor {connection_room_i}-{connection_room_j}";
+                corridorRoom.setColorFloor(highlight: false); // Set corridor color
+                corridorRoom.neighbors = new();
+
+                // connect the two rooms and the new corridor via connected_rooms lists
+                corridorRoom.neighbors.Add(connection_room_i);
+                corridorRoom.neighbors.Add(connection_room_j);
+                int corridor_room_no = generator.rooms.Count;
+                corridorRoom.my_room_number = corridor_room_no;
+                generator.rooms.Add(corridorRoom); // add new corridor room to the master list
+                generator.rooms[connection_room_i].neighbors.Add(corridor_room_no);
+                generator.rooms[connection_room_j].neighbors.Add(corridor_room_no);
+
+                // Remove second room (j) from unconnected rooms list
+                for (var index = 0; index < unconnected_rooms.Count; index++)
+                {
+                    if (unconnected_rooms[index] == j)
+                    {
+                        unconnected_rooms.RemoveAt(index);
+                        break; // found it, done removing j from unconnected rooms list
+                    }
+                }
+
+                DrawMapFromRoomsList(generator.rooms);
+                generator.DrawWalls();
+                //yield return tm.YieldOrDelay(cfg.stepDelay / 3);
+                if (tm.IfYield()) yield return null;
+            }
+            //DrawMapFromRoomsList(connected_rooms);
+            //yield return StartCoroutine(generator.DrawWalls());
+            if (tm.IfYield()) yield return null;
         }
-        //DrawMapFromRoomsList(connected_rooms);
-        //yield return StartCoroutine(generator.DrawWalls());
-        yield return null;
+        finally { if(local_tm) tm.End(); }
     }
 
     // TODO: not very efficient
@@ -765,7 +810,8 @@ public class CellularAutomata : MonoBehaviour
         return closest_point;
     }
 
-    // Obsolete?
+    // Obsolete?  This really combined the room contents, which
+    // we no longer do, we instead maintain a list of neighbors.
     void MergeRooms(Room keep, Room merge, List<Vector2Int> corridor)
     {
         var combined = new HashSet<Vector2Int>(keep.tiles);
@@ -791,9 +837,14 @@ public class CellularAutomata : MonoBehaviour
         tilemap.SetTile(cellPos, null); // Clear the main tile
     }
 
-    Vector2Int[] directions_xy = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
-                                   Vector2Int.up + Vector2Int.left, Vector2Int.up + Vector2Int.right,
-                                   Vector2Int.down + Vector2Int.left, Vector2Int.down + Vector2Int.right };
+    Vector2Int[] directions_xy = { Vector2Int.up,
+                                   Vector2Int.down,
+                                   Vector2Int.left,
+                                   Vector2Int.right,
+                                   Vector2Int.up + Vector2Int.left,
+                                   Vector2Int.up + Vector2Int.right,
+                                   Vector2Int.down + Vector2Int.left,
+                                   Vector2Int.down + Vector2Int.right };
 
     void BuildWallListsFromRooms()
     {
@@ -808,7 +859,9 @@ public class CellularAutomata : MonoBehaviour
                     if (!connected_floor_tiles.Contains(pos + dir))
                     {
                         generator.rooms[room_number].walls.Add(pos + dir);
-                        // Do we need to set height for walls?
+                        // Do we need to keep height for walls?
+                        // No, they only are drawn as neighbors of a floor
+                        // which already has a height.
                     }
                 }
             }
