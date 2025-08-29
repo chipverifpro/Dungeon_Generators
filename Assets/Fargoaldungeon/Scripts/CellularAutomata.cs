@@ -9,6 +9,7 @@ public class Room
 {
     // == Properties of the room
     public int my_room_number = -1; // Uniquely identifies this room
+    public String name = "";
     public List<Vector2Int> tiles = new();
     public List<Vector2Int> walls = new();
     public List<int> heights = new(); // Heights for each tile in the room, used for 3D generation
@@ -26,7 +27,7 @@ public class Room
 
     // == constructors...
     public Room() { }
-    
+
     public Room(List<Vector2Int> initialTileList, List<int> initialHeightsList)
     {
         tiles = new List<Vector2Int>(initialTileList);
@@ -116,18 +117,25 @@ public class Room
     // room.setColorFloor(highlight: true);    // Bright Random
     public Color setColorFloor(Color? color = null, bool highlight = true, string rgba = "")
     {
+        Color color_floor = getColor(color: color, highlight: highlight, rgba: rgba);
+        return color_floor;
+    }
+
+    public Color getColor(Color? color = null, bool highlight = true, string rgba = "")
+    {
         Color colorrgba = new(); //temp
+        Color return_color = Color.white;
 
         if (color != null)
-            colorFloor = (Color)color;
+            return_color = (Color)color;
         else if ((!string.IsNullOrEmpty(rgba)) && (ColorUtility.TryParseHtmlString(rgba, out colorrgba)))
             colorFloor = colorrgba;
         else if (highlight)
-            colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
         else // highlight == false
-            colorFloor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
 
-        return colorFloor;
+        return return_color;
     }
 }
 
@@ -148,6 +156,8 @@ public class CellularAutomata : MonoBehaviour
     private byte FLOOR;
 
     private System.Random rng;
+    [HideInInspector] public bool success;    // global generic return value from various tasks
+    
 
     //public List<Room> return_rooms = new List<Room>();
 
@@ -159,7 +169,7 @@ public class CellularAutomata : MonoBehaviour
     public IEnumerator RunCaveGeneration(TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("RunCaveGeneration"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RunCaveGeneration"); local_tm = true; }
         try
         {
             generator.map = new byte[cfg.mapWidth, cfg.mapHeight];
@@ -176,7 +186,7 @@ public class CellularAutomata : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay);
             }
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
     public byte[,] RandomFillMap(byte[,] map)
@@ -390,15 +400,15 @@ public class CellularAutomata : MonoBehaviour
             //return_rooms = rooms;
             generator.rooms = rooms;
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
     // Generic cluster finder: find connected components whose cells equal `target` (FLOOR or WALL)
     // Uses 4-way adjacency like FindRoomsCoroutine did.
-    public IEnumerator FindClustersCoroutine(byte[,] map, byte target, List<Room> outRooms, TimeTask tm=null)
+    public IEnumerator FindClustersCoroutine(byte[,] map, byte target, List<Room> outRooms, TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("FindClustersCoroutine"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("FindClustersCoroutine"); local_tm = true; }
         try
         {
             outRooms.Clear();
@@ -450,14 +460,14 @@ public class CellularAutomata : MonoBehaviour
                 // Debug.Log($"Cluster finder processed col {x} of {width}");
             }
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
     // Remove clusters smaller than cfg.MinimumRoomSize by repainting them to `replacement` (FLOOR or WALL)
-    public IEnumerator RemoveTinyClustersCoroutine(List<Room> clusters, int minimumSize, byte replacement, TileBase replacementTile = null, TimeTask tm=null)
+    public IEnumerator RemoveTinyClustersCoroutine(List<Room> clusters, int minimumSize, byte replacement, TileBase replacementTile = null, TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyClustersCoroutine"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RemoveTinyClustersCoroutine"); local_tm = true; }
         try
         {
             bool Done = false;
@@ -488,20 +498,20 @@ public class CellularAutomata : MonoBehaviour
             }
             if (tm.IfYield()) yield return null;
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
-    public IEnumerator RemoveTinyRoomsCoroutine(TimeTask tm=null)
+    public IEnumerator RemoveTinyRoomsCoroutine(TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyRoomsCoroutine"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RemoveTinyRoomsCoroutine"); local_tm = true; }
         try
         {
             // 1) Find Floor clusters
             generator.rooms = new List<Room>();
-            yield return StartCoroutine(FindClustersCoroutine(generator.map, FLOOR, generator.rooms, tm:null));
+            yield return StartCoroutine(FindClustersCoroutine(generator.map, FLOOR, generator.rooms, tm: null));
             // 2) Remove the tiny ones by turning them into WALL
-            yield return StartCoroutine(RemoveTinyClustersCoroutine(generator.rooms, cfg.MinimumRoomSize, WALL, null, tm:null));
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(generator.rooms, cfg.MinimumRoomSize, WALL, null, tm: null));
             // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
             //DrawMapFromByteArray();
             if (tm.IfYield()) yield return null;
@@ -512,14 +522,14 @@ public class CellularAutomata : MonoBehaviour
     public IEnumerator RemoveTinyRocksCoroutine(TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("RemoveTinyRocksCoroutine"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RemoveTinyRocksCoroutine"); local_tm = true; }
         try
         {
             // 1) Find WALL clusters
             var islands = new List<Room>(128);
-            yield return StartCoroutine(FindClustersCoroutine(generator.map, WALL, islands, tm:null));
+            yield return StartCoroutine(FindClustersCoroutine(generator.map, WALL, islands, tm: null));
             // 2) Remove the tiny ones by turning them into FLOOR
-            yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile, tm:null));
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile, tm: null));
             // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
             //DrawMapFromByteArray();
             if (tm.IfYield()) yield return null;
@@ -573,10 +583,10 @@ public class CellularAutomata : MonoBehaviour
     }
 
     // replaced local rooms list by indexes to global rooms list
-    public IEnumerator ConnectRoomsByCorridors(TimeTask tm=null)
+    public IEnumerator ConnectRoomsByCorridors(TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("ConnectRoomsByCorridors"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("ConnectRoomsByCorridors"); local_tm = true; }
         try
         {
             List<int> unconnected_rooms = new(); // start with all, and then remove as rooms are merged
@@ -683,7 +693,7 @@ public class CellularAutomata : MonoBehaviour
             //yield return StartCoroutine(generator.DrawWalls());
             if (tm.IfYield()) yield return null;
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
     // TODO: not very efficient
@@ -772,7 +782,7 @@ public class CellularAutomata : MonoBehaviour
         return rooms_to_connect;
     }
 
-    public List<Vector2Int> get_union_of_connected_room_cells(int start_room_number, bool everything=true)
+    public List<Vector2Int> get_union_of_connected_room_cells(int start_room_number, bool everything = true)
     {
         List<Vector2Int> union_of_cells = new();
         // create a complete list of all rooms connected, ignoring duplicates
@@ -866,6 +876,24 @@ public class CellularAutomata : MonoBehaviour
                 }
             }
         }
-        
+
     }
+
+    public Color getColor(Color? color = null, bool highlight = true, string rgba = "")
+    {
+        Color colorrgba = new(); //temp
+        Color return_color = Color.white;
+
+        if (color != null)
+            return_color = (Color)color;
+        else if ((!string.IsNullOrEmpty(rgba)) && (ColorUtility.TryParseHtmlString(rgba, out colorrgba)))
+            return_color = colorrgba;
+        else if (highlight)
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
+        else // highlight == false
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
+
+        return return_color;
+    }
+
 }

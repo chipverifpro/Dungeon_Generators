@@ -27,12 +27,13 @@ public class BezierDraw : MonoBehaviour
         Vector2 p1 = Vector2.Lerp(p0, mid, 0.5f) + perp * Random.Range(-controlOffsetLimited, controlOffsetLimited);
         Vector2 p2 = Vector2.Lerp(p3, mid, 0.5f) + perp * Random.Range(-controlOffsetLimited, controlOffsetLimited);
 
-        length = GetEstimatedLength(p0, p1, p2, p3);
+        length = GetEstimatedLength(p0, p1, p2, p3); // overestimate, determines number of sample points
         List<Vector2Int> path = SampleBezierCurve(p0, p1, p2, p3, length);
 
         return path;
     }
 
+    // in hash order, kinda weird to watch drawn
     List<Vector2Int> SampleBezierCurveUnordered(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, int steps)
     {
         HashSet<Vector2Int> sampledPoints = new HashSet<Vector2Int>();
@@ -49,7 +50,7 @@ public class BezierDraw : MonoBehaviour
 
     List<Vector2Int> SampleBezierCurve(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, int steps)
     {
-        HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
+        HashSet<Vector2Int> seen = new HashSet<Vector2Int>(); // prevents useless duplicate points
         List<Vector2Int> orderedPoints = new List<Vector2Int>();
 
         for (int i = 0; i <= steps; i++)

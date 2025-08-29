@@ -806,6 +806,120 @@ MonoBehaviour:
   room_rects_heights: 
   mapStale: 1
   room_rects_color: []
+  tavern:
+    enabled: 1
+    minSize: {x: 100, y: 80}
+    maxAspect: 2
+    commonPct: {x: 0.55, y: 0.7}
+    servicePct: {x: 0.2, y: 0.35}
+    privatePct: {x: 0.1, y: 0.2}
+    hallWidth: 8
+    barDepth: 8
+    kitchenMin: {x: 24, y: 20}
+    storageMin: {x: 20, y: 16}
+    frontSpan: {x: 8, y: 12}
+    windowEvery: 10
+    features:
+      hasStage: 1
+      hasBooths: 1
+      hasCellar: 1
+      hasStables: 0
+    stairs:
+      up: 1
+      down: 1
+    validationRetries: 24
+    streetEdge: 
+    worldMargin: 1
+    hearthSize: {x: 8, y: 4}
+    stageSize: {x: 16, y: 8}
+    boothSize: {x: 8, y: 12}
+    maxBooths: 3
+    barMinVisualWidth: 12
+    barMinVisualHeight: 4
+    bedroomMinSize: {x: 12, y: 12}
+    wcSize: {x: 8, y: 8}
+    minBedrooms: 3
+    maxBedrooms: 6
+  buildingTries: 20
+  tavernFootprint:
+    rect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    frontDir: {x: 0, y: 0}
+    tiles: []
+    doorSpan: []
+    frontFacade: []
+    exterior: []
+    score: 0
+  tavernZones:
+    commonRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    serviceRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    privateRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+  tavernCommon:
+    barRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    barDoor: {x: 0, y: 0}
+    serviceDoor: {x: 0, y: 0}
+    hearthRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    stageRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    boothRects: []
+  tavernService:
+    corridorRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    kitchenRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    storageRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    officeRect:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    rearExitTile: {x: 0, y: 0}
+  tavernVertical:
+    stairsDown: {x: 0, y: 0}
+    stairsUp: {x: 0, y: 0}
+    upstairsHall:
+      x: 0
+      y: 0
+      width: 0
+      height: 0
+    upstairsBedrooms: []
+    upstairsWCs: []
 --- !u!483693784 &409665905
 TilemapRenderer:
   m_ObjectHideFlags: 0
@@ -874,7 +988,7 @@ Tilemap:
   m_TileColorArray: []
   m_TileObjectToInstantiateArray: []
   m_AnimationFrameRate: 10
-  m_Color: {r: 0.052643314, g: 0.8335415, b: 0.8584906, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Origin: {x: 0, y: 0, z: 0}
   m_Size: {x: 0, y: 0, z: 1}
   m_TileAnchor: {x: 0.5, y: 0.5, z: 0}
@@ -1012,6 +1126,7 @@ MonoBehaviour:
   tilemap: {fileID: 409665906}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
+  success: 0
 --- !u!114 &409665912
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2824,6 +2939,9 @@ MonoBehaviour:
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
     - m_Text: Cellular Automata Perlin
+      m_Image: {fileID: 0}
+      m_Color: {r: 1, g: 1, b: 1, a: 1}
+    - m_Text: Tavern
       m_Image: {fileID: 0}
       m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_OnValueChanged:

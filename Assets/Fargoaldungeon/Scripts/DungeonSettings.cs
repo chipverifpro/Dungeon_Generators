@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 
 
@@ -6,7 +7,7 @@ using UnityEngine;
 public class DungeonSettings : ScriptableObject
 {
     // Shared enumerations
-    public enum RoomAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin }
+    public enum RoomAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin, Tavern }
     public enum TunnelsAlgorithm_e { TunnelsOrthographic, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
 
     [Header("Master Configurations")]
@@ -26,6 +27,7 @@ public class DungeonSettings : ScriptableObject
     public bool roundWorld = false;
 
     [Header("Scatter Room Settings")]
+    public bool useScatterRooms = false;
     public int roomAttempts = 50;
     public int roomsMax = 10;
     public int minRoomSize = 20;
@@ -74,4 +76,10 @@ public class DungeonSettings : ScriptableObject
     [Header("Neighbor Cache Settings")]
     public NeighborCache.Shape neighborShape = NeighborCache.Shape.Square;
     public bool includeDiagonals = true;
+
+    [Header("Building Settings")]
+    public bool useBuilding = false;
+    public int cellar_floor_height = -10;
+    public int ground_floor_height = 0;
+    public int next_floor_height = 10;
 }

@@ -4,6 +4,7 @@ using UnityEngine.Tilemaps;
 using System.Collections;
 using System.Linq;
 using System;
+using NUnit.Framework;
 
 /* DONE list...
 -- DONE; Round world including fast oval room bounds checking
@@ -38,7 +39,7 @@ using System;
  */
 
 // Master Dungeon Generation Class...
-public class DungeonGenerator : MonoBehaviour
+public partial class DungeonGenerator : MonoBehaviour
 {
     public DungeonSettings cfg; // Configurable settings for project
 
@@ -122,22 +123,36 @@ public class DungeonGenerator : MonoBehaviour
                 case DungeonSettings.RoomAlgorithm_e.Scatter_Overlap:
                     cfg.generateOverlappingRooms = true;
                     cfg.useCellularAutomata = false;
+                    cfg.useScatterRooms = true;
+                    tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.Scatter_NoOverlap:
                     cfg.generateOverlappingRooms = false;
-                    cfg.useCellularAutomata = false;
+                    cfg.useCellularAutomata = true;
+                    cfg.useScatterRooms = true;
+                    tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomata:
                     cfg.useCellularAutomata = true;
+                    cfg.useScatterRooms = false;
                     cfg.usePerlin = false; // Disable Perlin for CA
+                    tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomataPerlin:
                     cfg.useCellularAutomata = true;
+                    cfg.useScatterRooms = false;
                     cfg.usePerlin = true; // Enable Perlin for CA
+                    tavern.enabled = false;
+                    break;
+                case DungeonSettings.RoomAlgorithm_e.Tavern:
+                    tavern.enabled = true;
+                    cfg.useCellularAutomata = false;
+                    cfg.useScatterRooms = false;
                     break;
             }
 
             BottomBanner.Show("Initialize dungeon...");
+
 
             // ===== Step 1. Initialize the dungeon
             tilemap.ClearAllTiles();
@@ -147,13 +162,20 @@ public class DungeonGenerator : MonoBehaviour
             yield return tm.YieldOrDelay(cfg.stepDelay);
 
             // ===== Step 2. Place rooms
+
+            // TAVERN
+            if (tavern.enabled)
+            {
+                yield return StartCoroutine(BuildTavern(tm: null));
+            }
+
             if (cfg.useCellularAutomata) // Cellular Automata generation
             {
-                BottomBanner.Show("Cellular Automata cavern generation itterating...");
-                yield return StartCoroutine(ca.RunCaveGeneration(tm:null));
+                BottomBanner.Show("Cellular Automata cavern generation iterating...");
+                yield return StartCoroutine(ca.RunCaveGeneration(tm: null));
                 DrawWalls();
             }
-            else // Scatter rooms
+            if (cfg.useScatterRooms)
             {
                 BottomBanner.Show("Scattering rooms...");
                 yield return StartCoroutine(ScatterRooms(tm: null));
@@ -178,7 +200,7 @@ public class DungeonGenerator : MonoBehaviour
                 BottomBanner.Show("Locate Discrete rooms...");
                 yield return StartCoroutine(ca.FindRoomsCoroutine(map, tm: null));
             }
-            else // locate rooms from scattered rooms
+            if (cfg.useScatterRooms)
             {
                 rooms = ConvertAllRectToRooms(room_rects, room_rects_color, SetTile: true);
                 DrawMapByRooms(rooms);
@@ -195,21 +217,24 @@ public class DungeonGenerator : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
-            DrawMapByRooms(rooms);
-            DrawWalls();
+            if (cfg.useCellularAutomata || cfg.useScatterRooms)
+            {
+                DrawMapByRooms(rooms);
+                DrawWalls();
 
-            // Step 5: Connect rooms with corridors
-            yield return StartCoroutine (GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
-            BottomBanner.Show("Connecting Rooms with Corridors...");
-            yield return StartCoroutine(ca.ConnectRoomsByCorridors(tm: null));
+                // Step 5: Connect rooms with corridors
+                yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
+                BottomBanner.Show("Connecting Rooms with Corridors...");
+                yield return StartCoroutine(ca.ConnectRoomsByCorridors(tm: null));
 
-            DrawMapByRooms(rooms);
-            DrawWalls();
-            yield return tm.YieldOrDelay(cfg.stepDelay);
+                DrawMapByRooms(rooms);
+                DrawWalls();
+                yield return tm.YieldOrDelay(cfg.stepDelay);
+            }
 
-            yield return StartCoroutine (GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
+            yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
             GenerateWallLists(); // needs floor hashes to run
-            yield return StartCoroutine (GenerateMapHashes(tm: null)); // run again to create wall hashes
+            yield return StartCoroutine(GenerateMapHashes(tm: null)); // run again to create wall hashes
 
             BottomBanner.Show("Height Map Build...");
 

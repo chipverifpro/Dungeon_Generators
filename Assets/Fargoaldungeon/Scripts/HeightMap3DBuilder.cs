@@ -97,6 +97,7 @@ public class HeightMap3DBuilder : MonoBehaviour
             for (int room_number = 0; room_number < generator.rooms.Count; room_number++)
             {
                 if (tm.IfYield()) yield return null;
+                string room_name = generator.rooms[room_number].name;
                 int num_tiles = generator.rooms[room_number].tiles.Count;
                 for (int tile_number = 0; tile_number < num_tiles; tile_number++)
                 {
@@ -183,6 +184,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (isFloor && floorPrefab != null)
                     {
                         var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
+                        f.name = room_name;
                         f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
                     }
 
