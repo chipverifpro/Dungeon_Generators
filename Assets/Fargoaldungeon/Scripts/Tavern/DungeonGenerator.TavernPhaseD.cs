@@ -25,8 +25,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         if (tavernFootprint == null || tavernZones == null)
         {
-            Debug.LogWarning("Tavern Phase D: Needs Phase B and C done first.");
             ca.success = false;
+            ca.failure = "Tavern Phase D: Needs Phase B and C done first.";
+            Debug.LogWarning(ca.failure);
             yield break;
         }
 
@@ -68,8 +69,9 @@ public partial class DungeonGenerator : MonoBehaviour
             bar = IntersectRect(bar, common);
             if (bar.width <= 0 || bar.height <= 0)
             {
-                Debug.LogWarning("Tavern Phase D: Failed to place bar—common too small. Aborting Phase D.");
                 ca.success = false;
+                ca.failure = "Tavern Phase D: Failed to place bar—common too small. Aborting Phase D.";
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
 
@@ -118,6 +120,7 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (boothTiles.Count > 0)
                 rooms.Add(new Room { name = "BoothAlcoves", tiles = boothTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, boothTiles.Count).ToList(), colorFloor = ca.getColor(highlight: false) });
+
             rooms.Add(new Room { name = "CommonRoom", tiles = commonTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, commonTiles.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
 
             // Visualize a door pair as single-tile “rooms” (optional but handy for debugging flow)

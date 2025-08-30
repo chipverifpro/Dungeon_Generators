@@ -37,9 +37,7 @@ public partial class DungeonGenerator : MonoBehaviour
         public Vector2 privatePct = new Vector2(0.10f, 0.20f);
 
         public int hallWidth = 2;
-        public int barDepth = 2;
-        public Vector2Int kitchenMin = new Vector2Int(6, 5);
-        public Vector2Int storageMin = new Vector2Int(5, 4);
+
 
         public Vector2Int frontSpan = new Vector2Int(2, 3);  // door span width range
         public int windowEvery = 3;                          // later phases
@@ -50,9 +48,11 @@ public partial class DungeonGenerator : MonoBehaviour
         public int validationRetries = 24;                   // candidate tries
 
         // Street edge bias (N/E/S/W). If empty, picked at random.
+        [Tooltip ("Street edge bias: N, E, S, W or blank=random")]
         public string streetEdge = "";                       // "N","E","S","W" or ""
         public int worldMargin = 1;                          // keep footprint slightly inside edge
 
+        [Header("Phase D (Common Room)")]
         // ---- Phase D (Common Room) tunables ----
         public Vector2Int hearthSize = new Vector2Int(2, 1); // fireplace footprint
         public Vector2Int stageSize  = new Vector2Int(4, 2); // stage footprint
@@ -60,12 +60,13 @@ public partial class DungeonGenerator : MonoBehaviour
         public Vector2Int boothSize  = new Vector2Int(2, 3); // each booth rect
         public int maxBooths         = 3;                    // number of booth alcoves
 
+        public int barDepth = 2;
         // Visual clamping for the bar shape (helps readability when space is tight)
-        public int barMinVisualWidth  = 3;  // minimal bar width when horizontal
+        public int barMinVisualWidth = 3;  // minimal bar width when horizontal
         public int barMinVisualHeight = 1;  // minimal bar thickness if squeezed
 
         // ---- Phase E (Service / Back-of-House) ----
-
+        [Header ("Phase E (Service / Back-of-House)")]
         // Staff corridor width (number of tiles)
         public int corridorWidth = 2;
 
@@ -73,10 +74,10 @@ public partial class DungeonGenerator : MonoBehaviour
         public int maxGrow = 6;
         
         // Kitchen minimum footprint
-        //public Vector2Int kitchenMin = new Vector2Int(5, 4);
+        public Vector2Int kitchenMin = new Vector2Int(5, 4);
 
         // Storage minimum footprint
-        //public Vector2Int storageMin = new Vector2Int(4, 3);
+        public Vector2Int storageMin = new Vector2Int(4, 3);
 
         // Office minimum footprint
         public Vector2Int officeMin = new Vector2Int(3, 4);
@@ -86,8 +87,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // Corridor expansion margin when checking adjacency
         public int corridorAdjacencyBuffer = 2;
-        
+
         // ---- Phase F parameters (NEW) ----
+        [Header ("Phase F (Upstairs)")]
         public Vector2Int bedroomMinSize = new Vector2Int(3, 3);
         public Vector2Int wcSize         = new Vector2Int(2, 2);
         public int minBedrooms           = 3;
@@ -100,6 +102,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
     public int buildingTries = 10;
 
+
+    // ======= BuildTavern: Main tavern phase dispatch, retries.
+    //         Only adds final structure to main rooms list
     public IEnumerator BuildTavern(TimeTask tm = null)
     {
         bool createdHere = false;
@@ -107,12 +112,11 @@ public partial class DungeonGenerator : MonoBehaviour
 
         try
         {
+            // initialize a local room list and clear the maps
             List<Room> building_rooms = new();
             tilemap.ClearAllTiles();
             rooms.Clear();
             map = new byte[cfg.mapWidth, cfg.mapHeight];
-
-            // ===== Step 2. Place rooms
 
             // TAVERN
             if (tavern.enabled)
@@ -128,6 +132,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
                     {
                         yield return BuildTavernFootprint(building_rooms, tm: null);
+                        yield return null;
                         if (ca.success == false) continue; // try again
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
@@ -139,6 +144,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
                     {
                         yield return BuildTavernZoning(building_rooms, tm: null);
+                        yield return null;
                         if (ca.success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
@@ -150,6 +156,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
                     {
                         yield return BuildTavernCommon(building_rooms, tm: null);
+                        yield return null;
                         if (ca.success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
@@ -161,21 +168,24 @@ public partial class DungeonGenerator : MonoBehaviour
                     for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
                     {
                         yield return BuildTavernService(building_rooms, tm: null);
+                        yield return null;
                         if (ca.success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
                     if (ca.success == false) continue;
 
                     // Phase F
-                    BottomBanner.Show("Build Tavern Stairs and Upper");
+                    /*BottomBanner.Show("Build Tavern Stairs and Upper");
                     ca.success = false;
                     for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
                     {
                         yield return BuildTavernStairsAndUpper(building_rooms, tm: null);
+                        yield return null;
                         if (ca.success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
                     if (ca.success == false) continue;
+                    */
                 }
                 if (ca.success == true)
                 {

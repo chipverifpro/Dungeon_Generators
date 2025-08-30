@@ -129,11 +129,11 @@ public partial class DungeonGenerator : MonoBehaviour
             if (best == null)
             {
                 ca.success = false;
-                Debug.LogWarning(
+                ca.failure =
                     $"Tavern Phase B: failed to find a valid footprint. " +
                     $"Rejects — Bounds:{rejectsBounds}, Round:{rejectsRound}, Door:{rejectsDoor}, Other:{rejectsOther}. " +
-                    $"Try: decrease tavern.minSize, reduce worldMargin, or enable inward front inset."
-                );
+                    $"Try: decrease tavern.minSize, reduce worldMargin, or enable inward front inset.";
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
 
@@ -152,7 +152,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
             DrawMapByRooms(rooms);
             ca.success = true;
-            Debug.Log($"Tavern footprint at {tavernFootprint.rect.position} size {tavernFootprint.rect.size}");
+            Debug.Log($"Tavern Phase B: Tavern footprint at {tavernFootprint.rect.position} size {tavernFootprint.rect.size}");
         }
         finally
         {

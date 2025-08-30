@@ -20,8 +20,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null)
         {
-            Debug.LogWarning("Tavern Phase C: No footprint yet. Run BuildTavernFootprint first.");
             ca.success = false;
+            ca.failure = "Tavern Phase C: No footprint yet. Run BuildTavernFootprint first.";
+            Debug.LogWarning(ca.failure);
             yield break;
         }
 
@@ -225,8 +226,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
             if (best == null)
             {
-                Debug.LogWarning("Tavern Phase C: failed to zone the footprint. Try relaxing min sizes or aspect.");
+                ca.failure = "Tavern Phase C: failed to zone the footprint. Try relaxing min sizes or aspect.";
                 ca.success = false;
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
 

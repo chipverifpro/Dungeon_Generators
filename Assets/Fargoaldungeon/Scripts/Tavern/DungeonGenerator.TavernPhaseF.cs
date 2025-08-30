@@ -21,8 +21,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null || tavernZones == null || tavernCommon == null || tavernService == null)
         {
-            Debug.LogWarning("Tavern Phase F: Needs B (footprint), C (zoning), D (common), and E (service) completed.");
+            ca.failure="Tavern Phase F: Needs B (footprint), C (zoning), D (common), and E (service) completed.";
             ca.success = false;
+            Debug.LogWarning(ca.failure);
             yield break;
         }
 

@@ -21,7 +21,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null || tavernZones == null || tavernCommon == null)
         {
-            Debug.LogWarning("Tavern Phase E: Needs B (footprint), C (zoning), and D (common) done first.");
+            ca.success = false;
+            ca.failure = "Tavern Phase E: Needs B (footprint), C (zoning), and D (common) done first.";
+            Debug.LogWarning(ca.failure);
             yield break;
         }
 
@@ -37,11 +39,12 @@ public partial class DungeonGenerator : MonoBehaviour
             var frontDir = tavernFootprint.frontDir;
 
             // --- 1) Corridor along Common↔Service boundary (inside Service) ---
-            RectInt corridor = ComputeStaffCorridor(common, service, tavern.hallWidth);
+            RectInt corridor = ComputeStaffCorridor(common, service, tavern.corridorWidth);
             if (corridor.width == 0 || corridor.height == 0)
             {
-                Debug.LogWarning("Tavern Phase E: Failed to carve staff corridor; aborting Phase E.");
                 ca.success = false;
+                ca.failure = "Tavern Phase E: Failed to carve staff corridor; aborting Phase E.";
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -55,8 +58,9 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (kitchen.width == 0 || kitchen.height == 0)
             {
-                Debug.LogWarning("Tavern Phase E: Failed to place kitchen; aborting Phase E.");
+                ca.failure="Tavern Phase E: Failed to place kitchen; aborting Phase E.";
                 ca.success = false;
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -72,8 +76,9 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (storage.width == 0 || storage.height == 0)
             {
-                Debug.LogWarning("Tavern Phase E: Failed to place storage; aborting Phase E.");
+                ca.failure = "Tavern Phase E: Failed to place storage; aborting Phase E.";
                 ca.success = false;
+                Debug.LogWarning(ca.failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -83,11 +88,11 @@ public partial class DungeonGenerator : MonoBehaviour
             if (priv.width >= 3 && priv.height >= 4)
             {
                 // Keep office smaller and leave space for owner room later
-                office = FitOfficeInPrivate(priv, tavern.storageMin.x, 4); // e.g., ~3-5 width, 4+ height
+                office = FitOfficeInPrivate(priv, tavern.officeMin);
             }
             if (office.width == 0) // fallback in service remainder
             {
-                office = SmallOfficeOffCorridor(serviceRemainder, corridor);
+                office = SmallOfficeOffCorridor(serviceRemainder, corridor, tavern.officeMin);
             }
             if (tm.IfYield()) yield return null;
 
@@ -169,7 +174,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // Candidate sizes (try a few around min)
         var sizes = new[]
         {
-            new Vector2Int(Mathf.Max(minSize.x, 5), Mathf.Max(minSize.y, 4)),
+            new Vector2Int(minSize.x,     minSize.y),
             new Vector2Int(minSize.x + 1, minSize.y),
             new Vector2Int(minSize.x,     minSize.y + 1)
         };
@@ -212,8 +217,8 @@ public partial class DungeonGenerator : MonoBehaviour
             bool corridorAtBottom = corridor.yMin == service.yMin;
             int y = corridorAtBottom ? corridor.yMax : service.yMin;
             int maxH = service.height - corridor.height;
-            int h = Mathf.Min(Mathf.Max(minSize.y, 4), maxH);
-            int w = Mathf.Min(Mathf.Max(minSize.x, 6), service.width);
+            int h = Mathf.Min(minSize.y, maxH);
+            int w = Mathf.Min(minSize.x, service.width);
 
             candidates.Add(new RectInt(service.xMin, y, w, h));
             candidates.Add(new RectInt(service.xMax - w, y, w, h));
@@ -224,8 +229,8 @@ public partial class DungeonGenerator : MonoBehaviour
             bool corridorAtLeft = corridor.xMin == service.xMin;
             int x = corridorAtLeft ? corridor.xMax : service.xMin;
             int maxW = service.width - corridor.width;
-            int w = Mathf.Min(Mathf.Max(minSize.x, 6), maxW);
-            int h = Mathf.Min(Mathf.Max(minSize.y, 4), service.height);
+            int w = Mathf.Min(minSize.x, maxW);
+            int h = Mathf.Min(minSize.y, service.height);
 
             candidates.Add(new RectInt(x, service.yMin, w, h));
             candidates.Add(new RectInt(x, service.yMax - h, w, h));
@@ -253,18 +258,18 @@ public partial class DungeonGenerator : MonoBehaviour
         // Build a band 3+ tiles deep along the rear side within serviceRemainder
         RectInt rearBand;
         if (rearDir == new Vector2Int(0, 1))        // rear is north/top
-            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMax - Mathf.Max(3, serviceRemainder.height/3), serviceRemainder.width, Mathf.Max(3, serviceRemainder.height/3));
+            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMax - Mathf.Max(tavern.rearBandMinDepth, serviceRemainder.height/3), serviceRemainder.width, Mathf.Max(3, serviceRemainder.height/3));
         else if (rearDir == new Vector2Int(0, -1))  // rear is south/bottom
-            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMin, serviceRemainder.width, Mathf.Max(3, serviceRemainder.height/3));
+            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMin, serviceRemainder.width, Mathf.Max(tavern.rearBandMinDepth, serviceRemainder.height/3));
         else if (rearDir == new Vector2Int(1, 0))   // rear is east/right
-            rearBand = new RectInt(serviceRemainder.xMax - Mathf.Max(3, serviceRemainder.width/3), serviceRemainder.yMin, Mathf.Max(3, serviceRemainder.width/3), serviceRemainder.height);
+            rearBand = new RectInt(serviceRemainder.xMax - Mathf.Max(3, serviceRemainder.width/3), serviceRemainder.yMin, Mathf.Max(tavern.rearBandMinDepth, serviceRemainder.width/3), serviceRemainder.height);
         else                                        // rear is west/left
-            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMin, Mathf.Max(3, serviceRemainder.width/3), serviceRemainder.height);
+            rearBand = new RectInt(serviceRemainder.xMin, serviceRemainder.yMin, Mathf.Max(tavern.rearBandMinDepth, serviceRemainder.width/3), serviceRemainder.height);
 
         rearBand = IntersectRect(rearBand, serviceRemainder);
 
         // Prefer a chunk that also touches corridor (short staff path)
-        RectInt prefer = IntersectRect(rearBand, ExpandRect(corridor, 2));
+        RectInt prefer = IntersectRect(rearBand, ExpandRect(corridor, tavern.corridorAdjacencyBuffer));
         RectInt pick = prefer.width > 0 ? prefer : rearBand;
 
         // Pick a solid rectangle inside 'pick'
@@ -299,8 +304,8 @@ public partial class DungeonGenerator : MonoBehaviour
             bool corridorAtBottom = corridor.yMin == serviceRemainder.yMin;
             int y = corridorAtBottom ? corridor.yMax : serviceRemainder.yMin;
             int maxH = serviceRemainder.height - corridor.height;
-            int h = Mathf.Clamp(min.y, 3, maxH);
-            int w = Mathf.Clamp(min.x, 3, serviceRemainder.width);
+            int h = Mathf.Clamp(min.y, min.y, maxH);
+            int w = Mathf.Clamp(min.x, min.x, serviceRemainder.width);
             return IntersectRect(new RectInt(serviceRemainder.xMin, y, w, h), serviceRemainder);
         }
         else
@@ -308,42 +313,48 @@ public partial class DungeonGenerator : MonoBehaviour
             bool corridorAtLeft = corridor.xMin == serviceRemainder.xMin;
             int x = corridorAtLeft ? corridor.xMax : serviceRemainder.xMin;
             int maxW = serviceRemainder.width - corridor.width;
-            int w = Mathf.Clamp(min.x, 3, maxW);
-            int h = Mathf.Clamp(min.y, 3, serviceRemainder.height);
+            int w = Mathf.Clamp(min.x, min.x, maxW);
+            int h = Mathf.Clamp(min.y, min.y, serviceRemainder.height);
             return IntersectRect(new RectInt(x, serviceRemainder.yMin, w, h), serviceRemainder);
         }
     }
 
-    RectInt FitOfficeInPrivate(RectInt priv, int maxWidth, int minHeight)
-    {
-        int w = Mathf.Clamp(Mathf.Min(maxWidth, priv.width / 2 + 1), 3, priv.width);
-        int h = Mathf.Clamp(Mathf.Max(minHeight, 4), 4, priv.height);
-        // Prefer near service side (arbitrary: use lower-left of private)
-        var office = new RectInt(priv.xMin, priv.yMin, w, h);
-        office = IntersectRect(office, priv);
-        return office;
-    }
+RectInt FitOfficeInPrivate(RectInt priv, Vector2Int minSize)
+{
+    if (priv.width < minSize.x || priv.height < minSize.y) return new RectInt(0,0,0,0);
 
-    RectInt SmallOfficeOffCorridor(RectInt serviceRemainder, RectInt corridor)
-    {
-        // Carve a 3x4-ish room immediately off corridor
-        int w = Mathf.Clamp(3, 3, serviceRemainder.width);
-        int h = Mathf.Clamp(4, 4, serviceRemainder.height);
+    // Aim around half-width/height, but at least minSize
+    int w = Mathf.Clamp(Mathf.Max(minSize.x, priv.width / 2 + 1), minSize.x, priv.width);
+    int h = Mathf.Clamp(Mathf.Max(minSize.y, 4),                minSize.y, priv.height);
 
-        bool corridorHorizontal = corridor.width == serviceRemainder.width;
-        if (corridorHorizontal)
-        {
-            bool corridorAtBottom = corridor.yMin == serviceRemainder.yMin;
-            int y = corridorAtBottom ? corridor.yMax : serviceRemainder.yMin;
-            return IntersectRect(new RectInt((int)serviceRemainder.center.x - w/2, y, w, h), serviceRemainder);
-        }
-        else
-        {
-            bool corridorAtLeft = corridor.xMin == serviceRemainder.xMin;
-            int x = corridorAtLeft ? corridor.xMax : serviceRemainder.xMin;
-            return IntersectRect(new RectInt(x, (int)serviceRemainder.center.y - h/2, w, h), serviceRemainder);
-        }
+    // Prefer near service side (keep simple: lower-left of private for now)
+    var office = new RectInt(priv.xMin, priv.yMin, w, h);
+    office = IntersectRect(office, priv);
+    if (office.width < minSize.x || office.height < minSize.y) return new RectInt(0,0,0,0);
+    return office;
+}
+
+RectInt SmallOfficeOffCorridor(RectInt serviceRemainder, RectInt corridor, Vector2Int minSize)
+{
+    if (serviceRemainder.width <= 0 || serviceRemainder.height <= 0) return new RectInt(0,0,0,0);
+
+    int w = Mathf.Clamp(minSize.x, minSize.x, serviceRemainder.width);
+    int h = Mathf.Clamp(minSize.y, minSize.y, serviceRemainder.height);
+
+    bool corridorHorizontal = corridor.width == serviceRemainder.width;
+    if (corridorHorizontal)
+    {
+        bool corridorAtBottom = corridor.yMin == serviceRemainder.yMin;
+        int y = corridorAtBottom ? corridor.yMax : serviceRemainder.yMin;
+        return IntersectRect(new RectInt((int)serviceRemainder.center.x - w/2, y, w, h), serviceRemainder);
     }
+    else
+    {
+        bool corridorAtLeft = corridor.xMin == serviceRemainder.xMin;
+        int x = corridorAtLeft ? corridor.xMax : serviceRemainder.xMin;
+        return IntersectRect(new RectInt(x, (int)serviceRemainder.center.y - h/2, w, h), serviceRemainder);
+    }
+}
 
     // ---- tiny geometry helpers used above ----
 
@@ -362,10 +373,10 @@ public partial class DungeonGenerator : MonoBehaviour
     RectInt GrowFrom(RectInt bounds, Vector2Int seed, RectInt towards, Vector2Int minSize)
     {
         // Greedy grow around 'seed' while staying inside 'bounds', prefer touching 'towards'
-        int maxGrow = 6;
-        for (int sx = Mathf.Max(3, minSize.x); sx <= Mathf.Min(bounds.width, minSize.x + maxGrow); sx++)
+        int maxGrow = Mathf.Max(0, tavern.maxGrow);
+        for (int sx = minSize.x; sx <= Mathf.Min(bounds.width,  minSize.x + maxGrow); sx++)
         {
-            for (int sy = Mathf.Max(3, minSize.y); sy <= Mathf.Min(bounds.height, minSize.y + maxGrow); sy++)
+            for (int sy = minSize.y; sy <= Mathf.Min(bounds.height, minSize.y + maxGrow); sy++)
             {
                 var r = new RectInt(seed.x - sx/2, seed.y - sy/2, sx, sy);
                 r = IntersectRect(r, bounds);
