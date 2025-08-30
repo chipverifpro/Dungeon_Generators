@@ -157,6 +157,7 @@ public class CellularAutomata : MonoBehaviour
 
     private System.Random rng;
     [HideInInspector] public bool success;    // global generic return value from various tasks
+    [HideInInspector] public string failure;    // global failure description string
     
 
     //public List<Room> return_rooms = new List<Room>();
