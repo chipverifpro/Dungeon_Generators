@@ -56,6 +56,8 @@ public partial class DungeonGenerator : MonoBehaviour
     public List<int> room_rects_heights = new(); // List of heights for each room rectangle
     public HashSet<Vector2Int> floor_hash_map = new();
     public HashSet<Vector2Int> wall_hash_map = new();
+    Dictionary<int, Door> doorById; // partner lookup and save/load
+
     public byte[,] map; // each byte represents one of the below constants
     public int[,] mapHeights; // 2D array to store height information for each tile
     public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms

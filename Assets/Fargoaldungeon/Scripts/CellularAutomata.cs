@@ -10,8 +10,12 @@ public class Room
     // == Properties of the room
     public int my_room_number = -1; // Uniquely identifies this room
     public String name = "";
+
+    // Tile-by-tile lists of floors/walls/doors/etc
     public List<Vector2Int> tiles = new();
     public List<Vector2Int> walls = new();
+    public List<Door> doors = new List<Door>();
+
     public List<int> heights = new(); // Heights for each tile in the room, used for 3D generation
     public int Size => tiles.Count;
     public string Name = "";
