@@ -107,6 +107,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                     int z = pos.y;
                     int ySteps = generator.rooms[room_number].heights[tile_number];
                     bool isFloor = true;
+                    Color colorFloor = generator.rooms[room_number].colorFloor;
                     //bool isWall = false; //unused
 
                     // NOT RELEVANT: THIS IS DEFINITELY A FLOOR
@@ -186,6 +187,9 @@ public class HeightMap3DBuilder : MonoBehaviour
                         var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
                         f.name = room_name;
                         f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
+                        var renderer = f.GetComponent<MeshRenderer>();
+                        if (renderer != null)
+                            renderer.material.color = colorFloor;
                     }
 
                     // Compare with 4 neighbors and add perimeter walls or ramps/cliffs
