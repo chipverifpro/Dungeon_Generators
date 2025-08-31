@@ -5,6 +5,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
@@ -106,8 +107,12 @@ public partial class DungeonGenerator : MonoBehaviour
             var carve = new List<RectInt> { bar, hearth, stage };
             carve.AddRange(booths);
 
-            var commonFinalRect = RectMinus(common, carve.ToArray());
-            var commonTiles = RectTiles(commonFinalRect);
+
+            // FIXED: Now removes the tiles from the big room where small rooms overlap
+            //var commonFinalRect = RectMinus(common, carve.ToArray());
+            //var commonTiles = RectTiles(commonFinalRect);
+            var commonTiles = RectTiles(common);
+            commonTiles = TilesMinusRects(commonTiles, carve.ToArray());
 
             rooms.Add(new Room { name = "BarCounter", tiles = barTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, barTiles.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
             if (hearth.width > 0)
@@ -427,6 +432,17 @@ public partial class DungeonGenerator : MonoBehaviour
         return ext.Distinct().ToList();
     }
 
+    List<Vector2Int> TilesMinusRects(List<Vector2Int> whole, params RectInt[] cuts)
+    {
+        foreach (var c in cuts)
+        {
+            for (int y = c.yMin; y < c.yMax; y++)
+                for (int x = c.xMin; x < c.xMax; x++)
+                    if (whole.Contains(new Vector2Int(x, y)))
+                        whole.Remove(new Vector2Int(x, y));
+        }
+        return whole;
+    }
     RectInt RectMinus(RectInt whole, params RectInt[] cuts)
     {
         // Simple heuristic: shrink “whole” inward from any side fully covered by a cut.
