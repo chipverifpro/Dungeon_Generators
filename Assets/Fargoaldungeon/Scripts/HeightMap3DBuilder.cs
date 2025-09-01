@@ -13,7 +13,7 @@ public class HeightMap3DBuilder : MonoBehaviour
     public GameObject rampPrefab;             // oriented to face +Z
     public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
     public Transform root;                    // parent for spawned meshes
-    public bool onlyPerimeterWalls = true;    // skip deep interior walls
+    public Globals global;
 
     public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
     public bool useDiagonalCorners = true;
@@ -94,25 +94,21 @@ public class HeightMap3DBuilder : MonoBehaviour
             //int w = map.GetLength(0), hi = map.GetLength(1);
             Vector3 cell = grid.cellSize;
 
-            for (int room_number = 0; room_number < generator.rooms.Count; room_number++)
+            for (int room_number = 0; room_number < global.rooms.Count; room_number++)
             {
                 if (tm.IfYield()) yield return null;
-                string room_name = generator.rooms[room_number].name;
-                int num_tiles = generator.rooms[room_number].tiles.Count;
+                string room_name = global.rooms[room_number].name;
+                int num_tiles = global.rooms[room_number].tiles.Count;
                 for (int tile_number = 0; tile_number < num_tiles; tile_number++)
                 {
-                    if((tile_number % 500) == 0) if (tm.IfYield()) yield return null;
-                    Vector2Int pos = generator.rooms[room_number].tiles[tile_number];
+                    if ((tile_number % 500) == 0) if (tm.IfYield()) yield return null;
+                    Vector2Int pos = global.rooms[room_number].tiles[tile_number];
                     int x = pos.x;
                     int z = pos.y;
-                    int ySteps = generator.rooms[room_number].heights[tile_number];
+                    int ySteps = global.rooms[room_number].heights[tile_number];
                     bool isFloor = true;
-                    Color colorFloor = generator.rooms[room_number].colorFloor;
+                    Color colorFloor = global.rooms[room_number].colorFloor;
                     //bool isWall = false; //unused
-
-                    // NOT RELEVANT: THIS IS DEFINITELY A FLOOR
-                    // Optionally skip walls that are not adjacent to floor (visual cleanliness/perf)
-                    //if (!isFloor && onlyPerimeterWalls && HasAdjacentTileFromRoom(room_number, pos, WALL)) continue;
 
                     // Base world position of this tile center
                     world = grid.CellToWorld(new Vector3Int(x, z, 0));
@@ -148,6 +144,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                                     world + CornerOffset(east: true, north: true, cell) + baseY,
                                     Yaw45, root);
                                 t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                                t.name = $"Wall({room_name})";
                                 if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
                             }
                             // NW corner (N & W)
@@ -157,6 +154,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                                     world + CornerOffset(east: false, north: true, cell) + baseY,
                                     Yaw315, root);
                                 t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                                t.name = $"Wall({room_name})";
                                 if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
                             }
                             // SE corner (S & E)
@@ -166,6 +164,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                                     world + CornerOffset(east: true, north: false, cell) + baseY,
                                     Yaw135, root);
                                 t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                                t.name = $"Wall({room_name})";
                                 if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
                             }
                             // SW corner (S & W)
@@ -175,6 +174,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                                     world + CornerOffset(east: false, north: false, cell) + baseY,
                                     Yaw225, root);
                                 t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
+                                t.name = $"Wall({room_name})";
                                 if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
                             }
                         }
@@ -185,8 +185,9 @@ public class HeightMap3DBuilder : MonoBehaviour
                     if (isFloor && floorPrefab != null)
                     {
                         var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                        f.name = room_name;
+                        f.name = $"Floor({room_name})";
                         f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
+                        // set floor color based on room's colorFloor, which we've grabbed earlier in the loop.
                         var renderer = f.GetComponent<MeshRenderer>();
                         if (renderer != null)
                             renderer.material.color = colorFloor;
@@ -229,7 +230,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                                     mid + new Vector3(0, baseY + 0.5f * ht, 0),
                                     RotFromDir(new Vector2Int(nx - x, nz - z)),
                                     root);
-
+                                face.name = $"Wall({room_name})";
                                 face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
                             }
                         }
@@ -255,6 +256,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                             var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
                                                                      //var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
                             var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
+                            ramp.name = "Ramp";
                             ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
                         }
                         else if (Mathf.Abs(diff) >= 2 && cliffPrefab != null)
@@ -265,6 +267,7 @@ public class HeightMap3DBuilder : MonoBehaviour
                             int minStep = Mathf.Min(ySteps, nySteps);
                             float heightWorld = Mathf.Abs(diff) * unitHeight;
                             var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
+                            face.name = $"Cliff({room_name})";
                             // Scale so its Y matches the height difference; X/Z to cell dimensions
                             face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
                         }
@@ -277,31 +280,21 @@ public class HeightMap3DBuilder : MonoBehaviour
     }
 
 
-    // floor neighbor check (not including diagonals)
-    bool HasFloorNeighbor(byte[,] map, int x, int z)
-    {
-        int w = map.GetLength(0), h = map.GetLength(1);
-        if (z + 1 < h && map[x, z + 1] == FLOOR) return true;
-        if (x + 1 < w && map[x + 1, z] == FLOOR) return true;
-        if (z - 1 >= 0 && map[x, z - 1] == FLOOR) return true;
-        if (x - 1 >= 0 && map[x - 1, z] == FLOOR) return true;
-        return false;
-    }
-
     int GetHeightFromRoom(int room_number, Vector2Int pos)
     {
-        for (int i = 0; i < generator.rooms[room_number].tiles.Count; i++)
+        for (int i = 0; i < global.rooms[room_number].tiles.Count; i++)
         {
-            if (generator.rooms[room_number].tiles[i] == pos)
-                return generator.rooms[room_number].heights[i];
+            if (global.rooms[room_number].tiles[i] == pos)
+                return global.rooms[room_number].heights[i];
         }
         return 999;
     }
+
     byte GetTileFromRoom(int room_number, Vector2Int pos)
-    {  
-        if (generator.rooms[room_number].wall_hash_room.Contains(pos))
+    {
+        if (global.rooms[room_number].wall_hash_room.Contains(pos))
             return FLOOR;
-        if (generator.rooms[room_number].floor_hash_room.Contains(pos))
+        if (global.rooms[room_number].floor_hash_room.Contains(pos))
             return WALL;
         return UNKNOWN;
     }
@@ -310,30 +303,12 @@ public class HeightMap3DBuilder : MonoBehaviour
     {
         // TODO: get hash_room and hash_walls from room_number
         if (tile_type == FLOOR)
-            if (generator.rooms[room_number].floor_hash_room.Contains(pos))
+            if (global.rooms[room_number].floor_hash_room.Contains(pos))
                 return true;
         if (tile_type == WALL)
-            if (generator.rooms[room_number].wall_hash_room.Contains(pos))
+            if (global.rooms[room_number].wall_hash_room.Contains(pos))
                 return true;
         return false;
     }
-
-    bool HasAdjacentTileFromRoom(int room_number, Vector2Int pos, byte tile_type)
-    {
-        HashSet<Vector2Int> hash_room = new();
-        Vector2Int npos;
-        // TODO: get hash_room(room_number) and hash_walls(room_number)
-        
-        for (int dir = 0; dir < 4; dir++) // look for a floor in 4 directions
-            {
-                npos = pos + Dir4[dir];
-                if (tile_type == FLOOR)
-                    if (generator.rooms[room_number].floor_hash_room.Contains(npos))
-                        return true;
-                if (tile_type == WALL)
-                    if (generator.rooms[room_number].wall_hash_room.Contains(npos))
-                        return true;
-            }
-        return false;
-    }
-}
+    
+} // End class HeightMap3DBuilder

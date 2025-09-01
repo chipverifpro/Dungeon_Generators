@@ -814,16 +814,13 @@ MonoBehaviour:
     servicePct: {x: 0.2, y: 0.35}
     privatePct: {x: 0.1, y: 0.2}
     hallWidth: 8
-    barDepth: 8
-    kitchenMin: {x: 24, y: 20}
-    storageMin: {x: 20, y: 16}
     frontSpan: {x: 8, y: 12}
     windowEvery: 10
     features:
       hasStage: 1
       hasBooths: 1
       hasCellar: 1
-      hasStables: 0
+      hasStables: 1
     stairs:
       up: 1
       down: 1
@@ -834,8 +831,16 @@ MonoBehaviour:
     stageSize: {x: 16, y: 8}
     boothSize: {x: 8, y: 12}
     maxBooths: 3
+    barDepth: 8
     barMinVisualWidth: 12
     barMinVisualHeight: 4
+    corridorWidth: 8
+    maxGrow: 12
+    kitchenMin: {x: 24, y: 20}
+    storageMin: {x: 20, y: 16}
+    officeMin: {x: 12, y: 16}
+    rearBandMinDepth: 12
+    corridorAdjacencyBuffer: 2
     bedroomMinSize: {x: 12, y: 12}
     wcSize: {x: 8, y: 8}
     minBedrooms: 3
@@ -1127,6 +1132,7 @@ MonoBehaviour:
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
   success: 0
+  failure: 
 --- !u!114 &409665912
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2280,7 +2286,7 @@ MonoBehaviour:
   onlyPerimeterWalls: 1
   diagonalWallPrefab: {fileID: 5414593263697328657, guid: fa009060c907045069328a36886a459a,
     type: 3}
-  useDiagonalCorners: 1
+  useDiagonalCorners: 0
   skipOrthogonalWhenDiagonal: 1
   perimeterWallSteps: 3
 --- !u!154 &1448055483

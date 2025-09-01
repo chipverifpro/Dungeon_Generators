@@ -6,9 +6,10 @@ using UnityEngine.Rendering;
 [CreateAssetMenu(fileName = "DungeonSettings", menuName = "Scriptable Objects/DungeonSettings")]
 public class DungeonSettings : ScriptableObject
 {
-    // Shared enumerations
+    // Type enumerations...
     public enum RoomAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin, Tavern }
-    public enum TunnelsAlgorithm_e { TunnelsOrthographic, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
+    public enum TunnelsAlgorithm_e { TunnelsOrthogonal, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
+
 
     [Header("Master Configurations")]
     public RoomAlgorithm_e RoomAlgorithm = RoomAlgorithm_e.Scatter_Overlap;
@@ -16,15 +17,14 @@ public class DungeonSettings : ScriptableObject
 
     [Header("General Settings")]
     public bool showBuildProcess = true;
-    public float stepDelay = 0.2f;
-
+    public float stepDelay = 0.2f; // how many seconds to wait between generation steps
     public bool randomizeSeed = true;
     public int seed = 0;
 
     [Header("World Map Settings")]
     public int mapWidth = 150;
     public int mapHeight = 150;
-    public bool roundWorld = false;
+    public bool roundWorld = false; // sometimes not having square map edges is nice.
 
     [Header("Scatter Room Settings")]
     public bool useScatterRooms = false;
@@ -52,21 +52,23 @@ public class DungeonSettings : ScriptableObject
     [Range(0.01f, 0.5f)]
     [Tooltip("Low = lumpy rooms | High = craggy rooms")]
     public float perlin2Wavelength = 0.05f; // Higher frequency Perlin for room roughness
+    [Range(0f, 4f)]
+    [Tooltip("Low = smooth perlin | High = more roughness")]
+    public float perlin2Amplitude = 1f; // Multiplier for perlin2
     [Range(0.4f, 0.6f)]
     [Tooltip("Low = many rooms | High = fewer rooms")]
     public float perlinThreshold = 0.5f;
-    // TODO: remove this because perlin2 does a better job?
-    //[Tooltip("Low = clean | High = noisy")]
-    //[Range(0, 100)] public int WhiteNoiseOverPerlinPercent = 40;
 
     [Header("Map Cleanup Settings")]
     public int MinimumRoomSize = 100; // Threshold for tiny rooms filter
     public int MinimumRockSize = 20; // Threshold for minimum size of in-room obstacle
-    public int softBorderSize = 5; // Size of the noisy border around the map to soften edge
-    public int wallThickness = 2;  // Appearance of perimeter walls in 2D map
+    public int softBorderSize = 5; // Size of the noisy border around the map to soften edge, only works on square maps currently
+    public int wallThickness = 1;  // Appearance of perimeter walls in 2D map
 
     [Header("Corridor Settings")]
-    public int corridorWidth = 3;
+    public int corridorWidth = 3;  // Width of passages generated between rooms.
+
+    [Header("Organic Type corridor Settings")]
     public float organicJitterChance = 0.2f; // Chance to introduce a wiggle in "organic" corridors
 
     [Header("Bezier Corridor Settings")]
@@ -78,7 +80,7 @@ public class DungeonSettings : ScriptableObject
     public bool includeDiagonals = true;
 
     [Header("Building Settings")]
-    public bool useBuilding = false;
+    public bool createBuilding = false;
     public int cellar_floor_height = -10;
     public int ground_floor_height = 0;
     public int next_floor_height = 10;

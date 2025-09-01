@@ -41,9 +41,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         try
         {
-            tilemap.ClearAllTiles();
+            global.tilemap.ClearAllTiles();
             rooms.Clear();
-            map = new byte[cfg.mapWidth, cfg.mapHeight];
+            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // We’ll try up to 4 street sides if needed (unless user fixed one)
             var tryDirs = new List<Vector2Int>();

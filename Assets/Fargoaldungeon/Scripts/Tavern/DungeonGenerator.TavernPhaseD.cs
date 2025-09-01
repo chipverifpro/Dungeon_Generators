@@ -41,9 +41,9 @@ public partial class DungeonGenerator : MonoBehaviour
             var common  = tavernZones.commonRect;
             var service = tavernZones.serviceRect;
 
-            tilemap.ClearAllTiles();
+            global.tilemap.ClearAllTiles();
             rooms.Clear();
-            map = new byte[cfg.mapWidth, cfg.mapHeight];
+            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // 1) Find the Common↔Service shared boundary (prefer this as bar wall)
             if (!RectsTouch(common, service))

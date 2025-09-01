@@ -347,7 +347,7 @@ RectInt MakeSmallWCNearHall(RectInt hall, RectInt upFoot, bool preferTop, Vector
     {
         // If you maintain per-room rects elsewhere, replace with that.
         // Otherwise, attempt to deduce the carved Common by bounding its tiles.
-        var commonRoom = rooms.FirstOrDefault(r => r.name == name);
+        var commonRoom = global.rooms.FirstOrDefault(r => r.name == name);
         if (commonRoom != null && commonRoom.tiles != null && commonRoom.tiles.Count > 0)
         {
             int xmin = commonRoom.tiles.Min(t => t.x);

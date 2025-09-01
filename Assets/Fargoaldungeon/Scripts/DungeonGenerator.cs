@@ -6,6 +6,8 @@ using System.Linq;
 using System;
 using NUnit.Framework;
 
+[RequireComponent(typeof(CellularAutomata))]
+
 /* DONE list...
 -- DONE; Round world including fast oval room bounds checking
 -- DONE: Nested Perlin / Stacked Perlin
@@ -41,36 +43,42 @@ using NUnit.Framework;
 // Master Dungeon Generation Class...
 public partial class DungeonGenerator : MonoBehaviour
 {
-    public DungeonSettings cfg; // Configurable settings for project
+    //public DungeonSettings cfg; // Configurable settings for project
 
     // References to game components (set in Unity Inspector)
     public HeightMap3DBuilder heightBuilder;
-    public Tilemap tilemap;
-    public TileBase floorTile;
-    public TileBase wallTile;
+
+
+//    public global.tilemap global.tilemap;
+    //    public TileBase floorTile;
+    //    public TileBase wallTile;
     // ---------------------------------------------------------------
     // Different ways to store the map: room(list of points) and mapArray (grid of bytes)
-    public List<Room> rooms = new(); // Master List of rooms including list of points and metadata
+    //public List<Room> rooms = new(); // Master List of rooms including list of points and metadata
 
     public List<RectInt> room_rects = new(); // List of RectInt rooms for ScatterRooms
     public List<int> room_rects_heights = new(); // List of heights for each room rectangle
-    public HashSet<Vector2Int> floor_hash_map = new();
-    public HashSet<Vector2Int> wall_hash_map = new();
-    Dictionary<int, Door> doorById; // partner lookup and save/load
-
-    public byte[,] map; // each byte represents one of the below constants
-    public int[,] mapHeights; // 2D array to store height information for each tile
-    public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
-    [HideInInspector] public const byte WALL = 1;
-    [HideInInspector] public const byte FLOOR = 2;
-    [HideInInspector] public const byte RAMP = 3;
-    [HideInInspector] public const byte UNKNOWN = 99;
-    // Additional tile types to be defined here
-
     public List<Color> room_rects_color = new();
 
-    // Reference to CellularAutomata component for variables and methods there
-    private CellularAutomata ca;
+    //public HashSet<Vector2Int> wall_hash_map = new();
+    //Dictionary<int, Door> doorById; // partner lookup and save/load
+
+
+
+    // Reference to each class is maintained here
+    public CellularAutomata ca;
+    public RoomScatterAlgorithms scatter;
+    public RoomGrowthAlgorithms growth;
+    public Tilemap2D tm2d;
+    public RoomCorridors corridors;
+    public Room roomclass;
+    public Globals global;
+    public Door doorclass;
+    public DungeonGenerator generator;
+    public DungeonSettings cfg;
+    public BottomBanner bottomBanner;
+    public TimeManager timeManager;
+
 
     // ------------------------------------- //
     // Start is called by Unity before the first frame update
@@ -114,7 +122,7 @@ public partial class DungeonGenerator : MonoBehaviour
         try
         {
             room_rects = new List<RectInt>(); // Clear the list of room rectangles
-            mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
+            tm2d.mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
             heightBuilder.Destroy3D();
             if (tm.IfYield()) yield return null;     // cooperative yield decision
             BottomBanner.Show("Generating dungeon...");
@@ -130,7 +138,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     break;
                 case DungeonSettings.RoomAlgorithm_e.Scatter_NoOverlap:
                     cfg.generateOverlappingRooms = false;
-                    cfg.useCellularAutomata = true;
+                    cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = true;
                     tavern.enabled = false;
                     break;
@@ -157,10 +165,10 @@ public partial class DungeonGenerator : MonoBehaviour
 
 
             // ===== Step 1. Initialize the dungeon
-            tilemap.ClearAllTiles();
-            rooms.Clear();
-            map = new byte[cfg.mapWidth, cfg.mapHeight];
-            FillVoidToWalls(map);
+            global.global.tilemap.ClearAllTiles();
+            global.rooms.Clear();
+            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            FillVoidToWalls(tm2d.map);
             yield return tm.YieldOrDelay(cfg.stepDelay);
 
             // ===== Step 2. Place rooms
@@ -174,13 +182,13 @@ public partial class DungeonGenerator : MonoBehaviour
             if (cfg.useCellularAutomata) // Cellular Automata generation
             {
                 BottomBanner.Show("Cellular Automata cavern generation iterating...");
-                yield return StartCoroutine(ca.RunCaveGeneration(tm: null));
+                yield return StartCoroutine(growth.RunCellularAutomation(tm: null));
                 DrawWalls();
             }
             if (cfg.useScatterRooms)
             {
                 BottomBanner.Show("Scattering rooms...");
-                yield return StartCoroutine(ScatterRooms(tm: null));
+                yield return StartCoroutine(scatter.ScatterRooms(tm: null));
                 Debug.Log("ScatterRooms done, room_rects.Count = " + room_rects.Count);
                 DrawMapByRects(room_rects, room_rects_color);
                 DrawWalls();
@@ -193,19 +201,19 @@ public partial class DungeonGenerator : MonoBehaviour
             if (cfg.useCellularAutomata) // locate rooms from cellular automata
             {
                 BottomBanner.Show("Remove tiny rocks...");
-                yield return StartCoroutine(ca.RemoveTinyRocksCoroutine(tm: null));
+                yield return StartCoroutine(tm2d.RemoveTinyRocksCoroutine(tm: null));
 
                 BottomBanner.Show("Remove tiny rooms...");
-                yield return StartCoroutine(ca.RemoveTinyRoomsCoroutine(tm: null));
+                yield return StartCoroutine(tm2d.RemoveTinyRoomsCoroutine(tm: null));
 
                 // For Cellular Automata, find rooms from the map
                 BottomBanner.Show("Locate Discrete rooms...");
-                yield return StartCoroutine(ca.FindRoomsCoroutine(map, tm: null));
+                yield return StartCoroutine(tm2d.FindRoomsCoroutine(tm2d.map, tm: null));
             }
             if (cfg.useScatterRooms)
             {
-                rooms = ConvertAllRectToRooms(room_rects, room_rects_color, SetTile: true);
-                DrawMapByRooms(rooms);
+                global.rooms = ConvertAllRectToRooms(room_rects, room_rects_color, SetTile: true);
+                DrawMapByRooms(global.rooms);
                 DrawWalls();
                 if (tm.IfYield()) yield return null;     // cooperative yield decision
 
@@ -213,23 +221,23 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Step 4: Merge overlapping rooms
                 BottomBanner.Show("Merging Overlapping Rooms...");
                 if (cfg.MergeScatteredRooms)
-                    rooms = MergeOverlappingRooms(rooms, considerAdjacency: true, eightWay: false);
-                DrawMapByRooms(rooms);
+                    global.rooms = MergeOverlappingRooms(global.rooms, considerAdjacency: true, eightWay: false);
+                DrawMapByRooms(global.rooms);
                 DrawWalls();
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
             if (cfg.useCellularAutomata || cfg.useScatterRooms)
             {
-                DrawMapByRooms(rooms);
+                DrawMapByRooms(global.rooms);
                 DrawWalls();
 
                 // Step 5: Connect rooms with corridors
                 yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
                 BottomBanner.Show("Connecting Rooms with Corridors...");
-                yield return StartCoroutine(ca.ConnectRoomsByCorridors(tm: null));
+                yield return StartCoroutine(corridors.ConnectRoomsByCorridors(tm: null));
 
-                DrawMapByRooms(rooms);
+                DrawMapByRooms(global.rooms);
                 DrawWalls();
                 yield return tm.YieldOrDelay(cfg.stepDelay);
             }
@@ -253,62 +261,6 @@ public partial class DungeonGenerator : MonoBehaviour
         TimeManager.Instance.DumpStats();
     }
 
-    // Scatter rooms performs the main room placement for Rectangular or Oval rooms
-    IEnumerator ScatterRooms(TimeTask tm=null)
-    {
-        bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("ScatterRooms"); local_tm = true;}
-        try
-        {
-            //List<Vector2Int> roomPoints = new List<Vector2Int>();
-            tilemap.ClearAllTiles();
-            room_rects.Clear(); // Clear the list of room rectangles
-            room_rects_color.Clear(); // Clear the list of colors for room rectangles
-            RectInt newRoom = new();
-            //rooms.Clear();
-            BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
-            for (int i = 0; room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
-            {
-                bool fits = false;
-                while (fits == false)
-                {
-                    int w = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
-                    int h = UnityEngine.Random.Range(cfg.minRoomSize, cfg.maxRoomSize + 1);
-                    int x = UnityEngine.Random.Range(1, cfg.mapWidth - w - 1);
-                    int y = UnityEngine.Random.Range(1, cfg.mapHeight - h - 1);
-                    newRoom = new(x, y, w, h);
-                    fits = RoomFitsWorld(newRoom, 32, 0.5f);
-                }
-
-                // Check if the new room overlaps with existing rooms
-                bool overlaps = false;
-                foreach (var r in room_rects)
-                {
-                    RectInt big_r = new(r.xMin - 1, r.yMin - 1, r.width + 2, r.height + 2);
-                    if (newRoom.Overlaps(big_r))
-                    {
-                        overlaps = true;
-                    }
-                }
-
-                if (!overlaps || cfg.generateOverlappingRooms)
-                {
-                    var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
-                    room_rects.Add(newRoom);
-                    room_rects_color.Add(newColor);
-                    DrawRect(newRoom, newColor);
-                    //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
-                    //                rooms.Add(new Room(roomPoints));
-                    //                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
-                    Debug.Log("Created " + room_rects.Count() + " room_rects");
-                    yield return tm.YieldOrDelay(cfg.stepDelay/3);
-                }
-            }
-            Debug.Log("room_rects.Count = " + room_rects.Count);
-            yield return tm.YieldOrDelay(cfg.stepDelay);
-        }
-        finally { if(local_tm) tm.End(); }
-    }
 
     List<Room> ConvertAllRectToRooms(List<RectInt> room_rects, List<Color> room_rects_color, bool SetTile)
     {
@@ -324,8 +276,8 @@ public partial class DungeonGenerator : MonoBehaviour
             HeightsList = new();
             for (int h = 0; h < PointsList.Count; h++) HeightsList.Add(i);
             Room room = new Room(PointsList, HeightsList);
-            room.isCorridor = false; // Default to false, can be set later if needed
-            room.Name = "Room " + (rooms.Count + 1);
+            room.isCorridor = false;
+            room.name = "Room " + (rooms.Count + 1);
             room.setColorFloor(room_rect_color);
             rooms.Add(room);
             DrawMapByRooms(rooms);
@@ -336,7 +288,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     // ConvertRectToRoomPoints generates a list of points within the
     //  given room rectangle or oval.
-    // As a side effect, it can also set the corresponding tiles in the tilemap.
+    // As a side effect, it can also set the corresponding tiles in the global.tilemap.
     List<Vector2Int> ConvertRectToRoomPoints(RectInt room_rect, Color room_rect_color, bool SetTile)
     {
         //BottomBanner.Show($"Measuring rooms...");
@@ -350,9 +302,9 @@ public partial class DungeonGenerator : MonoBehaviour
                     roomPoints.Add(new Vector2Int(x, y));
                     if (SetTile)
                     {
-                        tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
-                        tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
-                        tilemap.SetColor(new Vector3Int(x, y, 0), room_rect_color); // Set default color
+                        global.tilemap.SetTile(new Vector3Int(x, y, 0), global.floorTile);
+                        global.tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
+                        global.tilemap.SetColor(new Vector3Int(x, y, 0), room_rect_color); // Set default color
                     }
                 }
             }
@@ -381,11 +333,11 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 if (IsPointInRoomRectOrOval(new Vector2Int(x, y), room_rect))
                 {
-                    tilemap.SetTile(new Vector3Int(x, y, 0), floorTile);
-                    tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
-                    tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
+                    global.tilemap.SetTile(new Vector3Int(x, y, 0), global.floorTile);
+                    global.tilemap.SetTileFlags(new Vector3Int(x, y, 0), TileFlags.None); // Allow color changes
+                    global.tilemap.SetColor(new Vector3Int(x, y, 0), tempcolor);
 
-                    map[x, y] = FLOOR;
+                    tm2d.map[x, y] = Tilemap2D.FLOOR;
                 }
             }
         }
@@ -394,49 +346,51 @@ public partial class DungeonGenerator : MonoBehaviour
     public void DrawMapByRooms(List<Room> rooms)
     {
         //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
-        tilemap.ClearAllTiles();
+        global.tilemap.ClearAllTiles();
         foreach (var room in rooms)
         {
             //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
             foreach (var point in room.tiles)
             {
-                tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
-                tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
-                tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
+                global.tilemap.SetTile(new Vector3Int(point.x, point.y, 0), global.floorTile);
+                global.tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
+                global.tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
 
-                map[point.x, point.y] = FLOOR;
-                mapHeights[point.x, point.y] = ca.GetHeightOfLocationFromAllRooms(rooms, point);
+                tm2d.map[point.x, point.y] = Tilemap2D.FLOOR;
+                tm2d.mapHeights[point.x, point.y] = roomclass.GetHeightOfLocationFromAllRooms(rooms, point);
             }
         }
     }
 
     public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height)
     {
+        LineGenerators lineGen = GetComponent<LineGenerators>(); // get handle to class containing line functions
+
         List<Vector2Int> path;
         HashSet<Vector2Int> hashPath = new();
         Room room = new();
 
         switch (cfg.TunnelsAlgorithm)
         {
-            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrthographic:
+            case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrthogonal:
                 BottomBanner.Show("Drawing orthogonal corridors...");
-                path = GridedLine(start, end);
+                path = lineGen.OrthogonalLine(start, end);
                 break;
             case DungeonSettings.TunnelsAlgorithm_e.TunnelsStraight:
                 BottomBanner.Show("Drawing straight corridors...");
-                path = BresenhamLine(start.x, start.y, end.x, end.y);
+                path = lineGen.BresenhamLine(start, end);
                 break;
             case DungeonSettings.TunnelsAlgorithm_e.TunnelsOrganic:
                 BottomBanner.Show("Drawing organic corridors...");
-                path = OrganicLine(start, end);
+                path = lineGen.OrganicLine(start, end);
                 break;
             case DungeonSettings.TunnelsAlgorithm_e.TunnelsCurved:
                 BottomBanner.Show("Drawing curved corridors...");
-                path = GetComponent<BezierDraw>().DrawBezierCorridor(start, end);
+                path = lineGen.BezierLine(start, end);
                 break;
             default:
-                BottomBanner.Show("Drawing Bresenham corridors...");
-                path = BresenhamLine(start.x, start.y, end.x, end.y);
+                BottomBanner.Show("Drawing Noisy Bresenham corridors...");
+                path = lineGen.NoisyBresenhamLine(start, end);
                 break;
         }
 
@@ -469,192 +423,193 @@ public partial class DungeonGenerator : MonoBehaviour
                     {
                         continue; // Skip out-of-bounds tiles
                     }
-                    tilemap.SetTile(tilePos, floorTile);
+                    global.tilemap.SetTile(tilePos, global.floorTile);
                     if (hashPath.Add(new Vector2Int(tilePos.x, tilePos.y)))
                     {
                         room.tiles.Add(new Vector2Int(tilePos.x, tilePos.y));
                         room.heights.Add(height);
                     }
 
-                    map[tilePos.x, tilePos.y] = FLOOR; //Floor
-                    mapHeights[tilePos.x, tilePos.y] = height;
+                    tm2d.map[tilePos.x, tilePos.y] = Tilemap2D.FLOOR; //Floor
+                    tm2d.mapHeights[tilePos.x, tilePos.y] = height;
                 }
             }
         }
         room.isCorridor = true;
         return room;
     }
+    /*
+        // --------- Corridor line algorithms ----------
+        // These return a list of points, which the DrawCorrior function will follow
+        // while handling the width and slope to generate a corridor Room:
+        // Gridded (orthogonal)
+        // Bresenham (straight)
+        // Noisy Bresenham (slightly wiggly)
+        // Organic (kinda jiggles while going 45 degrees and then vertical or horizontal)
+        // Bezier (curved, implemented in it's own file)
 
-    // --------- Corridor line algorithms ----------
-    // These return a list of points, which the DrawCorrior function will follow
-    // while handling the width and slope to generate a corridor Room:
-    // Gridded (orthogonal)
-    // Bresenham (straight)
-    // Noisy Bresenham (slightly wiggly)
-    // Organic (kinda jiggles while going 45 degrees and then vertical or horizontal)
-    // Bezier (curved, implemented in it's own file)
-
-    // Grided Line algorithm: creates an orthogonal line between two points.
-    // Randomly starts with either x or y direction and makes just one turn.
-    public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
-    {
-        List<Vector2Int> line = new List<Vector2Int>();
-        Vector2Int current = from;
-        bool xFirst = UnityEngine.Random.Range(0, 2) == 0;
-
-        if (xFirst)
+        // Grided Line algorithm: creates an orthogonal line between two points.
+        // Randomly starts with either x or y direction and makes just one turn.
+        public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
         {
-            // Move in x direction first
+            List<Vector2Int> line = new List<Vector2Int>();
+            Vector2Int current = from;
+            bool xFirst = UnityEngine.Random.Range(0, 2) == 0;
+
+            if (xFirst)
+            {
+                // Move in x direction first
+                while (current.x != to.x)
+                {
+                    //global.tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
+                    line.Add(new Vector2Int(current.x, current.y));
+                    current.x += current.x < to.x ? 1 : -1;
+                }
+            }
+            // Move in y direction
+            while (current.y != to.y)
+            {
+                //global.tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
+                line.Add(new Vector2Int(current.x, current.y));
+                current.y += current.y < to.y ? 1 : -1;
+            }
+            // Move in x direction
             while (current.x != to.x)
             {
-                //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
+                //global.tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
                 line.Add(new Vector2Int(current.x, current.y));
                 current.x += current.x < to.x ? 1 : -1;
             }
-        }
-        // Move in y direction
-        while (current.y != to.y)
-        {
-            //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
-            line.Add(new Vector2Int(current.x, current.y));
-            current.y += current.y < to.y ? 1 : -1;
-        }
-        // Move in x direction
-        while (current.x != to.x)
-        {
-            //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
-            line.Add(new Vector2Int(current.x, current.y));
-            current.x += current.x < to.x ? 1 : -1;
-        }
-        return line;
-    }
-
-    // Bresenham's Line algorithm: creates a straight line between two points.
-    public List<Vector2Int> BresenhamLine(int x0, int y0, int x1, int y1)
-    {
-        List<Vector2Int> line = new List<Vector2Int>();
-
-        int dx = Mathf.Abs(x1 - x0);
-        int dy = Mathf.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1;
-        int sy = y0 < y1 ? 1 : -1;
-        int err = dx - dy;
-
-        while (true)
-        {
-            line.Add(new Vector2Int(x0, y0));
-            if (x0 == x1 && y0 == y1) break;
-
-            int e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x0 += sx; }
-            if (e2 < dx) { err += dx; y0 += sy; }
+            return line;
         }
 
-        return line;
-    }
-
-    // Noisy Bresenham's Line algorithm: creates a straight line between two points with added jiggle noise.
-    public List<Vector2Int> NoisyBresenham(Vector2Int start, Vector2Int end)
-    {
-        List<Vector2Int> path = new List<Vector2Int>();
-        float noiseStrength = cfg.organicJitterChance;
-        int x0 = start.x;
-        int y0 = start.y;
-        int x1 = end.x;
-        int y1 = end.y;
-
-        int dx = Mathf.Abs(x1 - x0);
-        int dy = Mathf.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1;
-        int sy = y0 < y1 ? 1 : -1;
-        int err = dx - dy;
-
-        while (true)
+        // Bresenham's Line algorithm: creates a straight line between two points.
+        public List<Vector2Int> BresenhamLine(int x0, int y0, int x1, int y1)
         {
-            path.Add(new Vector2Int(x0, y0));
-            if (x0 == x1 && y0 == y1) break;
+            List<Vector2Int> line = new List<Vector2Int>();
 
-            int e2 = 2 * err;
+            int dx = Mathf.Abs(x1 - x0);
+            int dy = Mathf.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
 
-            // Add UnityEngine.Random noise to the decision
-            float noise = UnityEngine.Random.Range(-1f, 1f) * noiseStrength;
-
-            if (e2 + noise > -dy)
+            while (true)
             {
-                err -= dy;
-                x0 += sx;
+                line.Add(new Vector2Int(x0, y0));
+                if (x0 == x1 && y0 == y1) break;
+
+                int e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
             }
 
-            if (e2 + noise < dx)
-            {
-                err += dx;
-                y0 += sy;
-            }
+            return line;
+        }
 
-            // Always force at least one step to avoid infinite loop
-            if (x0 == path[path.Count - 1].x && y0 == path[path.Count - 1].y)
+        // Noisy Bresenham's Line algorithm: creates a straight line between two points with added jiggle noise.
+        public List<Vector2Int> NoisyBresenham(Vector2Int start, Vector2Int end)
+        {
+            List<Vector2Int> path = new List<Vector2Int>();
+            float noiseStrength = cfg.organicJitterChance;
+            int x0 = start.x;
+            int y0 = start.y;
+            int x1 = end.x;
+            int y1 = end.y;
+
+            int dx = Mathf.Abs(x1 - x0);
+            int dy = Mathf.Abs(y1 - y0);
+            int sx = x0 < x1 ? 1 : -1;
+            int sy = y0 < y1 ? 1 : -1;
+            int err = dx - dy;
+
+            while (true)
             {
-                if (dx > dy)
+                path.Add(new Vector2Int(x0, y0));
+                if (x0 == x1 && y0 == y1) break;
+
+                int e2 = 2 * err;
+
+                // Add UnityEngine.Random noise to the decision
+                float noise = UnityEngine.Random.Range(-1f, 1f) * noiseStrength;
+
+                if (e2 + noise > -dy)
+                {
+                    err -= dy;
                     x0 += sx;
-                else
+                }
+
+                if (e2 + noise < dx)
+                {
+                    err += dx;
                     y0 += sy;
+                }
+
+                // Always force at least one step to avoid infinite loop
+                if (x0 == path[path.Count - 1].x && y0 == path[path.Count - 1].y)
+                {
+                    if (dx > dy)
+                        x0 += sx;
+                    else
+                        y0 += sy;
+                }
             }
+
+            return path;
         }
 
-        return path;
-    }
-
-    // Organic Line algorithm: creates a wiggly line between two points.
-    // Tends to first do a 45 degree diagonal and then switches to horizontal or vertical.
-    // Not too bad for short lines as the jagginess is good.
-    public List<Vector2Int> OrganicLine(Vector2Int start, Vector2Int end)
-    {
-        List<Vector2Int> path = new List<Vector2Int>();
-        Vector2Int current = start;
-
-        while (current != end)
+        // Organic Line algorithm: creates a wiggly line between two points.
+        // Tends to first do a 45 degree diagonal and then switches to horizontal or vertical.
+        // Not too bad for short lines as the jagginess is good.
+        public List<Vector2Int> OrganicLine(Vector2Int start, Vector2Int end)
         {
-            path.Add(current);
+            List<Vector2Int> path = new List<Vector2Int>();
+            Vector2Int current = start;
 
-            Vector2Int direction = end - current;
-            int dx = Mathf.Clamp(direction.x, -1, 1);
-            int dy = Mathf.Clamp(direction.y, -1, 1);
-
-            // Introduce a slight chance to “wiggle”
-            if (UnityEngine.Random.value < cfg.organicJitterChance)
+            while (current != end)
             {
-                if (UnityEngine.Random.value < 0.5f)
-                    //dx = 0; // favor y
-                    dx = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
-                else
-                    //dy = 0; // favor x
-                    dy = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
+                path.Add(current);
+
+                Vector2Int direction = end - current;
+                int dx = Mathf.Clamp(direction.x, -1, 1);
+                int dy = Mathf.Clamp(direction.y, -1, 1);
+
+                // Introduce a slight chance to “wiggle”
+                if (UnityEngine.Random.value < cfg.organicJitterChance)
+                {
+                    if (UnityEngine.Random.value < 0.5f)
+                        //dx = 0; // favor y
+                        dx = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
+                    else
+                        //dy = 0; // favor x
+                        dy = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
+                }
+
+                current += new Vector2Int(dx, dy);
             }
 
-            current += new Vector2Int(dx, dy);
+            path.Add(end);
+            return path;
         }
 
-        path.Add(end);
-        return path;
-    }
+        // ---------------- End Corridor line algorithms ----------------
+    */
 
-    // ---------------- End Corridor line algorithms ----------------
-
-    public void DrawWalls()  // from tilemap, adds walls to the existing tilemap
+    public void DrawWalls()  // from global.tilemap, adds walls to the existing global.tilemap
     {
-        BoundsInt bounds = tilemap.cellBounds;
+        BoundsInt bounds = global.tilemap.cellBounds;
         //BottomBanner.Show("Drawing walls...");
         for (int x = bounds.xMin - 1; x <= bounds.xMax + 1; x++)
         {
             for (int y = bounds.yMin - 1; y <= bounds.yMax + 1; y++)
             {
                 Vector3Int pos = new(x, y, 0);
-                if (tilemap.GetTile(pos) == floorTile)
+                if (global.tilemap.GetTile(pos) == global.floorTile)
                     continue;                       // Skip floor tiles
                 if (HasFloorNeighbor(pos))
-                    tilemap.SetTile(pos, wallTile); // add wall tile
+                    global.tilemap.SetTile(pos, global.wallTile); // add wall tile
                 else
-                    tilemap.SetTile(pos, null);     // Remove wall if no floor neighbor
+                    global.tilemap.SetTile(pos, null);     // Remove wall if no floor neighbor
             }
         }
     }
@@ -662,7 +617,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // Check if a tile at position pos has a neighboring floor tile within the specified radius
     bool HasFloorNeighbor(Vector3Int pos, int radius = 1)
     {
-        if (tilemap == null || floorTile == null) return false; // Safety check
+        if (global.tilemap == null || global.floorTile == null) return false; // Safety check
 
         // Check all neighbors within the specified radius
         NeighborCache.Shape shape = cfg.neighborShape;
@@ -672,7 +627,7 @@ public partial class DungeonGenerator : MonoBehaviour
         foreach (var offset in neighbors)
         {
             Vector3Int neighborPos = pos + offset;
-            if (tilemap.GetTile(neighborPos) == floorTile)
+            if (global.tilemap.GetTile(neighborPos) == global.floorTile)
             {
                 return true; // Found a floor tile neighbor
             }
@@ -723,7 +678,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // "samples" controls boundary sampling for oval-in-oval; "margin" shrinks world a bit to avoid edge bleed.
     // 
     // Works for: Rect in Rect, Oval in Rect, Rect in Oval, and Oval in Oval.
-    bool RoomFitsWorld(RectInt roomRect, int samples = 32, float margin = 0.5f)
+    public bool RoomFitsWorld(RectInt roomRect, int samples = 32, float margin = 0.5f)
     {
         // Quick early-reject: roomRect must at least fit inside the map rectangle.
         // works for all room shapes and map shapes.
@@ -794,16 +749,16 @@ public partial class DungeonGenerator : MonoBehaviour
             Vector2Int.left, Vector2Int.right
         };
 
-        for (int room_number = 0; room_number < rooms.Count; room_number++)
+        for (int room_number = 0; room_number < global.rooms.Count; room_number++)
         {
             wall_list_room = new();
             new_wall_hash = new();
-            foreach (Vector2Int pos in rooms[room_number].tiles)
+            foreach (Vector2Int pos in global.rooms[room_number].tiles)
             {
                 foreach (Vector2Int dir in directions)
                 {
                     //if (!floor_hash_map.Contains(pos + dir))
-                    if (!rooms[room_number].floor_hash_neighborhood.Contains(pos + dir))
+                    if (!global.rooms[room_number].floor_hash_neighborhood.Contains(pos + dir))
                     {
                         if (new_wall_hash.Add(pos + dir))
                         {
@@ -812,7 +767,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     }
                 }
             }
-            rooms[room_number].walls = wall_list_room; // Save to rooms[].walls
+            global.rooms[room_number].walls = wall_list_room; // Save to global.rooms[].walls
         }
     }
 
@@ -825,36 +780,36 @@ public partial class DungeonGenerator : MonoBehaviour
         try
         {
             // Initialize whole-map hashes
-            floor_hash_map = new();
-            wall_hash_map = new();
+            global.floor_hash_map = new();
+            global.wall_hash_map = new();
 
             // generate the per-room floor and wall hashes
-            for (int room_number = 0; room_number < rooms.Count; room_number++)
+            for (int room_number = 0; room_number < global.rooms.Count; room_number++)
             {
                 // create per-room hashes
-                rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(rooms[room_number].tiles);
-                rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(rooms[room_number].walls);
+                global.rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(global.rooms[room_number].tiles);
+                global.rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(global.rooms[room_number].walls);
 
                 // Accumulate whole-map hashes
-                floor_hash_map.UnionWith(rooms[room_number].floor_hash_room);
-                wall_hash_map.UnionWith(rooms[room_number].wall_hash_room);
+                global.floor_hash_map.UnionWith(global.rooms[room_number].floor_hash_room);
+                global.wall_hash_map.UnionWith(global.rooms[room_number].wall_hash_room);
 
                 if (tm.IfYield()) yield return null;
             }
 
             // Generate the neighborhood floor and wall hashes
             // (neighborhood means the room and it's directly connected neighbor rooms)
-            for (int room_number = 0; room_number < rooms.Count; room_number++)
+            for (int room_number = 0; room_number < global.rooms.Count; room_number++)
             {
                 // Start with the room itself
-                rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].floor_hash_room);
-                rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].wall_hash_room);
+                global.rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(global.rooms[room_number].floor_hash_room);
+                global.rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(global.rooms[room_number].wall_hash_room);
                 // Add the direct neighbors
-                for (int neighbor_index = 0; neighbor_index < rooms[room_number].neighbors.Count; neighbor_index++)
+                for (int neighbor_index = 0; neighbor_index < global.rooms[room_number].neighbors.Count; neighbor_index++)
                 {
-                    int neighbor_num = rooms[room_number].neighbors[neighbor_index];
-                    rooms[room_number].floor_hash_neighborhood.UnionWith(rooms[neighbor_num].floor_hash_room);
-                    rooms[room_number].wall_hash_neighborhood.UnionWith(rooms[neighbor_num].wall_hash_room);
+                    int neighbor_num = global.rooms[room_number].neighbors[neighbor_index];
+                    global.rooms[room_number].floor_hash_neighborhood.UnionWith(global.rooms[neighbor_num].floor_hash_room);
+                    global.rooms[room_number].wall_hash_neighborhood.UnionWith(global.rooms[neighbor_num].wall_hash_room);
                 }
                 if (tm.IfYield()) yield return null;
             }
@@ -867,7 +822,7 @@ public partial class DungeonGenerator : MonoBehaviour
         for (var y = 0; y < cfg.mapHeight; y++)
             for (var x = 0; x < cfg.mapWidth; x++)
             {
-                if (map[x, y] == 0) map[x, y] = WALL;
+                if (map[x, y] == 0) map[x, y] = Tilemap2D.WALL;
             }
     }
 

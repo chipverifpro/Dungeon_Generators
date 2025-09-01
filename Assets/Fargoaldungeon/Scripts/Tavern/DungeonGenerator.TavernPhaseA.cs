@@ -114,9 +114,9 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             // initialize a local room list and clear the maps
             List<Room> building_rooms = new();
-            tilemap.ClearAllTiles();
-            rooms.Clear();
-            map = new byte[cfg.mapWidth, cfg.mapHeight];
+            global.tilemap.ClearAllTiles();
+            global.rooms.Clear();
+            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // TAVERN
             if (tavern.enabled)
@@ -190,7 +190,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (ca.success == true)
                 {
                     // Done with tavern, add it to full world
-                    rooms.AddRange(building_rooms);
+                    global.rooms.AddRange(building_rooms);
                 }
             }
         }

@@ -12,16 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 4
+  RoomAlgorithm: 1
   TunnelsAlgorithm: 0
   showBuildProcess: 1
-  stepDelay: 1
+  stepDelay: 0.3
   randomizeSeed: 1
-  seed: -251960504
+  seed: 1648800158
   mapWidth: 140
   mapHeight: 140
   roundWorld: 0
-  useScatterRooms: 0
+  useScatterRooms: 1
   roomAttempts: 50
   roomsMax: 15
   minRoomSize: 30
@@ -34,14 +34,14 @@ MonoBehaviour:
   useCellularAutomata: 0
   cellularFillPercent: 45
   CellularGrowthSteps: 5
-  usePerlin: 1
+  usePerlin: 0
   perlinWavelength: 0.05
   perlin2Wavelength: 0.01
   perlinThreshold: 0.45
   MinimumRoomSize: 200
   MinimumRockSize: 25
-  softBorderSize: 5
-  wallThickness: 2
+  softBorderSize: 0
+  wallThickness: 1
   corridorWidth: 3
   organicJitterChance: 0.2
   bezierControlOffset: 5
