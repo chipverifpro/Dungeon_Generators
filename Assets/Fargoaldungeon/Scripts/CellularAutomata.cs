@@ -8,29 +8,12 @@ using Unity.Collections;
 
 // ==================================================================
 
-public class CellularAutomata : MonoBehaviour
+public partial class DungeonGenerator : MonoBehaviour
 {
-    public DungeonSettings cfg; // Reference to the DungeonSettings ScriptableObject
 
-    public DungeonGenerator generator;
-
-    public Tilemap tilemap;
-    public TileBase wallTile;
-    public TileBase floorTile;
-
-    //public byte[,] map;
-    //private byte WALL;
-    //private byte FLOOR;
-
-    
     [HideInInspector] public bool success;    // global generic return value from various tasks
     [HideInInspector] public string failure;    // global failure description string
     
-
-    public void Start()
-    {
-    }
-
 
     // =======================================================
     // helper routines for rect_int room descriptions

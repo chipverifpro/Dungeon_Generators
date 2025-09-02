@@ -14,11 +14,8 @@ using UnityEngine;
 //         like Tavern which has a common area, a service area, and a private area,
 //         each consisting of several named rooms.
 
-public class RoomScatterAlgorithms : MonoBehaviour
+public partial class DungeonGenerator : MonoBehaviour
 {
-    public DungeonGenerator generator;
-    public DungeonSettings cfg;
-    public Globals global;
     
 
     // Scatter rooms performs the main room placement for Rectangular or Oval rooms
@@ -29,13 +26,13 @@ public class RoomScatterAlgorithms : MonoBehaviour
         try
         {
             //List<Vector2Int> roomPoints = new List<Vector2Int>();
-            global.tilemap.ClearAllTiles();
-            generator.room_rects.Clear(); // Clear the list of room rectangles
-            generator.room_rects_color.Clear(); // Clear the list of colors for room rectangles
+            tilemap.ClearAllTiles();
+            room_rects.Clear(); // Clear the list of room rectangles
+            room_rects_color.Clear(); // Clear the list of colors for room rectangles
             RectInt newRoom = new();
             //rooms.Clear();
             BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
-            for (int i = 0; generator.room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
+            for (int i = 0; room_rects.Count < cfg.roomsMax && i < cfg.roomAttempts; i++)
             {
                 bool fits = false;
                 while (fits == false)
@@ -45,12 +42,12 @@ public class RoomScatterAlgorithms : MonoBehaviour
                     int x = UnityEngine.Random.Range(1, cfg.mapWidth - w - 1);
                     int y = UnityEngine.Random.Range(1, cfg.mapHeight - h - 1);
                     newRoom = new(x, y, w, h);
-                    fits = generator.RoomFitsWorld(newRoom, 32, 0.5f);
+                    fits = RoomFitsWorld(newRoom, 32, 0.5f);
                 }
 
                 // Check if the new room overlaps with existing rooms
                 bool overlaps = false;
-                foreach (var r in generator.room_rects)
+                foreach (var r in room_rects)
                 {
                     RectInt big_r = new(r.xMin - 1, r.yMin - 1, r.width + 2, r.height + 2);
                     if (newRoom.Overlaps(big_r))
@@ -62,17 +59,17 @@ public class RoomScatterAlgorithms : MonoBehaviour
                 if (!overlaps || cfg.generateOverlappingRooms)
                 {
                     var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
-                    generator.room_rects.Add(newRoom);
-                    generator.room_rects_color.Add(newColor);
-                    generator.DrawRect(newRoom, newColor);
+                    room_rects.Add(newRoom);
+                    room_rects_color.Add(newColor);
+                    DrawRect(newRoom, newColor);
                     //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
                     //                rooms.Add(new Room(roomPoints));
                     //                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
-                    Debug.Log("Created " + generator.room_rects.Count + " room_rects");
+                    Debug.Log("Created " + room_rects.Count + " room_rects");
                     yield return tm.YieldOrDelay(cfg.stepDelay / 3);
                 }
             }
-            Debug.Log("room_rects.Count = " + generator.room_rects.Count);
+            Debug.Log("room_rects.Count = " + room_rects.Count);
             yield return tm.YieldOrDelay(cfg.stepDelay);
         }
         finally { if (local_tm) tm.End(); }

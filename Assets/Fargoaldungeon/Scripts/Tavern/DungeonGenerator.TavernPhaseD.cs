@@ -26,9 +26,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         if (tavernFootprint == null || tavernZones == null)
         {
-            ca.success = false;
-            ca.failure = "Tavern Phase D: Needs Phase B and C done first.";
-            Debug.LogWarning(ca.failure);
+            success = false;
+            failure = "Tavern Phase D: Needs Phase B and C done first.";
+            Debug.LogWarning(failure);
             yield break;
         }
 
@@ -41,9 +41,9 @@ public partial class DungeonGenerator : MonoBehaviour
             var common  = tavernZones.commonRect;
             var service = tavernZones.serviceRect;
 
-            global.tilemap.ClearAllTiles();
+            tilemap.ClearAllTiles();
             rooms.Clear();
-            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // 1) Find the Common↔Service shared boundary (prefer this as bar wall)
             if (!RectsTouch(common, service))
@@ -70,9 +70,9 @@ public partial class DungeonGenerator : MonoBehaviour
             bar = IntersectRect(bar, common);
             if (bar.width <= 0 || bar.height <= 0)
             {
-                ca.success = false;
-                ca.failure = "Tavern Phase D: Failed to place bar—common too small. Aborting Phase D.";
-                Debug.LogWarning(ca.failure);
+                success = false;
+                failure = "Tavern Phase D: Failed to place bar—common too small. Aborting Phase D.";
+                Debug.LogWarning(failure);
                 yield break;
             }
 
@@ -114,25 +114,25 @@ public partial class DungeonGenerator : MonoBehaviour
             var commonTiles = RectTiles(common);
             commonTiles = TilesMinusRects(commonTiles, carve.ToArray());
 
-            rooms.Add(new Room { name = "BarCounter", tiles = barTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, barTiles.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+            rooms.Add(new Room { name = "BarCounter", tiles = barTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, barTiles.Count).ToList(), colorFloor = getColor(highlight: true) });
             if (hearth.width > 0)
             {
-                rooms.Add(new Room { name = "HearthZone", tiles = hearthTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, hearthTiles.Count).ToList(), colorFloor = ca.getColor(highlight: false) });
+                rooms.Add(new Room { name = "HearthZone", tiles = hearthTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, hearthTiles.Count).ToList(), colorFloor = getColor(highlight: false) });
             }
             if (stage.width > 0)
             {
-                rooms.Add(new Room { name = "StageZone", tiles = stageTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, stageTiles.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+                rooms.Add(new Room { name = "StageZone", tiles = stageTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, stageTiles.Count).ToList(), colorFloor = getColor(highlight: true) });
             }
             if (boothTiles.Count > 0)
-                rooms.Add(new Room { name = "BoothAlcoves", tiles = boothTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, boothTiles.Count).ToList(), colorFloor = ca.getColor(highlight: false) });
+                rooms.Add(new Room { name = "BoothAlcoves", tiles = boothTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, boothTiles.Count).ToList(), colorFloor = getColor(highlight: false) });
 
-            rooms.Add(new Room { name = "CommonRoom", tiles = commonTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, commonTiles.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+            rooms.Add(new Room { name = "CommonRoom", tiles = commonTiles, heights = Enumerable.Repeat(cfg.ground_floor_height, commonTiles.Count).ToList(), colorFloor = getColor(highlight: true) });
 
             // Visualize a door pair as single-tile “rooms” (optional but handy for debugging flow)
             if (barDoor != default && svcDoor != default)
             {
-                rooms.Add(new Room { name = "BarDoor_Common", tiles = new List<Vector2Int> { barDoor }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = ca.getColor(highlight: false) });
-                rooms.Add(new Room { name = "BarDoor_Service", tiles = new List<Vector2Int> { svcDoor }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = ca.getColor(highlight: false) });
+                rooms.Add(new Room { name = "BarDoor_Common", tiles = new List<Vector2Int> { barDoor }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = getColor(highlight: false) });
+                rooms.Add(new Room { name = "BarDoor_Service", tiles = new List<Vector2Int> { svcDoor }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = getColor(highlight: false) });
             }
 
             // Save artifacts for Phase E
@@ -148,7 +148,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
             Debug.Log($"Tavern Phase D: bar={bar} door={barDoor}->{svcDoor} hearth={hearth} stage={stage} booths={booths.Count}");
             DrawMapByRooms(rooms);
-            ca.success = true;
+            success = true;
             if (tm.IfYield()) yield return null;
         }
         finally { if (createdHere) tm.End(); }

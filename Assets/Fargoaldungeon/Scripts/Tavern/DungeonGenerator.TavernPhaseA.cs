@@ -114,83 +114,83 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             // initialize a local room list and clear the maps
             List<Room> building_rooms = new();
-            global.tilemap.ClearAllTiles();
-            global.rooms.Clear();
-            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            tilemap.ClearAllTiles();
+            rooms.Clear();
+            map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // TAVERN
             if (tavern.enabled)
             {
                 building_rooms.Clear();
                 int tries;
-                ca.success = false;
-                while (!ca.success)
+                success = false;
+                while (!success)
                 {
                     // Phase B
                     BottomBanner.Show("Build Tavern Footprint");
-                    ca.success = false;
-                    for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
+                    success = false;
+                    for (tries = 0; (tries < buildingTries) && (success == false); tries++)
                     {
                         yield return BuildTavernFootprint(building_rooms, tm: null);
                         yield return null;
-                        if (ca.success == false) continue; // try again
+                        if (success == false) continue; // try again
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
-                    if (ca.success == false) continue; // start over
+                    if (success == false) continue; // start over
 
                     // Phase C
                     BottomBanner.Show("Build Tavern Zoning");
-                    ca.success = false;
-                    for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
+                    success = false;
+                    for (tries = 0; (tries < buildingTries) && (success == false); tries++)
                     {
                         yield return BuildTavernZoning(building_rooms, tm: null);
                         yield return null;
-                        if (ca.success == false) continue;
+                        if (success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
-                    if (ca.success == false) continue;
+                    if (success == false) continue;
 
                     // PHASE D
                     BottomBanner.Show("Build Tavern Common");
-                    ca.success = false;
-                    for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
+                    success = false;
+                    for (tries = 0; (tries < buildingTries) && (success == false); tries++)
                     {
                         yield return BuildTavernCommon(building_rooms, tm: null);
                         yield return null;
-                        if (ca.success == false) continue;
+                        if (success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
-                    if (ca.success == false) continue;
+                    if (success == false) continue;
 
                     // Phase E
                     BottomBanner.Show("Build Tavern Service");
-                    ca.success = false;
-                    for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
+                    success = false;
+                    for (tries = 0; (tries < buildingTries) && (success == false); tries++)
                     {
                         yield return BuildTavernService(building_rooms, tm: null);
                         yield return null;
-                        if (ca.success == false) continue;
+                        if (success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
-                    if (ca.success == false) continue;
+                    if (success == false) continue;
 
                     // Phase F
                     /*BottomBanner.Show("Build Tavern Stairs and Upper");
-                    ca.success = false;
-                    for (tries = 0; (tries < buildingTries) && (ca.success == false); tries++)
+                    success = false;
+                    for (tries = 0; (tries < buildingTries) && (success == false); tries++)
                     {
                         yield return BuildTavernStairsAndUpper(building_rooms, tm: null);
                         yield return null;
-                        if (ca.success == false) continue;
+                        if (success == false) continue;
                         yield return tm.YieldOrDelay(cfg.stepDelay);
                     }
-                    if (ca.success == false) continue;
+                    if (success == false) continue;
                     */
                 }
-                if (ca.success == true)
+                if (success == true)
                 {
                     // Done with tavern, add it to full world
-                    global.rooms.AddRange(building_rooms);
+                    rooms.AddRange(building_rooms);
                 }
             }
         }

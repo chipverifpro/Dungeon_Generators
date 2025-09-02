@@ -1,11 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class LineGenerators : MonoBehaviour
-{
-    public DungeonSettings cfg; // Reference to the DungeonSettings ScriptableObject
-    public DungeonGenerator gen;  // Reference to the main DungeonGenerator
-    
+public partial class DungeonGenerator : MonoBehaviour
+{    
     // --------- Corridor line algorithms ----------
     // These return a list of points, which the DrawCorrior function will follow
     // while handling the width and slope to generate a corridor Room:

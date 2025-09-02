@@ -4,13 +4,8 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
 
-public class Tilemap2D : MonoBehaviour
+public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 {
-    DungeonGenerator generator;
-    DungeonSettings cfg;
-    Tilemap2D tm2d;
-    Room roomclass;
-    Globals global;
 
     // The 2D map and Unity's tilemap functions and data are here.....
 
@@ -25,29 +20,29 @@ public class Tilemap2D : MonoBehaviour
 
     public void DrawMapFromByteArray()
     {
-       global.tilemap.ClearAllTiles();
+       tilemap.ClearAllTiles();
 
         for (int x = 0; x < cfg.mapWidth; x++)
             for (int y = 0; y < cfg.mapHeight; y++)
             {
                 Vector3Int pos = new Vector3Int(x, y, 0);
-                if (tm2d.map[x, y] == Tilemap2D.FLOOR)
+                if (map[x, y] == FLOOR)
                 {
-                    global.tilemap.SetTile(pos, global.floorTile);
-                    global.tilemap.SetTileFlags(pos, TileFlags.None);
-                    global.tilemap.SetColor(pos, Color.white);
+                    tilemap.SetTile(pos, floorTile);
+                    tilemap.SetTileFlags(pos, TileFlags.None);
+                    tilemap.SetColor(pos, Color.white);
                 }
                 else // WALL
                 {
                     if (HasFloorNeighbor(pos))
                     {
-                        global.tilemap.SetTile(pos, global.wallTile);
-                        global.tilemap.SetTileFlags(pos, TileFlags.None);
-                        global.tilemap.SetColor(pos, Color.white);
+                        tilemap.SetTile(pos, wallTile);
+                        tilemap.SetTileFlags(pos, TileFlags.None);
+                        tilemap.SetColor(pos, Color.white);
                     }
                     else
                     {
-                        global.tilemap.SetTile(pos, null); // optional: don't draw deep interior walls
+                        tilemap.SetTile(pos, null); // optional: don't draw deep interior walls
                     }
                 }
 
@@ -65,7 +60,7 @@ public class Tilemap2D : MonoBehaviour
                 if (pos.x + dir.x < 0 || pos.y + dir.y < 0 ||
                             pos.x + dir.x >= cfg.mapWidth || pos.y + dir.y >= cfg.mapHeight)
                     continue; // Out of bounds
-                if (tm2d.map[pos.x + dir.x, pos.y + dir.y] == Tilemap2D.FLOOR)
+                if (map[pos.x + dir.x, pos.y + dir.y] == FLOOR)
                     return true;
             }
         return false;
@@ -96,7 +91,7 @@ public class Tilemap2D : MonoBehaviour
             {
                 for (int y = 0; y < height; y++)
                 {
-                    if (!visited[x, y] && (map[x, y] == Tilemap2D.FLOOR)) // Floor and unvisited
+                    if (!visited[x, y] && (map[x, y] == FLOOR)) // Floor and unvisited
                     {
                         Room newRoom = new Room();
                         Queue<Vector2Int> queue = new Queue<Vector2Int>(16);
@@ -115,7 +110,7 @@ public class Tilemap2D : MonoBehaviour
                                 int ny = pos.y + dir.y;
 
                                 if (nx >= 0 && ny >= 0 && nx < width && ny < height &&
-                                    !visited[nx, ny] && (map[nx, ny] == Tilemap2D.FLOOR))
+                                    !visited[nx, ny] && (map[nx, ny] == FLOOR))
                                 {
                                     queue.Enqueue(new Vector2Int(nx, ny));
                                     visited[nx, ny] = true;
@@ -142,14 +137,14 @@ public class Tilemap2D : MonoBehaviour
             rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
             Debug.Log($"Finished room sorting.");
             //rooms = RemoveTinyRooms(rooms);
-            generator.DrawMapByRooms(rooms);
+            DrawMapByRooms(rooms);
             //yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm:null));
             //rooms = new List<Room>(return_rooms);
             //ColorCodeRooms(rooms);
 
             //return rooms;
             //return_rooms = rooms;
-            global.rooms = rooms;
+            //rooms = rooms;     //TODO: Fix this...
         }
         finally { if (local_tm) tm.End(); }
     }
@@ -234,12 +229,12 @@ public class Tilemap2D : MonoBehaviour
                         foreach (var t in room.tiles)
                         {
                             var pos = new Vector3Int(t.x, t.y, 0);
-                            tm2d.map[t.x, t.y] = replacement; // flip to replacement
+                            map[t.x, t.y] = replacement; // flip to replacement
                                                                    // Clear visuals;
                             if (replacementTile != null)
-                                global.tilemap.SetTile(pos, replacementTile);
+                                tilemap.SetTile(pos, replacementTile);
                             else
-                                ClearTileAndNeighborWalls(global.tilemap, pos);
+                                ClearTileAndNeighborWalls(tilemap, pos);
                         }
                         clusters.RemoveAt(i);
                         Done = false;
@@ -260,10 +255,10 @@ public class Tilemap2D : MonoBehaviour
         try
         {
             // 1) Find Floor clusters
-            global.rooms = new List<Room>();
-            yield return StartCoroutine(FindClustersCoroutine(tm2d.map, Tilemap2D.FLOOR, global.rooms, tm: null));
+            rooms = new List<Room>();
+            yield return StartCoroutine(FindClustersCoroutine(map, FLOOR, rooms, tm: null));
             // 2) Remove the tiny ones by turning them into WALL
-            yield return StartCoroutine(RemoveTinyClustersCoroutine(global.rooms, cfg.MinimumRoomSize, Tilemap2D.WALL, null, tm: null));
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(rooms, cfg.MinimumRoomSize, WALL, null, tm: null));
             // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
             //DrawMapFromByteArray();
             if (tm.IfYield()) yield return null;
@@ -279,9 +274,9 @@ public class Tilemap2D : MonoBehaviour
         {
             // 1) Find WALL clusters
             var islands = new List<Room>(128);
-            yield return StartCoroutine(FindClustersCoroutine(tm2d.map, Tilemap2D.WALL, islands, tm: null));
+            yield return StartCoroutine(FindClustersCoroutine(map, WALL, islands, tm: null));
             // 2) Remove the tiny ones by turning them into FLOOR
-            yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, Tilemap2D.FLOOR, global.floorTile, tm: null));
+            yield return StartCoroutine(RemoveTinyClustersCoroutine(islands, cfg.MinimumRockSize, FLOOR, floorTile, tm: null));
             // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)
             //DrawMapFromByteArray();
             if (tm.IfYield()) yield return null;
@@ -298,7 +293,7 @@ public class Tilemap2D : MonoBehaviour
         foreach (var offset in squareR2)
         {
             var neighbor = cellPos + offset;
-            if (tilemap.GetTile(neighbor) == global.wallTile)
+            if (tilemap.GetTile(neighbor) == wallTile)
                 tilemap.SetTile(neighbor, null);
         }
 

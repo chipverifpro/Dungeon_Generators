@@ -20,9 +20,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null)
         {
-            ca.success = false;
-            ca.failure = "Tavern Phase C: No footprint yet. Run BuildTavernFootprint first.";
-            Debug.LogWarning(ca.failure);
+            success = false;
+            failure = "Tavern Phase C: No footprint yet. Run BuildTavernFootprint first.";
+            Debug.LogWarning(failure);
             yield break;
         }
 
@@ -31,9 +31,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         try
         {
-            global.tilemap.ClearAllTiles();
+            tilemap.ClearAllTiles();
             rooms.Clear();
-            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             var fp = tavernFootprint.rect;
             int W = fp.width;
@@ -226,9 +226,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
             if (best == null)
             {
-                ca.failure = "Tavern Phase C: failed to zone the footprint. Try relaxing min sizes or aspect.";
-                ca.success = false;
-                Debug.LogWarning(ca.failure);
+                failure = "Tavern Phase C: failed to zone the footprint. Try relaxing min sizes or aspect.";
+                success = false;
+                Debug.LogWarning(failure);
                 yield break;
             }
 
@@ -251,7 +251,7 @@ public partial class DungeonGenerator : MonoBehaviour
             Debug.Log($"Tavern Phase C: common={best.commonRect} service={best.serviceRect} private={best.privateRect} score={bestScore}");
 
             DrawMapByRooms(rooms);
-            ca.success = true;
+            success = true;
         }
         finally
         {

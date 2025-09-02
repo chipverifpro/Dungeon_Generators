@@ -41,9 +41,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
         try
         {
-            global.tilemap.ClearAllTiles();
+            tilemap.ClearAllTiles();
             rooms.Clear();
-            tm2d.map = new byte[cfg.mapWidth, cfg.mapHeight];
+            map = new byte[cfg.mapWidth, cfg.mapHeight];
 
             // We’ll try up to 4 street sides if needed (unless user fixed one)
             var tryDirs = new List<Vector2Int>();
@@ -128,12 +128,12 @@ public partial class DungeonGenerator : MonoBehaviour
 
             if (best == null)
             {
-                ca.success = false;
-                ca.failure =
+                success = false;
+                failure =
                     $"Tavern Phase B: failed to find a valid footprint. " +
                     $"Rejects — Bounds:{rejectsBounds}, Round:{rejectsRound}, Door:{rejectsDoor}, Other:{rejectsOther}. " +
                     $"Try: decrease tavern.minSize, reduce worldMargin, or enable inward front inset.";
-                Debug.LogWarning(ca.failure);
+                Debug.LogWarning(failure);
                 yield break;
             }
 
@@ -151,7 +151,7 @@ public partial class DungeonGenerator : MonoBehaviour
             Debug.Log($"Tavern Phase B: rect={best.rect} frontDir={best.frontDir} doorTiles={best.doorSpan.Count} score={best.score}");
 
             DrawMapByRooms(rooms);
-            ca.success = true;
+            success = true;
             Debug.Log($"Tavern Phase B: Tavern footprint at {tavernFootprint.rect.position} size {tavernFootprint.rect.size}");
         }
         finally

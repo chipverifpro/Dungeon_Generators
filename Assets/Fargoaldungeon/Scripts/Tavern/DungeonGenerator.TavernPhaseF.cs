@@ -21,9 +21,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null || tavernZones == null || tavernCommon == null || tavernService == null)
         {
-            ca.failure="Tavern Phase F: Needs B (footprint), C (zoning), D (common), and E (service) completed.";
-            ca.success = false;
-            Debug.LogWarning(ca.failure);
+            failure="Tavern Phase F: Needs B (footprint), C (zoning), D (common), and E (service) completed.";
+            success = false;
+            Debug.LogWarning(failure);
             yield break;
         }
 
@@ -70,7 +70,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         name = "StairsDown",
                         tiles = new List<Vector2Int> { stairsDown },
                         heights = new List<int> { cfg.next_floor_height },
-                        colorFloor = ca.getColor(highlight: true)
+                        colorFloor = getColor(highlight: true)
                     });
                 }
             }
@@ -96,7 +96,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     name = "StairsUp",
                     tiles = new List<Vector2Int> { stairsUp },
                     heights = new List<int> { cfg.ground_floor_height },
-                    colorFloor = ca.getColor(highlight: true)
+                    colorFloor = getColor(highlight: true)
                 });
             }
 
@@ -178,18 +178,18 @@ public partial class DungeonGenerator : MonoBehaviour
 
             // Emit upstairs rooms (use distinct names; heights kept 0 unless your builder reads it as floor level)
             var hallT = RectTiles(upHall);
-            rooms.Add(new Room { name = "UpstairsHall", tiles = hallT, heights = Enumerable.Repeat(cfg.next_floor_height, hallT.Count).ToList(), colorFloor = ca.getColor(highlight: false) });
+            rooms.Add(new Room { name = "UpstairsHall", tiles = hallT, heights = Enumerable.Repeat(cfg.next_floor_height, hallT.Count).ToList(), colorFloor = getColor(highlight: false) });
 
             for (int i = 0; i < bedrooms.Count; i++)
             {
                 var bt = RectTiles(bedrooms[i]);
-                rooms.Add(new Room { name = $"Bedroom_{i + 1}", tiles = bt, heights = Enumerable.Repeat(cfg.next_floor_height, bt.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+                rooms.Add(new Room { name = $"Bedroom_{i + 1}", tiles = bt, heights = Enumerable.Repeat(cfg.next_floor_height, bt.Count).ToList(), colorFloor = getColor(highlight: true) });
             }
 
             foreach (var wc in wcs)
             {
                 var wt = RectTiles(wc);
-                rooms.Add(new Room { name = "WC", tiles = wt, heights = Enumerable.Repeat(cfg.next_floor_height, wt.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+                rooms.Add(new Room { name = "WC", tiles = wt, heights = Enumerable.Repeat(cfg.next_floor_height, wt.Count).ToList(), colorFloor = getColor(highlight: true) });
             }
 
             tavernVertical = new TavernVerticalArtifacts
@@ -203,7 +203,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
             Debug.Log($"Tavern Phase F: stairsDown={stairsDown} stairsUp={stairsUp} upHall={upHall} bedrooms={bedrooms.Count} wc={wcs.Count}");
             DrawMapByRooms(rooms);
-            ca.success = true;
+            success = true;
         }
         finally { if (createdHere) tm.End(); }
     }
@@ -347,7 +347,7 @@ RectInt MakeSmallWCNearHall(RectInt hall, RectInt upFoot, bool preferTop, Vector
     {
         // If you maintain per-room rects elsewhere, replace with that.
         // Otherwise, attempt to deduce the carved Common by bounding its tiles.
-        var commonRoom = global.rooms.FirstOrDefault(r => r.name == name);
+        var commonRoom = rooms.FirstOrDefault(r => r.name == name);
         if (commonRoom != null && commonRoom.tiles != null && commonRoom.tiles.Count > 0)
         {
             int xmin = commonRoom.tiles.Min(t => t.x);

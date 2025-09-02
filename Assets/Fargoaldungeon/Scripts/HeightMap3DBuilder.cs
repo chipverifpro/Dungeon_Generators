@@ -4,27 +4,27 @@ using Unity.Collections;
 using UnityEditor.Rendering;
 using UnityEngine;
 
-public class HeightMap3DBuilder : MonoBehaviour
+public partial class DungeonGenerator : MonoBehaviour
 {
-    public DungeonGenerator generator;
-    public Grid grid;                         // same Grid as the 2D Tilemap
     public float unitHeight = 0.1f;             // world Y per step
-    public GameObject floorPrefab;
-    public GameObject rampPrefab;             // oriented to face +Z
-    public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
-    public Transform root;                    // parent for spawned meshes
-    public Globals global;
-
-    public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
     public bool useDiagonalCorners = true;
     public bool skipOrthogonalWhenDiagonal = true;
     public int perimeterWallSteps = 30; // height of perimeter faces in steps
+/*    public Grid grid;                         // same Grid as the 2D Tilemap
 
-    [HideInInspector] public const byte WALL = 1;
-    [HideInInspector] public const byte FLOOR = 2;
-    [HideInInspector] public const byte RAMP = 3;
-    [HideInInspector] public const byte UNKNOWN = 99;
+            public GameObject floorPrefab;
+            public GameObject rampPrefab;             // oriented to face +Z
+            public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
+            public Transform root;                    // parent for spawned meshes
 
+            public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
+
+
+            [HideInInspector] public const byte WALL = 1;
+            [HideInInspector] public const byte FLOOR = 2;
+            [HideInInspector] public const byte RAMP = 3;
+            [HideInInspector] public const byte UNKNOWN = 99;
+        */
 
     // If your ramp mesh "forward" is +Z, map directions to rotations:
     static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
@@ -94,20 +94,20 @@ public class HeightMap3DBuilder : MonoBehaviour
             //int w = map.GetLength(0), hi = map.GetLength(1);
             Vector3 cell = grid.cellSize;
 
-            for (int room_number = 0; room_number < global.rooms.Count; room_number++)
+            for (int room_number = 0; room_number < rooms.Count; room_number++)
             {
                 if (tm.IfYield()) yield return null;
-                string room_name = global.rooms[room_number].name;
-                int num_tiles = global.rooms[room_number].tiles.Count;
+                string room_name = rooms[room_number].name;
+                int num_tiles = rooms[room_number].tiles.Count;
                 for (int tile_number = 0; tile_number < num_tiles; tile_number++)
                 {
                     if ((tile_number % 500) == 0) if (tm.IfYield()) yield return null;
-                    Vector2Int pos = global.rooms[room_number].tiles[tile_number];
+                    Vector2Int pos = rooms[room_number].tiles[tile_number];
                     int x = pos.x;
                     int z = pos.y;
-                    int ySteps = global.rooms[room_number].heights[tile_number];
+                    int ySteps = rooms[room_number].heights[tile_number];
                     bool isFloor = true;
-                    Color colorFloor = global.rooms[room_number].colorFloor;
+                    Color colorFloor = rooms[room_number].colorFloor;
                     //bool isWall = false; //unused
 
                     // Base world position of this tile center
@@ -282,19 +282,19 @@ public class HeightMap3DBuilder : MonoBehaviour
 
     int GetHeightFromRoom(int room_number, Vector2Int pos)
     {
-        for (int i = 0; i < global.rooms[room_number].tiles.Count; i++)
+        for (int i = 0; i < rooms[room_number].tiles.Count; i++)
         {
-            if (global.rooms[room_number].tiles[i] == pos)
-                return global.rooms[room_number].heights[i];
+            if (rooms[room_number].tiles[i] == pos)
+                return rooms[room_number].heights[i];
         }
         return 999;
     }
 
     byte GetTileFromRoom(int room_number, Vector2Int pos)
     {
-        if (global.rooms[room_number].wall_hash_room.Contains(pos))
+        if (rooms[room_number].wall_hash_room.Contains(pos))
             return FLOOR;
-        if (global.rooms[room_number].floor_hash_room.Contains(pos))
+        if (rooms[room_number].floor_hash_room.Contains(pos))
             return WALL;
         return UNKNOWN;
     }
@@ -303,10 +303,10 @@ public class HeightMap3DBuilder : MonoBehaviour
     {
         // TODO: get hash_room and hash_walls from room_number
         if (tile_type == FLOOR)
-            if (global.rooms[room_number].floor_hash_room.Contains(pos))
+            if (rooms[room_number].floor_hash_room.Contains(pos))
                 return true;
         if (tile_type == WALL)
-            if (global.rooms[room_number].wall_hash_room.Contains(pos))
+            if (rooms[room_number].wall_hash_room.Contains(pos))
                 return true;
         return false;
     }

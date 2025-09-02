@@ -5,13 +5,11 @@ using System.Collections.Generic;
 using System;
 using UnityEditor.MemoryProfiler;
 
-public class Room : ScriptableObject
+public class Room
 {
-    public Globals global;
-
     // == Properties of the room
     public int my_room_number = -1; // Uniquely identifies this room
-    //public String name = "";  // use inherited Object.name
+    public String name = "";  // use inherited Object.name
 
     // Tile-by-tile lists of floors/walls/doors/etc
     public List<Vector2Int> tiles = new();
@@ -29,9 +27,6 @@ public class Room : ScriptableObject
     public HashSet<Vector2Int> wall_hash_room = new();
     public HashSet<Vector2Int> floor_hash_neighborhood = new();
     public HashSet<Vector2Int> wall_hash_neighborhood = new();
-
-    DungeonGenerator generator;
-    CellularAutomata ca;
 
     // == constructors...
     public Room() { }
@@ -96,19 +91,22 @@ public class Room : ScriptableObject
 
     // =======================================================
     // helper routines for Rooms
+}
 
+public partial class DungeonGenerator : MonoBehaviour
+{
     public void DrawMapFromRoomsList(List<Room> rooms)
     {
-        global.tilemap.ClearAllTiles();
+        tilemap.ClearAllTiles();
 
         foreach (Room room in rooms)
         {
             foreach (Vector2Int tilePos in room.tiles)
             {
                 Vector3Int pos = new Vector3Int(tilePos.x, tilePos.y, 0);
-                global.tilemap.SetTile(pos, global.floorTile);
-                global.tilemap.SetTileFlags(pos, TileFlags.None); // Allow color changes
-                global.tilemap.SetColor(pos, room.colorFloor);
+                tilemap.SetTile(pos, floorTile);
+                tilemap.SetTileFlags(pos, TileFlags.None); // Allow color changes
+                tilemap.SetColor(pos, room.colorFloor);
             }
         }
     }
@@ -125,7 +123,7 @@ public class Room : ScriptableObject
 
     public int GetHeightOfLocationFromOneRoom(Room room, Vector2Int pos)
     {
-        for (int i = 0; i < room.Size; i++)
+        for (int i = 0; i < room.tiles.Count; i++)
         {
             if (room.tiles[i] == pos)
             {
@@ -151,17 +149,17 @@ public class Room : ScriptableObject
 
     public void BuildWallListsFromRooms()
     {
-        for (var room_number = 0; room_number < global.rooms.Count; room_number++)
+        for (var room_number = 0; room_number < rooms.Count; room_number++)
         {
             List<Vector2Int> connected_floor_tiles = get_union_of_connected_room_cells(room_number, false);
-            global.rooms[room_number].walls = new();
-            foreach (var pos in global.rooms[room_number].tiles)
+            rooms[room_number].walls = new();
+            foreach (var pos in rooms[room_number].tiles)
             {
-                foreach (var dir in ca.directions_xy)
+                foreach (var dir in directions_xy)
                 {
                     if (!connected_floor_tiles.Contains(pos + dir))
                     {
-                        global.rooms[room_number].walls.Add(pos + dir);
+                        rooms[room_number].walls.Add(pos + dir);
                         // Do we need to keep height for walls?
                         // No, they only are drawn as neighbors of a floor
                         // which already has a height.
@@ -194,17 +192,17 @@ public class Room : ScriptableObject
         List<Door> new_doors = new();
         int collisions = 0;
 
-        for (int tile_number = 0; tile_number < global.rooms[room_number].tiles.Count; tile_number++)
+        for (int tile_number = 0; tile_number < rooms[room_number].tiles.Count; tile_number++)
         {
-            new_floors.Add(global.rooms[room_number].tiles[tile_number] + new Vector2Int(transpose_vector.x, transpose_vector.y));
-            new_heights.Add(global.rooms[room_number].heights[tile_number] + transpose_vector.z);
+            new_floors.Add(rooms[room_number].tiles[tile_number] + new Vector2Int(transpose_vector.x, transpose_vector.y));
+            new_heights.Add(rooms[room_number].heights[tile_number] + transpose_vector.z);
             // TODO: Check for collisions to other rooms
         }
         if (collisions == 0 || allow_collision)
         {
-            global.rooms[room_number].tiles = new_floors;
-            global.rooms[room_number].heights = new_heights;
-            global.rooms[room_number].doors = new_doors;
+            rooms[room_number].tiles = new_floors;
+            rooms[room_number].heights = new_heights;
+            rooms[room_number].doors = new_doors;
             return true; // true = no collisions or ignore them
         }
         else
@@ -221,7 +219,7 @@ public class Room : ScriptableObject
         bool added = true;
         List<int> rooms_to_connect = new();
         rooms_to_connect.Add(start_room_number);
-        rooms_to_connect.AddRange(global.rooms[start_room_number].neighbors);
+        rooms_to_connect.AddRange(rooms[start_room_number].neighbors);
 
         // if everything, include all neighboring rooms of neighbors
         // if !everything, only include direct neighbors
@@ -235,11 +233,11 @@ public class Room : ScriptableObject
 
             for (int i = 0; i < rooms_to_connect.Count; i++)
             {
-                for (int j = 0; j < global.rooms[rooms_to_connect[i]].neighbors.Count; j++)
+                for (int j = 0; j < rooms[rooms_to_connect[i]].neighbors.Count; j++)
                 {
-                    if (!rooms_to_connect.Contains(global.rooms[rooms_to_connect[i]].neighbors[j]))
+                    if (!rooms_to_connect.Contains(rooms[rooms_to_connect[i]].neighbors[j]))
                     {
-                        rooms_to_connect.Add(global.rooms[rooms_to_connect[i]].neighbors[j]);
+                        rooms_to_connect.Add(rooms[rooms_to_connect[i]].neighbors[j]);
                         added = true;
                     }
                 }
@@ -257,7 +255,7 @@ public class Room : ScriptableObject
         // add tiles from all connected rooms to the list (union of cells)
         for (int i = 0; i < rooms_to_connect.Count; i++)
         {
-            union_of_cells.AddRange(global.rooms[rooms_to_connect[i]].tiles);
+            union_of_cells.AddRange(rooms[rooms_to_connect[i]].tiles);
         }
 
         //Debug.Log("get_union_of_connected_room_cells(" + start_room_number + ") -> length " + union_of_cells.Count + " END");

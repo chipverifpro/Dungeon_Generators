@@ -11,7 +11,6 @@ public class DungeonGUISelector : MonoBehaviour
     public TMP_Dropdown tunnelsAlgorithmDropdown;
     public UnityEngine.UI.Button regenerateButton; // Button to trigger regeneration
     public DungeonGenerator generator;
-    public CellularAutomata ca; // Reference to the CellularAutomata script
 
     public void OnRegenerateClicked()
     {

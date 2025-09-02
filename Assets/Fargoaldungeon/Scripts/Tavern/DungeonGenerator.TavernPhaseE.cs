@@ -21,9 +21,9 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         if (tavernFootprint == null || tavernZones == null || tavernCommon == null)
         {
-            ca.success = false;
-            ca.failure = "Tavern Phase E: Needs B (footprint), C (zoning), and D (common) done first.";
-            Debug.LogWarning(ca.failure);
+            success = false;
+            failure = "Tavern Phase E: Needs B (footprint), C (zoning), and D (common) done first.";
+            Debug.LogWarning(failure);
             yield break;
         }
 
@@ -42,9 +42,9 @@ public partial class DungeonGenerator : MonoBehaviour
             RectInt corridor = ComputeStaffCorridor(common, service, tavern.corridorWidth);
             if (corridor.width == 0 || corridor.height == 0)
             {
-                ca.success = false;
-                ca.failure = "Tavern Phase E: Failed to carve staff corridor; aborting Phase E.";
-                Debug.LogWarning(ca.failure);
+                success = false;
+                failure = "Tavern Phase E: Failed to carve staff corridor; aborting Phase E.";
+                Debug.LogWarning(failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -58,9 +58,9 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (kitchen.width == 0 || kitchen.height == 0)
             {
-                ca.failure="Tavern Phase E: Failed to place kitchen; aborting Phase E.";
-                ca.success = false;
-                Debug.LogWarning(ca.failure);
+                failure="Tavern Phase E: Failed to place kitchen; aborting Phase E.";
+                success = false;
+                Debug.LogWarning(failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -76,9 +76,9 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (storage.width == 0 || storage.height == 0)
             {
-                ca.failure = "Tavern Phase E: Failed to place storage; aborting Phase E.";
-                ca.success = false;
-                Debug.LogWarning(ca.failure);
+                failure = "Tavern Phase E: Failed to place storage; aborting Phase E.";
+                success = false;
+                Debug.LogWarning(failure);
                 yield break;
             }
             if (tm.IfYield()) yield return null;
@@ -98,23 +98,23 @@ public partial class DungeonGenerator : MonoBehaviour
 
             // --- Emit rooms (colorFloor included) ---
             var cCorr = RectTiles(corridor);
-            rooms.Add(new Room { name = "StaffCorridor", tiles = cCorr, heights = Enumerable.Repeat(cfg.ground_floor_height, cCorr.Count).ToList(), colorFloor = ca.getColor(highlight: false) });
+            rooms.Add(new Room { name = "StaffCorridor", tiles = cCorr, heights = Enumerable.Repeat(cfg.ground_floor_height, cCorr.Count).ToList(), colorFloor = getColor(highlight: false) });
 
             var cKit = RectTiles(kitchen);
-            rooms.Add(new Room { name = "Kitchen", tiles = cKit, heights = Enumerable.Repeat(cfg.ground_floor_height, cKit.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+            rooms.Add(new Room { name = "Kitchen", tiles = cKit, heights = Enumerable.Repeat(cfg.ground_floor_height, cKit.Count).ToList(), colorFloor = getColor(highlight: true) });
 
             var cSto = RectTiles(storage);
-            rooms.Add(new Room { name = "Storage", tiles = cSto, heights = Enumerable.Repeat(cfg.ground_floor_height, cSto.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+            rooms.Add(new Room { name = "Storage", tiles = cSto, heights = Enumerable.Repeat(cfg.ground_floor_height, cSto.Count).ToList(), colorFloor = getColor(highlight: true) });
 
             if (office.width > 0)
             {
                 var cOff = RectTiles(office);
-                rooms.Add(new Room { name = "Office", tiles = cOff, heights = Enumerable.Repeat(cfg.ground_floor_height, cOff.Count).ToList(), colorFloor = ca.getColor(highlight: true) });
+                rooms.Add(new Room { name = "Office", tiles = cOff, heights = Enumerable.Repeat(cfg.ground_floor_height, cOff.Count).ToList(), colorFloor = getColor(highlight: true) });
             }
 
             if (rearExit != default)
             {
-                rooms.Add(new Room { name = "RearExit", tiles = new List<Vector2Int> { rearExit }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = ca.getColor(highlight: true) });
+                rooms.Add(new Room { name = "RearExit", tiles = new List<Vector2Int> { rearExit }, heights = new List<int> { cfg.ground_floor_height }, colorFloor = getColor(highlight: true) });
             }
 
             tavernService = new TavernServiceArtifacts
@@ -128,7 +128,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
             Debug.Log($"Tavern Phase E: corridor={corridor} kitchen={kitchen} storage={storage} office={office} rearExit={rearExit}");
             DrawMapByRooms(rooms);
-            ca.success = true;
+            success = true;
             if (tm.IfYield()) yield return null;
         }
         finally { if (createdHere) tm.End(); }
