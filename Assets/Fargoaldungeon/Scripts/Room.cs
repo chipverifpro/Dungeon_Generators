@@ -123,6 +123,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     public int GetHeightOfLocationFromOneRoom(Room room, Vector2Int pos)
     {
+        //Debug.Log($"room.tiles = {room.tiles.Count}; room.heights = {room.heights.Count}");
         for (int i = 0; i < room.tiles.Count; i++)
         {
             if (room.tiles[i] == pos)

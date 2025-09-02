@@ -5,7 +5,7 @@ using UnityEngine.Tilemaps;
 public partial class DungeonGenerator : MonoBehaviour
 {
 
-    private System.Random rng;
+    public System.Random rng;
 
     // 2D assets defined in Unity
     public Tilemap tilemap;

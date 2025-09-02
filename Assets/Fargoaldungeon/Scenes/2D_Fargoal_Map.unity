@@ -797,15 +797,70 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8f528c7611df43ebb3e5039e2e54428, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  success: 0
+  failure: 
+  directions_xy:
+  - {x: 0, y: 1}
+  - {x: 0, y: -1}
+  - {x: -1, y: 0}
+  - {x: 1, y: 0}
+  - {x: -1, y: 1}
+  - {x: 1, y: 1}
+  - {x: -1, y: -1}
+  - {x: 1, y: -1}
+  room_rects: []
+  room_rects_heights: 
+  room_rects_color: []
+  doorclass:
+    id: 0
+    ownerRoomIndex: 0
+    anchor:
+      type: 0
+      aEntry: {x: 0, y: 0}
+      bEntry: {x: 0, y: 0}
+      normal: 0
+      wallStart: {x: 0, y: 0}
+      throughDepthTiles: 0
+      spanTiles: 0
+    cell: {x: 0, y: 0}
+    openDir: 0
+    partnerDoorId: -1
+    neighborRoomIndex: -1
+    flags: 0
+    material: 0
+    style: 0
+    hinge: 0
+    openAngleDeg: 100
+    openSpeed: 1
+    color: {r: 0, g: 0, b: 0, a: 0}
+    keyTag: 
+    lockDifficulty: 0
+    trapDifficulty: 0
+    note: 
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
-  heightBuilder: {fileID: 1448055482}
+  bottomBanner: {fileID: 0}
+  timeManager: {fileID: 0}
   tilemap: {fileID: 409665906}
   floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
   wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
-  room_rects: []
-  room_rects_heights: 
-  mapStale: 1
-  room_rects_color: []
+  doorClosedTile: {fileID: 0}
+  doorOpenTile: {fileID: 0}
+  grid: {fileID: 409665907}
+  floorPrefab: {fileID: 2725812093829766248, guid: 652bf12d9907a42fcabf588f2cb74913,
+    type: 3}
+  rampPrefab: {fileID: 8466642615260838714, guid: ea6045f8a856b453bbd13fb79679c93f,
+    type: 3}
+  cliffPrefab: {fileID: 5414593263697328657, guid: 446ff8d73d23c43a497b71d6b8f08679,
+    type: 3}
+  diagonalWallPrefab: {fileID: 5414593263697328657, guid: 446ff8d73d23c43a497b71d6b8f08679,
+    type: 3}
+  doorClosedPrefab: {fileID: 0}
+  doorOpenPrefab: {fileID: 0}
+  root: {fileID: 0}
+  unitHeight: 0.1
+  useDiagonalCorners: 1
+  skipOrthogonalWhenDiagonal: 1
+  perimeterWallSteps: 30
   tavern:
     enabled: 1
     minSize: {x: 100, y: 80}
@@ -925,6 +980,7 @@ MonoBehaviour:
       height: 0
     upstairsBedrooms: []
     upstairsWCs: []
+  mapStale: 1
 --- !u!483693784 &409665905
 TilemapRenderer:
   m_ObjectHideFlags: 0
@@ -1113,7 +1169,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a34d1db16a0cb4650b83b68fd8c7f52d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
 --- !u!114 &409665911
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1126,13 +1181,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b71eecb781ad4255bc9efcd4bd6f6c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
-  generator: {fileID: 409665904}
-  tilemap: {fileID: 409665906}
-  wallTile: {fileID: 11400000, guid: 75b8983a5755543ea98b58507d5cae59, type: 2}
-  floorTile: {fileID: 11400000, guid: a4062a10fc2d54beb9be2e76ccaf807e, type: 2}
-  success: 0
-  failure: 
 --- !u!114 &409665912
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1164,7 +1212,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
-  budgetPercent: 0.95
+  budgetPercent: 89.7
   useUnscaledTime: 1
   smoothingHalfLifeFrames: 8
 --- !u!1 &428731488
@@ -2273,22 +2321,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f65f5793980e48f58fd25d7234ce37c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  generator: {fileID: 409665904}
-  grid: {fileID: 409665907}
-  unitHeight: 1
-  floorPrefab: {fileID: 2725812093829766248, guid: 652bf12d9907a42fcabf588f2cb74913,
-    type: 3}
-  rampPrefab: {fileID: 8466642615260838714, guid: ea6045f8a856b453bbd13fb79679c93f,
-    type: 3}
-  cliffPrefab: {fileID: 5414593263697328657, guid: 446ff8d73d23c43a497b71d6b8f08679,
-    type: 3}
-  root: {fileID: 0}
-  onlyPerimeterWalls: 1
-  diagonalWallPrefab: {fileID: 5414593263697328657, guid: fa009060c907045069328a36886a459a,
-    type: 3}
-  useDiagonalCorners: 0
-  skipOrthogonalWhenDiagonal: 1
-  perimeterWallSteps: 3
 --- !u!154 &1448055483
 TerrainCollider:
   m_ObjectHideFlags: 0
@@ -3009,7 +3041,6 @@ MonoBehaviour:
   tunnelsAlgorithmDropdown: {fileID: 428731491}
   regenerateButton: {fileID: 1210548553}
   generator: {fileID: 409665904}
-  ca: {fileID: 0}
 --- !u!1 &1815589282
 GameObject:
   m_ObjectHideFlags: 0

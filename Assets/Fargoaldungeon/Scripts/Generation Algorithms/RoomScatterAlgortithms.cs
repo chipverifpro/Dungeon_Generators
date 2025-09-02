@@ -29,6 +29,7 @@ public partial class DungeonGenerator : MonoBehaviour
             tilemap.ClearAllTiles();
             room_rects.Clear(); // Clear the list of room rectangles
             room_rects_color.Clear(); // Clear the list of colors for room rectangles
+            room_rects_heights.Clear(); // Clear heights
             RectInt newRoom = new();
             //rooms.Clear();
             BottomBanner.Show($"Scattering {cfg.roomsMax} Rooms...");
@@ -61,6 +62,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
                     room_rects.Add(newRoom);
                     room_rects_color.Add(newColor);
+                    room_rects_heights.Add(UnityEngine.Random.Range(0,250));
                     DrawRect(newRoom, newColor);
                     //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
                     //                rooms.Add(new Room(roomPoints));

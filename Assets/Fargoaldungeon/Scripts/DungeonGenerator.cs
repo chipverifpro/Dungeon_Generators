@@ -167,8 +167,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 BottomBanner.Show("Scattering rooms...");
                 yield return StartCoroutine(ScatterRooms(tm: null));
                 Debug.Log("ScatterRooms done, room_rects.Count = " + room_rects.Count);
-                DrawMapByRects(room_rects, room_rects_color);
-                DrawWalls();
+                //DrawMapByRects(room_rects, room_rects_color);
+                //DrawWalls();
             }
 
             yield return tm.YieldOrDelay(cfg.stepDelay);
@@ -189,6 +189,7 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             if (cfg.useScatterRooms)
             {
+                BottomBanner.Show("Convert all Rects to Rooms...");
                 rooms = ConvertAllRectToRooms(room_rects, room_rects_color, SetTile: true);
                 DrawMapByRooms(rooms);
                 DrawWalls();
@@ -249,15 +250,17 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             var room_rect = room_rects[i];
             var room_rect_color = room_rects_color[i];
+            var room_rect_height = room_rects_heights[i];
             PointsList = ConvertRectToRoomPoints(room_rect, room_rect_color, false/*SetTile*/);
             HeightsList = new();
-            for (int h = 0; h < PointsList.Count; h++) HeightsList.Add(i);
+            for (int h = 0; h < PointsList.Count; h++) HeightsList.Add(room_rect_height);
+            Debug.Log($"Room {i}: Room points = {PointsList.Count}, Room heights = {HeightsList.Count}");
             Room room = new Room(PointsList, HeightsList);
             room.isCorridor = false;
             room.name = "Room " + (rooms.Count + 1);
             room.setColorFloor(room_rect_color);
             rooms.Add(room);
-            DrawMapByRooms(rooms);
+            //DrawMapByRooms(rooms);
             Debug.Log($"ConvertRectsToRooms: room {i} height = {room.heights[0]}");
         }
         return rooms;
@@ -320,15 +323,17 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
-    public void DrawMapByRooms(List<Room> rooms)
+    public void DrawMapByRooms(List<Room> rooms, bool clearscreen=true)
     {
-        //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
-        tilemap.ClearAllTiles();
+        Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
+        if (clearscreen) tilemap.ClearAllTiles();
+        
         foreach (var room in rooms)
         {
             //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
             foreach (var point in room.tiles)
             {
+                if (!clearscreen) tilemap.SetTile(new Vector3Int(point.x, point.y, 0), null); // clear old tile
                 tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
                 tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
                 tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
@@ -371,7 +376,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         int path_length = path.Count;
         float delta_h = (float)(end_height - start_height) / (float)path_length;
-        if (Math.Abs(delta_h) > 1f)
+        if (cfg.limit_slope && (Math.Abs(delta_h) > 1f))
         {
             Debug.Log($"Slope of corridor is too great Abs({delta_h}) > 1");
             delta_h = Math.Clamp(delta_h, -1f, 1f); // Don't allow ramps too steep to climb.
@@ -754,6 +759,7 @@ public partial class DungeonGenerator : MonoBehaviour
         if (tm==null) {tm = TimeManager.Instance.BeginTask("GenerateMapHashes"); local_tm = true;}
         try
         {
+            Debug.Log($"GenerateMapHashes begin for {rooms.Count} rooms");
             // Initialize whole-map hashes
             floor_hash_map = new();
             wall_hash_map = new();
@@ -788,8 +794,11 @@ public partial class DungeonGenerator : MonoBehaviour
                 }
                 if (tm.IfYield()) yield return null;
             }
+            Debug.Log($"GenerateMapHashes ended.");
+            yield return null;
+            
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
     }
 
     public void FillVoidToWalls(byte[,] map)

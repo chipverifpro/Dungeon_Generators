@@ -68,7 +68,6 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 
     // helper routines for 2D map
 
-    // DrawMapFromByteArray is used only by cellular automata during iterations
     public IEnumerator FindRoomsCoroutine(byte[,] map, TimeTask tm)
     {
         bool local_tm = false;
@@ -117,7 +116,8 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                                 }
                                 // Yield periodically to keep UI responsive during big rooms
                                 if ((newRoom.tiles.Count & 0x1FFF) == 0) // every ~8192 tiles
-                                    yield return tm.YieldOrDelay(cfg.stepDelay / 3);
+                                    //yield return tm.YieldOrDelay(cfg.stepDelay / 3);
+                                    if (tm.IfYield()) yield return null; // Yield to allow UI updates
                             }
                         }
 
@@ -126,7 +126,12 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                         newRoom.setColorFloor(highlight: true);
                         rooms.Add(newRoom);
 
-                        this_room_height++;  // change for the next room to be found
+                        List < Room > new_only_rooms = new();
+                        new_only_rooms.Add(newRoom);
+
+                        DrawMapByRooms(new_only_rooms, clearscreen: false);
+                        yield return null;
+                        this_room_height+=5;  // change for the next room to be found
                                              //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                     }
                 }
@@ -135,7 +140,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
             }
             //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
             rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
-            Debug.Log($"Finished room sorting.");
+            Debug.Log($"Finished room sorting {rooms.Count} rooms.");
             //rooms = RemoveTinyRooms(rooms);
             DrawMapByRooms(rooms);
             //yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm:null));
@@ -164,6 +169,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 
             Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
+            Debug.Log($"begin Find Clusters Coroutine");
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
@@ -179,6 +185,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                         {
                             var p = q.Dequeue();
                             cluster.tiles.Add(p);
+                            cluster.heights.Add(0);
 
                             foreach (var d in directions)
                             {
@@ -206,6 +213,8 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                 // optional progress log
                 // Debug.Log($"Cluster finder processed col {x} of {width}");
             }
+            
+            Debug.Log($"End Find Clusters Coroutine");
         }
         finally { if (local_tm) tm.End(); }
     }

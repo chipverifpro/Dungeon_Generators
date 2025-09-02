@@ -67,7 +67,8 @@ public class DungeonSettings : ScriptableObject
 
     [Header("Corridor Settings")]
     public int corridorWidth = 3;  // Width of passages generated between rooms.
-
+    public bool limit_slope = true;  // don't allow slopes to exceed walkability
+    
     [Header("Organic Type corridor Settings")]
     public float organicJitterChance = 0.2f; // Chance to introduce a wiggle in "organic" corridors
 

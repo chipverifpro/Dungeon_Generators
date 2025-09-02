@@ -6,7 +6,7 @@ public sealed class TimeManager : MonoBehaviour
 {
     // --- Config ---
     public DungeonSettings cfg;
-    [Range(0f, 1f)] public float budgetPercent = 0.95f;   // portion of each frame we allow work to consume
+    [Range(0f, 100f)] public float budgetPercent = 0.95f;   // portion of each frame we allow work to consume
     public bool useUnscaledTime = true;                    // ignore Time.timeScale
     [Tooltip("Smoothing half-life (in frames) for per-frame budget readout. 0 = no smoothing.")]
     public int smoothingHalfLifeFrames = 0;
