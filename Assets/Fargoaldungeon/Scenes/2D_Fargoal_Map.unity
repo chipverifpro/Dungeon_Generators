@@ -854,6 +854,8 @@ MonoBehaviour:
     type: 3}
   diagonalWallPrefab: {fileID: 5414593263697328657, guid: 446ff8d73d23c43a497b71d6b8f08679,
     type: 3}
+  triangleFloorPrefab: {fileID: 5322138645718840507, guid: 429748db0758f45f39ee5121f42a75e3,
+    type: 3}
   doorClosedPrefab: {fileID: 0}
   doorOpenPrefab: {fileID: 0}
   root: {fileID: 0}

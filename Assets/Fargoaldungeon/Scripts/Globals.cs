@@ -20,6 +20,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public GameObject rampPrefab;             // oriented to face +Z
     public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
     public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
+    public GameObject triangleFloorPrefab;   // half of a floor tile
     public GameObject doorClosedPrefab;
     public GameObject doorOpenPrefab;
     public Transform root;                    // parent for spawned meshes

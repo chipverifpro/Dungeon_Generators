@@ -4,6 +4,7 @@ using System.Data;
 using Unity.Collections;
 using UnityEditor.Rendering;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
@@ -108,10 +109,13 @@ public partial class DungeonGenerator : MonoBehaviour
             Vector3 world = new();
             Vector3 nWorld = new();
             Vector3 cell = grid.cellSize;
+            bool use_triangle_floor = false;
+            int triangle_floor_dir = 0;
             
             // Cache once:
             var floorMR = (floorPrefab != null) ? floorPrefab.GetComponent<MeshRenderer>() : null;
             var wallMR  = (cliffPrefab != null) ? cliffPrefab.GetComponent<MeshRenderer>() : null;
+            var triangleFloorMR = (triangleFloorPrefab != null) ? triangleFloorPrefab.GetComponent<MeshRenderer>() : null;
 
             //if (tm.IfYield()) yield return null;
             string room_name = rooms[room_number].name;
@@ -124,6 +128,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 int z = pos.y;
                 int ySteps = rooms[room_number].heights[tile_number];
                 bool isFloor = true;
+                use_triangle_floor = false;
                 Color colorFloor = rooms[room_number].colorFloor;
                 //bool isWall = false; //unused
 
@@ -153,7 +158,8 @@ public partial class DungeonGenerator : MonoBehaviour
                         float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
                         float diagLen = DiagonalInsideLength(cell);
                         Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
-
+                        use_triangle_floor = true;
+                        triangle_floor_dir = 0;
                         // NE corner (N & E)
                         if (N && E /* && NE */)
                         {
@@ -162,6 +168,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw45, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            triangle_floor_dir = 0;
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
                         }
                         // NW corner (N & W)
@@ -172,6 +179,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw315, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            triangle_floor_dir = 1;
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
                         }
                         // SE corner (S & E)
@@ -182,6 +190,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw135, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            triangle_floor_dir = 3;
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
                         }
                         // SW corner (S & W)
@@ -192,6 +201,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw225, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            triangle_floor_dir = 2;
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
                         }
                     }
@@ -199,8 +209,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 // -------- end diagonal corner smoothing --------
 
                 // Place floor at its height (Y is up)
-                if (isFloor && floorPrefab != null)
-                {
+                    if (isFloor && floorPrefab != null && triangleFloorPrefab != null)
+                    {
                     //var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
                     //f.name = $"Floor({room_name})";
                     //f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
@@ -210,9 +220,18 @@ public partial class DungeonGenerator : MonoBehaviour
                     //    renderer.material.color = colorFloor;
 
                     // When you instantiate, skip naming in bulk builds:
-                    var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                    f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
-                    // Cache renderer on prefab variant or:
+                    GameObject f;
+                    if (use_triangle_floor)
+                    {
+                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, triangle_floor_dir * 90), root);
+                        f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
+                    }
+                    else
+                    {
+                        f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
+                        f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
+                    }
+                                                                // Cache renderer on prefab variant or:
                     var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
                     if (rend != null) rend.material.color = colorFloor;
                 }
