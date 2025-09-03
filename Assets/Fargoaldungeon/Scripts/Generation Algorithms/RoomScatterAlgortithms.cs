@@ -62,7 +62,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     var newColor = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);
                     room_rects.Add(newRoom);
                     room_rects_color.Add(newColor);
-                    room_rects_heights.Add(UnityEngine.Random.Range(0,250));
+                    room_rects_heights.Add(UnityEngine.Random.Range(0,cfg.maxElevation));
                     DrawRect(newRoom, newColor);
                     //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
                     //                rooms.Add(new Room(roomPoints));

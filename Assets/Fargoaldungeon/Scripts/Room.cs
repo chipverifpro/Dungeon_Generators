@@ -4,6 +4,7 @@ using UnityEngine.Tilemaps;
 using System.Collections.Generic;
 using System;
 using UnityEditor.MemoryProfiler;
+using System.Threading;
 
 public class Room
 {
@@ -24,9 +25,12 @@ public class Room
 
     // HashSets contain tiles or walls for this room or room + immediate neighbors.
     public HashSet<Vector2Int> floor_hash_room = new();
+    //public HashSet<Vector2Int> floor_hash_neighborhood = new();
     public HashSet<Vector2Int> wall_hash_room = new();
-    public HashSet<Vector2Int> floor_hash_neighborhood = new();
-    public HashSet<Vector2Int> wall_hash_neighborhood = new();
+    //public HashSet<Vector2Int> wall_hash_neighborhood = new();
+    public Dictionary<Vector2Int, int> heights_lookup_room = new();
+    //public Dictionary<Vector2Int, int> heights_lookup_neighborhood = new();
+
 
     // == constructors...
     public Room() { }
@@ -54,7 +58,45 @@ public class Room
         // TODO: check to see if other parameters need copying
     }
 
-    // ==================== Helper functions...
+    public int GetHeightInRoom(Vector2Int pos)
+    {
+        if (heights_lookup_room.Count == 0)
+        {
+            // Build once and keep it.
+            heights_lookup_room = new(Size);
+            for (int i = 0; i < tiles.Count; i++)
+                heights_lookup_room[tiles[i]] = heights[i];
+        }
+        return heights_lookup_room.TryGetValue(pos, out var v) ? v : 999;
+    }
+
+    public bool IsTileInRoom(Vector2Int pos)
+    {
+        if (floor_hash_room.Count == 0)
+        {
+            // Build once and keep it.
+            floor_hash_room = new(Size);
+            for (int i = 0; i < tiles.Count; i++)
+                floor_hash_room.Add(tiles[i]);
+        }
+        return floor_hash_room.Contains(pos);
+    } 
+    
+    public bool IsWallInRoom(Vector2Int pos)
+    {
+        if (wall_hash_room.Count == 0)
+        {
+            // Build once and keep it.
+            wall_hash_room = new(walls.Count);
+            for (int i = 0; i < walls.Count; i++)
+                wall_hash_room.Add(walls[i]);
+        }
+        return wall_hash_room.Contains(pos);
+    }  
+
+
+
+    // ==================== Color Helper functions...
 
     //setColorFloor sets all floors of a room to a color.
 
@@ -124,15 +166,11 @@ public partial class DungeonGenerator : MonoBehaviour
     public int GetHeightOfLocationFromOneRoom(Room room, Vector2Int pos)
     {
         //Debug.Log($"room.tiles = {room.tiles.Count}; room.heights = {room.heights.Count}");
-        for (int i = 0; i < room.tiles.Count; i++)
-        {
-            if (room.tiles[i] == pos)
-            {
-                return room.heights[i];
-            }
-        }
-        //Debug.Log("location not found in room");
-        return int.MaxValue; // not found
+        int height = room.GetHeightInRoom(pos);
+        if (height != 999) return height; // found it
+
+        Debug.Log("location not found in rooms");
+        return 999;
     }
 
     public int GetHeightOfLocationFromAllRooms(List<Room> rooms, Vector2Int pos)
@@ -140,25 +178,26 @@ public partial class DungeonGenerator : MonoBehaviour
         int height;
         foreach (var room in rooms)
         {
-            height = GetHeightOfLocationFromOneRoom(room, pos);
-            if (height != int.MaxValue) return height; // found it
+            height = room.GetHeightInRoom(pos);
+            if (height != 999) return height; // found it
         }
         Debug.Log("location not found in rooms");
-        return 0; //int.MaxValue;
+        return 999;
     }
-    
+
 
     public void BuildWallListsFromRooms()
     {
         for (var room_number = 0; room_number < rooms.Count; room_number++)
         {
-            List<Vector2Int> connected_floor_tiles = get_union_of_connected_room_cells(room_number, false);
+            Debug.Log($"Before Building Walls for room {room_number} = {rooms[room_number].walls.Count}, num_heights = {rooms[room_number].heights.Count}");
+            //List<Vector2Int> connected_floor_tiles = get_union_of_connected_room_cells(room_number, false);
             rooms[room_number].walls = new();
             foreach (var pos in rooms[room_number].tiles)
             {
                 foreach (var dir in directions_xy)
                 {
-                    if (!connected_floor_tiles.Contains(pos + dir))
+                    if (!rooms[room_number].IsTileInRoom(pos + dir))
                     {
                         rooms[room_number].walls.Add(pos + dir);
                         // Do we need to keep height for walls?
@@ -167,8 +206,8 @@ public partial class DungeonGenerator : MonoBehaviour
                     }
                 }
             }
+            Debug.Log($"After Building Walls for room {room_number} = {rooms[room_number].walls.Count} height={rooms[room_number].heights[0]}");
         }
-
     }
 
     // Obsolete?  This really combined the room contents, which
@@ -262,4 +301,34 @@ public partial class DungeonGenerator : MonoBehaviour
         //Debug.Log("get_union_of_connected_room_cells(" + start_room_number + ") -> length " + union_of_cells.Count + " END");
         return union_of_cells;
     }
+
+    // Neighborhood searches...
+
+    public int GetHeightInNeighborhood(int room_number, Vector2Int pos)
+    {
+        int ht = rooms[room_number].GetHeightInRoom(pos);
+        List<int> myneighbors = rooms[room_number].neighbors;
+        for (int i = 0; (ht == 999) && (i < myneighbors.Count); i++)
+            ht = rooms[myneighbors[i]].GetHeightInRoom(pos);
+        return ht;
+    }
+
+    public bool IsTileInNeighborhood(int room_number, Vector2Int pos)
+    {
+        bool isit = rooms[room_number].IsTileInRoom(pos);
+        List<int> myneighbors = rooms[room_number].neighbors;
+        for (int i = 0; (isit == false) && (i < myneighbors.Count); i++)
+            isit = rooms[myneighbors[i]].IsTileInRoom(pos);
+        return isit;
+    }
+
+    public bool IsWallInNeighborhood(int room_number, Vector2Int pos)
+    {
+        bool isit = rooms[room_number].IsWallInRoom(pos);
+        List<int> myneighbors = rooms[room_number].neighbors;
+        for (int i = 0; (isit == false) && (i < myneighbors.Count); i++)
+            isit = rooms[myneighbors[i]].IsWallInRoom(pos);
+        return isit;
+    }
+
 }

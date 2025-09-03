@@ -18,9 +18,11 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
     [HideInInspector] public const byte UNKNOWN = 99;
     // Additional tile types to be defined here
 
+
+    // map -> tilemap
     public void DrawMapFromByteArray()
     {
-       tilemap.ClearAllTiles();
+        tilemap.ClearAllTiles();
 
         for (int x = 0; x < cfg.mapWidth; x++)
             for (int y = 0; y < cfg.mapHeight; y++)
@@ -45,10 +47,10 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                         tilemap.SetTile(pos, null); // optional: don't draw deep interior walls
                     }
                 }
-
             }
     }
 
+    // from map
     bool HasFloorNeighbor(Vector3Int pos)
     {
         for (int x = -cfg.wallThickness; x <= cfg.wallThickness; x++)
@@ -166,7 +168,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
             int width = map.GetLength(0);
             int height = map.GetLength(1);
             bool[,] visited = new bool[width, height];
-
+            int room_height;
             Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
             Debug.Log($"begin Find Clusters Coroutine");
@@ -177,6 +179,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                     if (!visited[x, y] && map[x, y] == target)
                     {
                         Room cluster = new Room();
+                        room_height = (int)Random.Range(0f, (float)cfg.maxElevation);
                         Queue<Vector2Int> q = new Queue<Vector2Int>(16);
                         q.Enqueue(new Vector2Int(x, y));
                         visited[x, y] = true;
@@ -185,7 +188,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                         {
                             var p = q.Dequeue();
                             cluster.tiles.Add(p);
-                            cluster.heights.Add(0);
+                            cluster.heights.Add(room_height);
 
                             foreach (var d in directions)
                             {
@@ -204,20 +207,51 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                                 if (tm.IfYield()) yield return null;
                         }
 
-                        cluster.name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
-                        cluster.setColorFloor(highlight: true);
-                        outRooms.Add(cluster);
+                        //if (cluster.Size < cfg.MinimumRoomSize)
+                        //{
+                        //    yield return StartCoroutine(RemoveOneRoom(cluster, WALL, wallTile, tm: null));
+                        //}
+                        //else
+                        //{
+                            cluster.name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
+                            cluster.setColorFloor(highlight: true);
+                            outRooms.Add(cluster);
+                        //}
                         if (tm.IfYield()) yield return null; // let UI breathe between clusters
                     }
                 }
                 // optional progress log
-                // Debug.Log($"Cluster finder processed col {x} of {width}");
+                //Debug.Log($"Cluster finder processed col {x} of {width}");
+                //yield return null;
             }
             
             Debug.Log($"End Find Clusters Coroutine");
         }
         finally { if (local_tm) tm.End(); }
     }
+
+    // remove entire room from map and tilemap (used with tiny rooms)
+    public IEnumerator RemoveOneRoom(Room room, byte replacement, TileBase replacementTile = null, TimeTask tm = null)
+    {
+        bool local_tm = false;
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RemoveOneRoom"); local_tm = true; }
+        try
+        {
+            foreach (var t in room.tiles)
+            {
+                var pos = new Vector3Int(t.x, t.y, 0);
+                map[t.x, t.y] = replacement; // flip to replacement
+                                             // Clear visuals;
+                if (replacementTile != null)
+                    tilemap.SetTile(pos, replacementTile);
+                else
+                    ClearTileAndNeighborWalls(tilemap, pos);
+            }
+            if (tm.IfYield()) yield return null; // UI breathe
+        }
+        finally { if (local_tm) tm.End(); }
+    } // Not Needed: fix up neighbors list (connections not yet made)
+
 
     // Remove clusters smaller than cfg.MinimumRoomSize by repainting them to `replacement` (FLOOR or WALL)
     public IEnumerator RemoveTinyClustersCoroutine(List<Room> clusters, int minimumSize, byte replacement, TileBase replacementTile = null, TimeTask tm = null)
@@ -237,13 +271,13 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                     {
                         foreach (var t in room.tiles)
                         {
-                            var pos = new Vector3Int(t.x, t.y, 0);
+                            //var pos = new Vector3Int(t.x, t.y, 0);
                             map[t.x, t.y] = replacement; // flip to replacement
-                                                                   // Clear visuals;
-                            if (replacementTile != null)
-                                tilemap.SetTile(pos, replacementTile);
-                            else
-                                ClearTileAndNeighborWalls(tilemap, pos);
+                                                         // Clear visuals;
+                                                         //if (replacementTile != null)
+                                                         //tilemap.SetTile(pos, replacementTile);
+                                                         //else
+                                                         //ClearTileAndNeighborWalls(tilemap, pos);
                         }
                         clusters.RemoveAt(i);
                         Done = false;
@@ -252,7 +286,8 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                     }
                 }
             }
-            if (tm.IfYield()) yield return null;
+            DrawMapFromByteArray();
+            if (tm.IfYield()) yield return null;        
         }
         finally { if (local_tm) tm.End(); }
     }
@@ -264,8 +299,9 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
         try
         {
             // 1) Find Floor clusters
-            rooms = new List<Room>();
-            yield return StartCoroutine(FindClustersCoroutine(map, FLOOR, rooms, tm: null));
+            // we already found the rooms, just filter them out for tiny ones.
+            //rooms = new List<Room>();
+            //yield return StartCoroutine(FindClustersCoroutine(map, FLOOR, rooms, tm: null));
             // 2) Remove the tiny ones by turning them into WALL
             yield return StartCoroutine(RemoveTinyClustersCoroutine(rooms, cfg.MinimumRoomSize, WALL, null, tm: null));
             // 3) Redraw (floor/wall visuals updated by DrawMapFromByteArray)

@@ -180,12 +180,12 @@ public partial class DungeonGenerator : MonoBehaviour
                 BottomBanner.Show("Remove tiny rocks...");
                 yield return StartCoroutine(RemoveTinyRocksCoroutine(tm: null));
 
-                BottomBanner.Show("Remove tiny rooms...");
-                yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm: null));
-
                 // For Cellular Automata, find rooms from the map
                 BottomBanner.Show("Locate Discrete rooms...");
-                yield return StartCoroutine(FindRoomsCoroutine(map, tm: null));
+                yield return StartCoroutine(FindClustersCoroutine(map, FLOOR, rooms, tm: null));
+
+                BottomBanner.Show("Remove tiny rooms...");
+                yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm: null));
             }
             if (cfg.useScatterRooms)
             {
@@ -211,7 +211,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 DrawWalls();
 
                 // Step 5: Connect rooms with corridors
-                yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
+                //yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
                 BottomBanner.Show("Connecting Rooms with Corridors...");
                 yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
 
@@ -219,10 +219,12 @@ public partial class DungeonGenerator : MonoBehaviour
                 DrawWalls();
                 yield return tm.YieldOrDelay(cfg.stepDelay);
             }
+            BottomBanner.Show("Building Wall Lists...");
+            BuildWallListsFromRooms();
 
-            yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
-            GenerateWallLists(); // needs floor hashes to run
-            yield return StartCoroutine(GenerateMapHashes(tm: null)); // run again to create wall hashes
+            //yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
+            //GenerateWallLists(); // needs floor hashes to run
+            //yield return StartCoroutine(GenerateMapHashes(tm: null)); // run again to create wall hashes
 
             BottomBanner.Show("Height Map Build...");
 
@@ -737,8 +739,10 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 foreach (Vector2Int dir in directions)
                 {
+                    // TODO: FIX THIS NOW!
+
                     //if (!floor_hash_map.Contains(pos + dir))
-                    if (!rooms[room_number].floor_hash_neighborhood.Contains(pos + dir))
+                    if (!rooms[room_number].floor_hash_room.Contains(pos + dir))
                     {
                         if (new_wall_hash.Add(pos + dir))
                         {
@@ -750,57 +754,58 @@ public partial class DungeonGenerator : MonoBehaviour
             rooms[room_number].walls = wall_list_room; // Save to rooms[].walls
         }
     }
-
-    // Run GenerateMapHashes() once all rooms are created.
-    // Allows quickly looking up room contents from world xy position.
-    IEnumerator GenerateMapHashes(TimeTask tm = null)
-    {
-        bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("GenerateMapHashes"); local_tm = true;}
-        try
+ 
+/*
+        // Run GenerateMapHashes() once all rooms are created.
+        // Allows quickly looking up room contents from world xy position.
+        IEnumerator GenerateMapHashes(TimeTask tm = null)
         {
-            Debug.Log($"GenerateMapHashes begin for {rooms.Count} rooms");
-            // Initialize whole-map hashes
-            floor_hash_map = new();
-            wall_hash_map = new();
-
-            // generate the per-room floor and wall hashes
-            for (int room_number = 0; room_number < rooms.Count; room_number++)
+            bool local_tm = false;
+            if (tm==null) {tm = TimeManager.Instance.BeginTask("GenerateMapHashes"); local_tm = true;}
+            try
             {
-                // create per-room hashes
-                rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(rooms[room_number].tiles);
-                rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(rooms[room_number].walls);
+                Debug.Log($"GenerateMapHashes begin for {rooms.Count} rooms");
+                // Initialize whole-map hashes
+                floor_hash_map = new();
+                wall_hash_map = new();
 
-                // Accumulate whole-map hashes
-                floor_hash_map.UnionWith(rooms[room_number].floor_hash_room);
-                wall_hash_map.UnionWith(rooms[room_number].wall_hash_room);
-
-                if (tm.IfYield()) yield return null;
-            }
-
-            // Generate the neighborhood floor and wall hashes
-            // (neighborhood means the room and it's directly connected neighbor rooms)
-            for (int room_number = 0; room_number < rooms.Count; room_number++)
-            {
-                // Start with the room itself
-                rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].floor_hash_room);
-                rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].wall_hash_room);
-                // Add the direct neighbors
-                for (int neighbor_index = 0; neighbor_index < rooms[room_number].neighbors.Count; neighbor_index++)
+                // generate the per-room floor and wall hashes
+                for (int room_number = 0; room_number < rooms.Count; room_number++)
                 {
-                    int neighbor_num = rooms[room_number].neighbors[neighbor_index];
-                    rooms[room_number].floor_hash_neighborhood.UnionWith(rooms[neighbor_num].floor_hash_room);
-                    rooms[room_number].wall_hash_neighborhood.UnionWith(rooms[neighbor_num].wall_hash_room);
-                }
-                if (tm.IfYield()) yield return null;
-            }
-            Debug.Log($"GenerateMapHashes ended.");
-            yield return null;
-            
-        }
-        finally { if (local_tm) tm.End(); }
-    }
+                    // create per-room hashes
+                    rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(rooms[room_number].tiles);
+                    rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(rooms[room_number].walls);
 
+                    // Accumulate whole-map hashes
+                    floor_hash_map.UnionWith(rooms[room_number].floor_hash_room);
+                    wall_hash_map.UnionWith(rooms[room_number].wall_hash_room);
+
+                    if (tm.IfYield()) yield return null;
+                }
+
+                // Generate the neighborhood floor and wall hashes
+                // (neighborhood means the room and it's directly connected neighbor rooms)
+                for (int room_number = 0; room_number < rooms.Count; room_number++)
+                {
+                    // Start with the room itself
+                    rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].floor_hash_room);
+                    rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].wall_hash_room);
+                    // Add the direct neighbors
+                    for (int neighbor_index = 0; neighbor_index < rooms[room_number].neighbors.Count; neighbor_index++)
+                    {
+                        int neighbor_num = rooms[room_number].neighbors[neighbor_index];
+                        rooms[room_number].floor_hash_neighborhood.UnionWith(rooms[neighbor_num].floor_hash_room);
+                        rooms[room_number].wall_hash_neighborhood.UnionWith(rooms[neighbor_num].wall_hash_room);
+                    }
+                    if (tm.IfYield()) yield return null;
+                }
+                Debug.Log($"GenerateMapHashes ended.");
+                yield return null;
+
+            }
+            finally { if (local_tm) tm.End(); }
+        }
+    */
     public void FillVoidToWalls(byte[,] map)
     {
         for (var y = 0; y < cfg.mapHeight; y++)

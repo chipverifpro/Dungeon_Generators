@@ -25,6 +25,7 @@ public class DungeonSettings : ScriptableObject
     public int mapWidth = 150;
     public int mapHeight = 150;
     public bool roundWorld = false; // sometimes not having square map edges is nice.
+    public int maxElevation = 100;
 
     [Header("Scatter Room Settings")]
     public bool useScatterRooms = false;
