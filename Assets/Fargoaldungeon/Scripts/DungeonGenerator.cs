@@ -346,7 +346,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
-    public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height)
+    public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height, int start_room, int end_room)
     {
         List<Vector2Int> path;
         HashSet<Vector2Int> hashPath = new();
@@ -378,6 +378,10 @@ public partial class DungeonGenerator : MonoBehaviour
 
         int path_length = path.Count;
         float delta_h = (float)(end_height - start_height) / (float)path_length;
+        // pre-seed the hashPath with both end rooms so we don't add corridor tiles there.
+        hashPath.UnionWith(rooms[start_room].tiles);
+        hashPath.UnionWith(rooms[end_room].tiles);
+        
         if (cfg.limit_slope && (Math.Abs(delta_h) > 1f))
         {
             Debug.Log($"Slope of corridor is too great Abs({delta_h}) > 1");

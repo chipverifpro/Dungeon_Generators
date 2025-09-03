@@ -86,7 +86,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 int height_j = GetHeightOfLocationFromOneRoom(rooms[connection_room_j], close_j);
 
                 // Carve the corridor and create a new room of it
-                Room corridorRoom = DrawCorridorSloped(close_i, close_j, height_i, height_j);
+                Room corridorRoom = DrawCorridorSloped(close_i, close_j, height_i, height_j, connection_room_i, connection_room_j);
                 corridorRoom.isCorridor = true; // Mark as corridor
                 corridorRoom.name = $"Corridor {connection_room_i}-{connection_room_j}";
                 corridorRoom.setColorFloor(highlight: false); // Set corridor color

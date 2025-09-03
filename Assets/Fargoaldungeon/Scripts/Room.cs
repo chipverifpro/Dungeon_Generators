@@ -190,14 +190,15 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         for (var room_number = 0; room_number < rooms.Count; room_number++)
         {
-            Debug.Log($"Before Building Walls for room {room_number} = {rooms[room_number].walls.Count}, num_heights = {rooms[room_number].heights.Count}");
+            //Debug.Log($"Before Building Walls for room {room_number} = {rooms[room_number].walls.Count}, num_heights = {rooms[room_number].heights.Count}");
             //List<Vector2Int> connected_floor_tiles = get_union_of_connected_room_cells(room_number, false);
             rooms[room_number].walls = new();
             foreach (var pos in rooms[room_number].tiles)
             {
                 foreach (var dir in directions_xy)
                 {
-                    if (!rooms[room_number].IsTileInRoom(pos + dir))
+                    //if (!rooms[room_number].IsTileInRoom(pos + dir))
+                    if (!IsTileInNeighborhood(room_number,pos + dir))
                     {
                         rooms[room_number].walls.Add(pos + dir);
                         // Do we need to keep height for walls?
@@ -206,7 +207,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     }
                 }
             }
-            Debug.Log($"After Building Walls for room {room_number} = {rooms[room_number].walls.Count} height={rooms[room_number].heights[0]}");
+            //Debug.Log($"After Building Walls for room {room_number} = {rooms[room_number].walls.Count} height={rooms[room_number].heights[0]}");
         }
     }
 
