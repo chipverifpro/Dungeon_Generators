@@ -350,6 +350,8 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         List<Vector2Int> path;
         HashSet<Vector2Int> hashPath = new();
+        HashSet<Vector2Int> neighbor_start_hashPath = new();
+        HashSet<Vector2Int> neighbor_end_hashPath = new();
         Room room = new();
 
         switch (cfg.TunnelsAlgorithm)
@@ -377,10 +379,16 @@ public partial class DungeonGenerator : MonoBehaviour
         }
 
         int path_length = path.Count;
-        float delta_h = (float)(end_height - start_height) / (float)path_length;
+        if (path_length <= 1)
+        {
+            Debug.Log($"path_length = {path_length}, must be > 1");
+            //TODO: make a vertical ladder?
+            return (room); // empty room
+        }
+        float delta_h = (float)(end_height - start_height) / (float)(path_length-1);
         // pre-seed the hashPath with both end rooms so we don't add corridor tiles there.
-        hashPath.UnionWith(rooms[start_room].tiles);
-        hashPath.UnionWith(rooms[end_room].tiles);
+        neighbor_start_hashPath.UnionWith(rooms[start_room].tiles);
+        neighbor_end_hashPath.UnionWith(rooms[end_room].tiles);
         
         if (cfg.limit_slope && (Math.Abs(delta_h) > 1f))
         {
@@ -410,11 +418,21 @@ public partial class DungeonGenerator : MonoBehaviour
                         continue; // Skip out-of-bounds tiles
                     }
                     tilemap.SetTile(tilePos, floorTile);
-                    if (hashPath.Add(new Vector2Int(tilePos.x, tilePos.y)))
+                    
+                    Vector2Int tilePos2 = new Vector2Int(tilePos.x, tilePos.y);
+                    if (!hashPath.Contains(tilePos2))
                     {
-                        room.tiles.Add(new Vector2Int(tilePos.x, tilePos.y));
-                        room.heights.Add(height);
+                        // check if neighbor overlap.  If so, remove from neighbor.
+                        if (neighbor_start_hashPath.Contains(tilePos2))
+                            rooms[start_room].tiles.Remove(tilePos2);
+                        if (neighbor_end_hashPath.Contains(tilePos2))
+                            rooms[end_room].tiles.Remove(tilePos2);
                     }
+                    if (hashPath.Add(tilePos2))
+                        {
+                            room.tiles.Add(tilePos2);
+                            room.heights.Add(height);
+                        }
 
                     map[tilePos.x, tilePos.y] = FLOOR; //Floor
                     mapHeights[tilePos.x, tilePos.y] = height;

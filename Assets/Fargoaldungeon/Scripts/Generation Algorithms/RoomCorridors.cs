@@ -81,6 +81,11 @@ public partial class DungeonGenerator : MonoBehaviour
                     Debug.Log("ERROR: No connection_room_j(" + j + ") found");
                     //yield return tm.YieldOrDelay(5f);
                 }
+                if (connection_room_i == connection_room_j)
+                {
+                    Debug.Log($"Rooms overlap");
+                    // TODO: what to do?
+                }
                 // find height of each corridor endpoint, limiting search to specific room
                 int height_i = GetHeightOfLocationFromOneRoom(rooms[connection_room_i], close_i);
                 int height_j = GetHeightOfLocationFromOneRoom(rooms[connection_room_j], close_j);
