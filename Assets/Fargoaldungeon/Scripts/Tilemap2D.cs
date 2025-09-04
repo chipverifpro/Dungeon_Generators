@@ -55,7 +55,6 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
     {
         for (int x = -cfg.wallThickness; x <= cfg.wallThickness; x++)
             for (int y = -cfg.wallThickness; y <= cfg.wallThickness; y++)
-            //foreach (Vector3Int dir in Directions())
             {
                 Vector3Int dir = new Vector3Int(x, y, 0);
                 if (dir.x == 0 && dir.y == 0) continue; // Skip self
@@ -70,6 +69,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 
     // helper routines for 2D map
 
+    // UNUSED
     public IEnumerator FindRoomsCoroutine(byte[,] map, TimeTask tm)
     {
         bool local_tm = false;
@@ -128,13 +128,13 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                         newRoom.setColorFloor(highlight: true);
                         rooms.Add(newRoom);
 
-                        List < Room > new_only_rooms = new();
+                        List<Room> new_only_rooms = new();
                         new_only_rooms.Add(newRoom);
 
                         DrawMapByRooms(new_only_rooms, clearscreen: false);
                         yield return null;
-                        this_room_height+=5;  // change for the next room to be found
-                                             //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
+                        this_room_height += 5;  // change for the next room to be found
+                        //Debug.Log($"Found room: {newRoom.Name} at {x}, {y}");
                     }
                 }
                 //Debug.Log($"Processed row {x} of {width}");
@@ -143,15 +143,9 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
             //BottomBanner.Show($"Sorting {rooms.Count} rooms by size...");
             rooms.Sort((a, b) => b.Size.CompareTo(a.Size)); // Descending
             Debug.Log($"Finished room sorting {rooms.Count} rooms.");
-            //rooms = RemoveTinyRooms(rooms);
             DrawMapByRooms(rooms);
-            //yield return StartCoroutine(RemoveTinyRoomsCoroutine(tm:null));
-            //rooms = new List<Room>(return_rooms);
-            //ColorCodeRooms(rooms);
 
-            //return rooms;
-            //return_rooms = rooms;
-            //rooms = rooms;     //TODO: Fix this...
+            //rooms = rooms;     //TODO: Fix this...  I want to return the global rooms list
         }
         finally { if (local_tm) tm.End(); }
     }
@@ -206,17 +200,10 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
                             if ((cluster.tiles.Count & 0x1FFF) == 0)
                                 if (tm.IfYield()) yield return null;
                         }
+                        cluster.name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
+                        cluster.setColorFloor(highlight: true);
+                        outRooms.Add(cluster);
 
-                        //if (cluster.Size < cfg.MinimumRoomSize)
-                        //{
-                        //    yield return StartCoroutine(RemoveOneRoom(cluster, WALL, wallTile, tm: null));
-                        //}
-                        //else
-                        //{
-                            cluster.name = $"Cluster {outRooms.Count + 1} ({cluster.tiles.Count} tiles)";
-                            cluster.setColorFloor(highlight: true);
-                            outRooms.Add(cluster);
-                        //}
                         if (tm.IfYield()) yield return null; // let UI breathe between clusters
                     }
                 }
@@ -230,6 +217,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
         finally { if (local_tm) tm.End(); }
     }
 
+    // UNUSED
     // remove entire room from map and tilemap (used with tiny rooms)
     public IEnumerator RemoveOneRoom(Room room, byte replacement, TileBase replacementTile = null, TimeTask tm = null)
     {
@@ -345,9 +333,10 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
         tilemap.SetTile(cellPos, null); // Clear the main tile
     }
 
- 
+
 
     // Get the closest floor tile location in this room to a given target location
+    // TODO: for overlapping rooms where corridor will be zero length, do sommething different
     public Vector2Int GetClosestPointInTilesList(List<Vector2Int> tile_list, Vector2Int target)
     {
         int min_distance = int.MaxValue;

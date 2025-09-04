@@ -25,7 +25,6 @@ public partial class DungeonGenerator : MonoBehaviour
         if (tm == null) { tm = TimeManager.Instance.BeginTask("ScatterRooms"); local_tm = true; }
         try
         {
-            //List<Vector2Int> roomPoints = new List<Vector2Int>();
             tilemap.ClearAllTiles();
             room_rects.Clear(); // Clear the list of room rectangles
             room_rects_color.Clear(); // Clear the list of colors for room rectangles
@@ -64,9 +63,6 @@ public partial class DungeonGenerator : MonoBehaviour
                     room_rects_color.Add(newColor);
                     room_rects_heights.Add(UnityEngine.Random.Range(0,cfg.maxElevation));
                     DrawRect(newRoom, newColor);
-                    //                roomPoints = ConvertRectToRoomPoints(newRoom, SetTile: true);
-                    //                rooms.Add(new Room(roomPoints));
-                    //                rooms[rooms.Count - 1].Name = "Room " + rooms.Count;
                     Debug.Log("Created " + room_rects.Count + " room_rects");
                     yield return tm.YieldOrDelay(cfg.stepDelay / 3);
                 }

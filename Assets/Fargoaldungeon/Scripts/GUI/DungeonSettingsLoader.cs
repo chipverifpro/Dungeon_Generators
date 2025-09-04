@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
+// INCOMPLETE
+
 public static class DungeonSettingsLoader
 {
     private const string ResourcePath = "Dungeon/DungeonSettings"; // Assets/Resources/Dungeon/DungeonSettings.asset
@@ -27,7 +29,7 @@ public static class DungeonSettingsLoader
         public void ApplyToSO(DungeonSettings so)
         {
             so.mapWidth = width;
-            so.mapHeight = height;    
+            so.mapHeight = height;
         }
     }
 

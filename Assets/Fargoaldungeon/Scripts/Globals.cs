@@ -31,9 +31,12 @@ public partial class DungeonGenerator : MonoBehaviour
     public List<Room> rooms = new(); // Master List of rooms including list of points and metadata
 
 
-    // These global lists help lookup things quickly 
-    public HashSet<Vector2Int> floor_hash_map = new();
-    public HashSet<Vector2Int> wall_hash_map = new();
+    // These global lists help lookup things quickly
+    // These are handled in Room class now.
+    //public HashSet<Vector2Int> floor_hash_map = new();
+    //public HashSet<Vector2Int> wall_hash_map = new();
+
+    // Future use by Door capability...
     Dictionary<int, Door> doorById; // partner lookup and save/load
 
 

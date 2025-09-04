@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+// ========================================
+// This file is not yet used.  Maybe never.
+// ========================================
 public interface IRegistrableService
 {
     string ServiceKey { get; }  // e.g., "DungeonGenerator", "TimeManager"

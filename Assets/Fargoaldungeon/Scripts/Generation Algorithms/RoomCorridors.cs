@@ -35,8 +35,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 for (int xx = 0; xx < rooms.Count; xx++)
                 {
                     List<int> all_connected_to_xx = get_union_of_connected_room_indexes(xx);
-                    Debug.Log("NEIGHBORS of Room " + xx + "; neighbors  = " + ListOfIntToString(rooms[xx].neighbors));
-                    Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
+                    //Debug.Log("NEIGHBORS of Room " + xx + "; neighbors  = " + ListOfIntToString(rooms[xx].neighbors));
+                    //Debug.Log("NEIGHBORS of Room " + xx + "; all_connected_to_xx  = " + ListOfIntToString(all_connected_to_xx));
                 }
 
                 // Find two closest rooms (i and j),
@@ -121,8 +121,6 @@ public partial class DungeonGenerator : MonoBehaviour
                 //yield return tm.YieldOrDelay(cfg.stepDelay / 3);
                 if (tm.IfYield()) yield return null;
             }
-            //DrawMapFromRoomsList(connected_rooms);
-            //yield return StartCoroutine(DrawWalls());
             if (tm.IfYield()) yield return null;
         }
         finally { if (local_tm) tm.End(); }

@@ -14,23 +14,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public bool skipOrthogonalWhenDiagonal = true;
     public int perimeterWallSteps = 30; // height of perimeter faces in steps
 
-    public Dictionary<Vector2Int, int> idx;
-    
-/*    public Grid grid;                         // same Grid as the 2D Tilemap
-
-                        public GameObject floorPrefab;
-                        public GameObject rampPrefab;             // oriented to face +Z
-                        public GameObject cliffPrefab;            // a 1x1x1 pillar you can scale in Y
-                        public Transform root;                    // parent for spawned meshes
-
-                        public GameObject diagonalWallPrefab;    // thin strip or quad oriented along +Z
-
-
-                        [HideInInspector] public const byte WALL = 1;
-                        [HideInInspector] public const byte FLOOR = 2;
-                        [HideInInspector] public const byte RAMP = 3;
-                        [HideInInspector] public const byte UNKNOWN = 99;
-                    */
+    public Dictionary<Vector2Int, int> idx;  // Build once at the top of Build3DFromOneRoom
 
     // If your ramp mesh "forward" is +Z, map directions to rotations:
     static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
@@ -48,6 +32,10 @@ public partial class DungeonGenerator : MonoBehaviour
     static readonly Quaternion Yaw225 = Quaternion.Euler(0, -225, 0);
     static readonly Quaternion Yaw315 = Quaternion.Euler(0, -315, 0);
 
+    // Original design had diagonals set back from the center of the tile.
+    // These functions calculated that.  I replaced the calculation
+    // with one that puts the diagonal straight through the middle,
+    // but left the other code commented in case I'd like to try that again.
     static Vector3 CornerOffset(bool east, bool north, Vector3 cell)
     {
         // Don't offset, leaving wall diagonally across the center of the tile.
@@ -72,6 +60,7 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // if root exists, destroy all 3D objects under it.
+    // AKA: clear 3D tiles.
     public void Destroy3D()
     {
         if (root == null) return;
@@ -81,6 +70,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     // 3D Build routine from rooms list.  Places prefabs in correct places.
     //   Includes floors, walls, ramps, cliffs
+    //   Eventually expand to include doors, etc.
     public IEnumerator Build3DFromRooms(TimeTask tm = null)
     {
         bool local_tm = false;
@@ -88,7 +78,7 @@ public partial class DungeonGenerator : MonoBehaviour
         try
         {
             if (root == null) root = new GameObject("Terrain3D").transform; // TODO: get existing game object?
-                                                                            
+
             Destroy3D(); // Clear old objects
 
             for (int room_number = 0; room_number < rooms.Count; room_number++)
@@ -145,16 +135,12 @@ public partial class DungeonGenerator : MonoBehaviour
 
                 if (useDiagonalCorners && isFloor && diagonalWallPrefab != null)
                 {
+                    // include neighborhood, which is immediately connected rooms
+                    // this allows for proper finding of walls at intersection.
                     bool N = IsWallInNeighborhood(room_number, pos + Dir4[0]);
                     bool E = IsWallInNeighborhood(room_number, pos + Dir4[1]);
                     bool S = IsWallInNeighborhood(room_number, pos + Dir4[2]);
                     bool W = IsWallInNeighborhood(room_number, pos + Dir4[3]);
-                    /*
-                    bool N = IsTileFromRoom(room_number, pos + Dir4[0], WALL);
-                    bool E = IsTileFromRoom(room_number, pos + Dir4[1], WALL);
-                    bool S = IsTileFromRoom(room_number, pos + Dir4[2], WALL);
-                    bool W = IsTileFromRoom(room_number, pos + Dir4[3], WALL);
-                    */
 
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
@@ -217,35 +203,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         }
                     }
                 }
-                // -------- end diagonal corner smoothing --------
-
-                // Place floor at its height (Y is up)
-                /*if (isFloor && floorPrefab != null && triangleFloorPrefab != null)
-                {
-                    //var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                    //f.name = $"Floor({room_name})";
-                    //f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
-                    //                                                          // set floor color based on room's colorFloor, which we've grabbed earlier in the loop.
-                    //var renderer = f.GetComponent<MeshRenderer>();
-                    //if (renderer != null)
-                    //    renderer.material.color = colorFloor;
-
-                    // When you instantiate, skip naming in bulk builds:
-                    GameObject f;
-                    if (use_triangle_floor)
-                    {
-                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, triangle_floor_dir * 90), root);
-                        f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
-                    }
-                    else
-                    {
-                        f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                        f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
-                    }
-                    // Cache renderer on prefab variant or:
-                    var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
-                    if (rend != null) rend.material.color = colorFloor;
-                } */
+                // -------- end diagonal corner smoothing, start straight walls/cliffs --------
 
                 // Compare with 4 neighbors and add perimeter walls or ramps/cliffs
                 for (int i = 0; i < 4; i++)
@@ -257,10 +215,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
                     bool nIsFloor = IsTileInNeighborhood(room_number, new Vector2Int(nx, nz));
                     bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
-                    /*
-                    bool nIsFloor = IsTileFromRoom(room_number, new Vector2Int(nx, nz), FLOOR);
-                    bool nIsWall = IsTileFromRoom(room_number, new Vector2Int(nx, nz), WALL);
-                    */
+
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
                     {
@@ -298,9 +253,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
                     //if (!(isFloor && nIsFloor)) continue;
 
-                    //int nySteps = GetHeightFromRoom(new Vector2Int(nx, nz));
                     int nySteps = GetHeightInNeighborhood(room_number, new Vector2Int(nx, nz));
-                    //int nySteps = rooms[room_number].GetHeightInRoom(new Vector2Int(nx, nz));
                     int diff = nySteps - ySteps;
                     if (diff == 0) continue;
 
@@ -312,6 +265,8 @@ public partial class DungeonGenerator : MonoBehaviour
 
                     if ((Mathf.Abs(diff) >= cfg.minimumRamp) && (Mathf.Abs(diff) <= cfg.maximumRamp) && (rampPrefab != null))
                     {
+                        // NOTE: Ramp size/placement is still a little off.  Needs work, possibly new origin for tile.
+
                         // Ramp spans from lower to higher tile
                         bool up = diff > 0;
                         if (up) continue; // don't create two ramps, one from each side, instead pick 'down'
@@ -325,7 +280,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
                         //includes_ramp = true;
                     }
-                    //else if ((Mathf.Abs(diff) <= cfg.minimumRamp || Mathf.Abs(diff) > cfg.maximumRamp) && cliffPrefab != null)
+
                     if (cliffPrefab != null)
                     {
                         bool up = diff > 0;
@@ -343,14 +298,6 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Place floor at its height (Y is up)
                 if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)
                 {
-                    //var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
-                    //f.name = $"Floor({room_name})";
-                    //f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
-                    //                                                          // set floor color based on room's colorFloor, which we've grabbed earlier in the loop.
-                    //var renderer = f.GetComponent<MeshRenderer>();
-                    //if (renderer != null)
-                    //    renderer.material.color = colorFloor;
-
                     // When you instantiate, skip naming in bulk builds:
                     GameObject f;
                     if (use_triangle_floor)
@@ -372,6 +319,7 @@ public partial class DungeonGenerator : MonoBehaviour
         finally { if (local_tm) tm.End(); }
     }
 
+    // UNUSED
     public void BuildRoomHeightsLookup(int room_number)
     {
         // Build once at the top of Build3DFromOneRoom:
@@ -380,28 +328,11 @@ public partial class DungeonGenerator : MonoBehaviour
             idx[rooms[room_number].tiles[i]] = rooms[room_number].heights[i];
     }
 
+    // UNUSED
     public int GetHeightFromRoom(Vector2Int pos)
         => idx.TryGetValue(pos, out var v) ? v : 999;
 
-    int GetHeightFromRoom_slow(int room_number, Vector2Int pos)
-    {
-        for (int i = 0; i < rooms[room_number].tiles.Count; i++)
-        {
-            if (rooms[room_number].tiles[i] == pos)
-                return rooms[room_number].heights[i];
-        }
-        return 999;
-    }
-
-//    byte GetTileFromRoom(int room_number, Vector2Int pos)
-//    {
-//        if (rooms[room_number].wall_hash_room.Contains(pos))
-//            return WALL;
-//        if (rooms[room_number].floor_hash_room.Contains(pos))
-//            return FLOOR;
-//        return UNKNOWN;
-//    }
-
+    // UNUSED
     bool IsTileFromRoom(int room_number, Vector2Int pos, byte tile_type)
     {
         if (tile_type == FLOOR)

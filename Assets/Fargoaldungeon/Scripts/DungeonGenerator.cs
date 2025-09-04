@@ -45,7 +45,7 @@ using Unity.Mathematics;
 public partial class DungeonGenerator : MonoBehaviour
 {
 
-//    public tilemap tilemap;
+    //    public tilemap tilemap;
     //    public TileBase floorTile;
     //    public TileBase wallTile;
     // ---------------------------------------------------------------
@@ -55,10 +55,6 @@ public partial class DungeonGenerator : MonoBehaviour
     public List<RectInt> room_rects = new(); // List of RectInt rooms for ScatterRooms
     public List<int> room_rects_heights = new(); // List of heights for each room rectangle
     public List<Color> room_rects_color = new();
-
-    //public HashSet<Vector2Int> wall_hash_map = new();
-    //Dictionary<int, Door> doorById; // partner lookup and save/load
-
 
 
     // Reference to each class is maintained here
@@ -98,7 +94,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public IEnumerator RegenerateDungeon(TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm==null) {tm = TimeManager.Instance.BeginTask("RegenerateDungeon"); local_tm = true;}
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("RegenerateDungeon"); local_tm = true; }
         try
         {
             room_rects = new List<RectInt>(); // Clear the list of room rectangles
@@ -214,7 +210,6 @@ public partial class DungeonGenerator : MonoBehaviour
                 DrawWalls();
 
                 // Step 5: Connect rooms with corridors
-                //yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
                 BottomBanner.Show("Connecting Rooms with Corridors...");
                 yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
 
@@ -225,21 +220,17 @@ public partial class DungeonGenerator : MonoBehaviour
             BottomBanner.Show("Building Wall Lists...");
             BuildWallListsFromRooms();
 
-            //yield return StartCoroutine(GenerateMapHashes(tm: null)); // no wall data yet, so only does floor hashes
-            //GenerateWallLists(); // needs floor hashes to run
-            //yield return StartCoroutine(GenerateMapHashes(tm: null)); // run again to create wall hashes
-
             BottomBanner.Show("Height Map Build...");
 
             // FillVoidToWalls(map);
             yield return StartCoroutine(Build3DFromRooms(tm: null));
-                    // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
+            // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
 
             yield return tm.YieldOrDelay(cfg.stepDelay);
 
             BottomBanner.ShowFor("Dungeon generation complete!", 5f);
         }
-        finally { if(local_tm) tm.End(); }
+        finally { if (local_tm) tm.End(); }
 
         TimeManager.Instance.DumpStats();
     }
@@ -297,6 +288,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return roomPoints;
     }
 
+    // UNUSED
     public void DrawMapByRects(List<RectInt> room_rects, List<Color> colors)
     {
         for (int i = 0; i < room_rects.Count; i++)
@@ -328,11 +320,11 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
-    public void DrawMapByRooms(List<Room> rooms, bool clearscreen=true)
+    public void DrawMapByRooms(List<Room> rooms, bool clearscreen = true)
     {
         Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
         if (clearscreen) tilemap.ClearAllTiles();
-        
+
         foreach (var room in rooms)
         {
             //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
@@ -388,11 +380,11 @@ public partial class DungeonGenerator : MonoBehaviour
             //TODO: make a vertical ladder?
             return (room); // empty room
         }
-        float delta_h = (float)(end_height - start_height) / (float)(path_length-1);
+        float delta_h = (float)(end_height - start_height) / (float)(path_length - 1);
         // pre-seed the hashPath with both end rooms so we don't add corridor tiles there.
         neighbor_start_hashPath.UnionWith(rooms[start_room].tiles);
         neighbor_end_hashPath.UnionWith(rooms[end_room].tiles);
-        
+
         if (cfg.limit_slope && (Math.Abs(delta_h) > 1f))
         {
             Debug.Log($"Slope of corridor is too great Abs({delta_h}) > 1");
@@ -428,7 +420,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     tilemap.SetTile(tilePos, floorTile);
 
                     Vector2Int tilePos2 = new Vector2Int(tilePos.x, tilePos.y);
-                    
+
                     // Keep highest point
                     bool overlap = false;
                     int neighborheight;
@@ -476,162 +468,6 @@ public partial class DungeonGenerator : MonoBehaviour
         room.isCorridor = true;
         return room;
     }
-    /*
-        // --------- Corridor line algorithms ----------
-        // These return a list of points, which the DrawCorrior function will follow
-        // while handling the width and slope to generate a corridor Room:
-        // Gridded (orthogonal)
-        // Bresenham (straight)
-        // Noisy Bresenham (slightly wiggly)
-        // Organic (kinda jiggles while going 45 degrees and then vertical or horizontal)
-        // Bezier (curved, implemented in it's own file)
-
-        // Grided Line algorithm: creates an orthogonal line between two points.
-        // Randomly starts with either x or y direction and makes just one turn.
-        public List<Vector2Int> GridedLine(Vector2Int from, Vector2Int to)
-        {
-            List<Vector2Int> line = new List<Vector2Int>();
-            Vector2Int current = from;
-            bool xFirst = UnityEngine.Random.Range(0, 2) == 0;
-
-            if (xFirst)
-            {
-                // Move in x direction first
-                while (current.x != to.x)
-                {
-                    //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
-                    line.Add(new Vector2Int(current.x, current.y));
-                    current.x += current.x < to.x ? 1 : -1;
-                }
-            }
-            // Move in y direction
-            while (current.y != to.y)
-            {
-                //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
-                line.Add(new Vector2Int(current.x, current.y));
-                current.y += current.y < to.y ? 1 : -1;
-            }
-            // Move in x direction
-            while (current.x != to.x)
-            {
-                //tilemap.SetTile(new Vector3Int(current.x, current.y, 0), floorTile);
-                line.Add(new Vector2Int(current.x, current.y));
-                current.x += current.x < to.x ? 1 : -1;
-            }
-            return line;
-        }
-
-        // Bresenham's Line algorithm: creates a straight line between two points.
-        public List<Vector2Int> BresenhamLine(int x0, int y0, int x1, int y1)
-        {
-            List<Vector2Int> line = new List<Vector2Int>();
-
-            int dx = Mathf.Abs(x1 - x0);
-            int dy = Mathf.Abs(y1 - y0);
-            int sx = x0 < x1 ? 1 : -1;
-            int sy = y0 < y1 ? 1 : -1;
-            int err = dx - dy;
-
-            while (true)
-            {
-                line.Add(new Vector2Int(x0, y0));
-                if (x0 == x1 && y0 == y1) break;
-
-                int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x0 += sx; }
-                if (e2 < dx) { err += dx; y0 += sy; }
-            }
-
-            return line;
-        }
-
-        // Noisy Bresenham's Line algorithm: creates a straight line between two points with added jiggle noise.
-        public List<Vector2Int> NoisyBresenham(Vector2Int start, Vector2Int end)
-        {
-            List<Vector2Int> path = new List<Vector2Int>();
-            float noiseStrength = cfg.organicJitterChance;
-            int x0 = start.x;
-            int y0 = start.y;
-            int x1 = end.x;
-            int y1 = end.y;
-
-            int dx = Mathf.Abs(x1 - x0);
-            int dy = Mathf.Abs(y1 - y0);
-            int sx = x0 < x1 ? 1 : -1;
-            int sy = y0 < y1 ? 1 : -1;
-            int err = dx - dy;
-
-            while (true)
-            {
-                path.Add(new Vector2Int(x0, y0));
-                if (x0 == x1 && y0 == y1) break;
-
-                int e2 = 2 * err;
-
-                // Add UnityEngine.Random noise to the decision
-                float noise = UnityEngine.Random.Range(-1f, 1f) * noiseStrength;
-
-                if (e2 + noise > -dy)
-                {
-                    err -= dy;
-                    x0 += sx;
-                }
-
-                if (e2 + noise < dx)
-                {
-                    err += dx;
-                    y0 += sy;
-                }
-
-                // Always force at least one step to avoid infinite loop
-                if (x0 == path[path.Count - 1].x && y0 == path[path.Count - 1].y)
-                {
-                    if (dx > dy)
-                        x0 += sx;
-                    else
-                        y0 += sy;
-                }
-            }
-
-            return path;
-        }
-
-        // Organic Line algorithm: creates a wiggly line between two points.
-        // Tends to first do a 45 degree diagonal and then switches to horizontal or vertical.
-        // Not too bad for short lines as the jagginess is good.
-        public List<Vector2Int> OrganicLine(Vector2Int start, Vector2Int end)
-        {
-            List<Vector2Int> path = new List<Vector2Int>();
-            Vector2Int current = start;
-
-            while (current != end)
-            {
-                path.Add(current);
-
-                Vector2Int direction = end - current;
-                int dx = Mathf.Clamp(direction.x, -1, 1);
-                int dy = Mathf.Clamp(direction.y, -1, 1);
-
-                // Introduce a slight chance to “wiggle”
-                if (UnityEngine.Random.value < cfg.organicJitterChance)
-                {
-                    if (UnityEngine.Random.value < 0.5f)
-                        //dx = 0; // favor y
-                        dx = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
-                    else
-                        //dy = 0; // favor x
-                        dy = UnityEngine.Random.value < 0.5f ? -1 : 1; // favor y
-                }
-
-                current += new Vector2Int(dx, dy);
-            }
-
-            path.Add(end);
-            return path;
-        }
-
-        // ---------------- End Corridor line algorithms ----------------
-    */
 
     int CalculateRampHeightFromPosition(Vector2Int target, Vector2Int start, Vector2Int end, int start_height, int end_height)
     {
@@ -652,8 +488,6 @@ public partial class DungeonGenerator : MonoBehaviour
         return (int)Math.Round(target_height);
     }
 
-
-
     public void DrawWalls()  // from tilemap, adds walls to the existing tilemap
     {
         BoundsInt bounds = tilemap.cellBounds;
@@ -673,6 +507,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
+    // UNUSED
     // Check if a tile at position pos has a neighboring floor tile within the specified radius
     bool HasFloorNeighbor(Vector3Int pos, int radius = 1)
     {
@@ -798,6 +633,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
+    // UNUSED
     void GenerateWallLists()
     {
         List<Vector2Int> wall_list_room;
@@ -816,9 +652,6 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 foreach (Vector2Int dir in directions)
                 {
-                    // TODO: FIX THIS NOW!
-
-                    //if (!floor_hash_map.Contains(pos + dir))
                     if (!rooms[room_number].floor_hash_room.Contains(pos + dir))
                     {
                         if (new_wall_hash.Add(pos + dir))
@@ -831,58 +664,7 @@ public partial class DungeonGenerator : MonoBehaviour
             rooms[room_number].walls = wall_list_room; // Save to rooms[].walls
         }
     }
- 
-/*
-        // Run GenerateMapHashes() once all rooms are created.
-        // Allows quickly looking up room contents from world xy position.
-        IEnumerator GenerateMapHashes(TimeTask tm = null)
-        {
-            bool local_tm = false;
-            if (tm==null) {tm = TimeManager.Instance.BeginTask("GenerateMapHashes"); local_tm = true;}
-            try
-            {
-                Debug.Log($"GenerateMapHashes begin for {rooms.Count} rooms");
-                // Initialize whole-map hashes
-                floor_hash_map = new();
-                wall_hash_map = new();
 
-                // generate the per-room floor and wall hashes
-                for (int room_number = 0; room_number < rooms.Count; room_number++)
-                {
-                    // create per-room hashes
-                    rooms[room_number].floor_hash_room = new HashSet<Vector2Int>(rooms[room_number].tiles);
-                    rooms[room_number].wall_hash_room = new HashSet<Vector2Int>(rooms[room_number].walls);
-
-                    // Accumulate whole-map hashes
-                    floor_hash_map.UnionWith(rooms[room_number].floor_hash_room);
-                    wall_hash_map.UnionWith(rooms[room_number].wall_hash_room);
-
-                    if (tm.IfYield()) yield return null;
-                }
-
-                // Generate the neighborhood floor and wall hashes
-                // (neighborhood means the room and it's directly connected neighbor rooms)
-                for (int room_number = 0; room_number < rooms.Count; room_number++)
-                {
-                    // Start with the room itself
-                    rooms[room_number].floor_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].floor_hash_room);
-                    rooms[room_number].wall_hash_neighborhood = new HashSet<Vector2Int>(rooms[room_number].wall_hash_room);
-                    // Add the direct neighbors
-                    for (int neighbor_index = 0; neighbor_index < rooms[room_number].neighbors.Count; neighbor_index++)
-                    {
-                        int neighbor_num = rooms[room_number].neighbors[neighbor_index];
-                        rooms[room_number].floor_hash_neighborhood.UnionWith(rooms[neighbor_num].floor_hash_room);
-                        rooms[room_number].wall_hash_neighborhood.UnionWith(rooms[neighbor_num].wall_hash_room);
-                    }
-                    if (tm.IfYield()) yield return null;
-                }
-                Debug.Log($"GenerateMapHashes ended.");
-                yield return null;
-
-            }
-            finally { if (local_tm) tm.End(); }
-        }
-    */
     public void FillVoidToWalls(byte[,] map)
     {
         for (var y = 0; y < cfg.mapHeight; y++)
@@ -1001,14 +783,63 @@ public partial class DungeonGenerator : MonoBehaviour
         return merged;
     }
 
+    // global variables for return of success and failure results
+    [HideInInspector] public bool success;    // global generic return value from various tasks
+    [HideInInspector] public string failure;    // global failure description string
+    
+
+    // =======================================================
+    // helper routines
+    // =======================================================
+    //  Extra functions
+
+    public String ListOfIntToString(List<int> ilist, bool do_sort = true)
+    {
+        String result = "List: ";
+        if (do_sort) ilist.Sort();
+        foreach (int i in ilist)
+        {
+            result = result + i + ",";
+        }
+        return result;
+    }
+
+    public Vector2Int[] directions_xy = { Vector2Int.up,
+                                   Vector2Int.down,
+                                   Vector2Int.left,
+                                   Vector2Int.right,
+                                   Vector2Int.up + Vector2Int.left,
+                                   Vector2Int.up + Vector2Int.right,
+                                   Vector2Int.down + Vector2Int.left,
+                                   Vector2Int.down + Vector2Int.right };
+
+    public Color getColor(Color? color = null, bool highlight = true, string rgba = "")
+    {
+        Color colorrgba = new(); //temp
+        Color return_color = Color.white;
+
+        if (color != null)
+            return_color = (Color)color;
+        else if ((!string.IsNullOrEmpty(rgba)) && (ColorUtility.TryParseHtmlString(rgba, out colorrgba)))
+            return_color = colorrgba;
+        else if (highlight)
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.6f, 1f);   // Bright Random
+        else // highlight == false
+            return_color = UnityEngine.Random.ColorHSV(0f, 1f, 0.6f, 1f, 0.1f, 0.4f); // Dark Random
+
+        return return_color;
+    }
+
 }
-    //} // End class DungeonGenerator
+//} // End class DungeonGenerator
 
 // ================================================= //
 
-//public static class RoomMergeUtil
-//{
+//public static class DSU
+//
 // Simple Union-Find/Disjoint Set (DSU=Disjoint Set Union)
+// Created by ChatGPT, for MergeOverlappingRooms function.
+// Will probably re-write this using existing hashes.
 class DSU
 {
     int[] parent;
@@ -1035,5 +866,4 @@ class DSU
         else if (rank[a] > rank[b]) parent[b] = a;
         else { parent[b] = a; rank[a]++; }
     }
-
 }

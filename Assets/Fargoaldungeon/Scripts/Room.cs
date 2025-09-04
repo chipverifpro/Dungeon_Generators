@@ -182,7 +182,6 @@ public partial class DungeonGenerator : MonoBehaviour
         return 999;
     }
 
-
     public void BuildWallListsFromRooms()
     {
         for (var room_number = 0; room_number < rooms.Count; room_number++)
@@ -206,6 +205,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
+    // UNUSED
     // Obsolete?  This really combined the room contents, which
     // we no longer do, we instead maintain a list of neighbors.
     // Maybe useful later?
@@ -218,6 +218,7 @@ public partial class DungeonGenerator : MonoBehaviour
         keep.tiles = new List<Vector2Int>(combined);
     }
 
+    // UNUSED
     // MoveRoom will shift a room in x,y,and z(height) directions.
     // If allow_collision = false, room doesn't move when it collides with another room.
     // TODO: check for collision.  Also allow rotation, scaling, growing?

@@ -15,7 +15,6 @@ public class DungeonGUISelector : MonoBehaviour
     public void OnRegenerateClicked()
     {
         //generator.StopAllCoroutines();
-        //ca.StopAllCoroutines();
         StartCoroutine(generator.RegenerateDungeon());
     }
 
