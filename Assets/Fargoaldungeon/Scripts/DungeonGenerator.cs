@@ -5,6 +5,9 @@ using System.Collections;
 using System.Linq;
 using System;
 using NUnit.Framework;
+using UnityEngine.UIElements;
+using UnityEngine.InputSystem.Utilities;
+using Unity.Mathematics;
 
 /* DONE list...
 -- DONE; Round world including fast oval room bounds checking
@@ -21,21 +24,21 @@ using NUnit.Framework;
 -- Simplex Noise
 -- Presets of interesting dungeons - menu or random selection
 -- Adding extra corridors to break up tree
--- Dirty MapArray, dirty Hashes, smarter hashes
+-- DONE: Smart hash calculations
 -- More tile types: stairs, doors, traps (with properties)
 -- Fix early regeneration button (abort in-progress)
 -- Fix pulldown after recompile
--- Don't show build progress option implementation
+-- DONE: Don't show build progress option implementation
 -- Enforce minimum width room connectivity
 -- Walkthrough capability
 -- Camera flight controls
--- Reorganize files
--- Use more intelligent yielding to accomplish more each refresh.
+-- DONE: Reorganize files
+-- DONE: Use more intelligent yielding to accomplish more each refresh.
 -- Multi-layer map generation
 -- Fix corridors between stacked rooms
 -- Ceiling hight minimum and room merging
 -- Gently sloping floors without stairs (perlin heights)
--- Change long 3D routines to coroutines.
+-- DONE: Change long 3D routines to coroutines.
  */
 
 // Master Dungeon Generation Class...
@@ -431,6 +434,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (hashPath.Add(tilePos2))
                     {
                         room.tiles.Add(tilePos2);
+                        height = CalculateRampHeightFromPosition(tilePos2, start, end, start_height, end_height);
                         room.heights.Add(height);
                     }
 
@@ -598,6 +602,27 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // ---------------- End Corridor line algorithms ----------------
     */
+
+    int CalculateRampHeightFromPosition(Vector2Int target, Vector2Int start, Vector2Int end, int start_height, int end_height)
+    {
+        float target_to_start;
+        float target_to_end;
+        float pct_distance;
+
+        Vector2Int delta;
+        float target_height;
+
+        delta = (target - start);
+        target_to_start = (float)Math.Sqrt(delta.sqrMagnitude);
+        delta = (target - end);
+        target_to_end = (float)Math.Sqrt(delta.sqrMagnitude);
+        pct_distance = target_to_start / (target_to_start + target_to_end);
+
+        target_height = (end_height - start_height) * pct_distance + start_height;
+        return (int)Math.Round(target_height);
+    }
+
+
 
     public void DrawWalls()  // from tilemap, adds walls to the existing tilemap
     {
