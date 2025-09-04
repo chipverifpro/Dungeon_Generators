@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
@@ -111,6 +112,7 @@ public partial class DungeonGenerator : MonoBehaviour
             Vector3 cell = grid.cellSize;
             bool use_triangle_floor = false;
             int triangle_floor_dir = 0;
+            //bool includes_ramp = false;
             
             // Cache once:
             var floorMR = (floorPrefab != null) ? floorPrefab.GetComponent<MeshRenderer>() : null;
@@ -158,8 +160,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
                         float diagLen = DiagonalInsideLength(cell);
                         Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
-                        use_triangle_floor = true;
-                        triangle_floor_dir = 0;
+
                         // NE corner (N & E)
                         if (N && E /* && NE */)
                         {
@@ -168,6 +169,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw45, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            use_triangle_floor = true;
                             triangle_floor_dir = 0;
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
                         }
@@ -179,6 +181,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw315, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            use_triangle_floor = true;
                             triangle_floor_dir = 1;
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
                         }
@@ -190,6 +193,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw135, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            use_triangle_floor = true;
                             triangle_floor_dir = 3;
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
                         }
@@ -201,6 +205,7 @@ public partial class DungeonGenerator : MonoBehaviour
                                 Yaw225, root);
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
+                            use_triangle_floor = true;
                             triangle_floor_dir = 2;
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
                         }
@@ -209,8 +214,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 // -------- end diagonal corner smoothing --------
 
                 // Place floor at its height (Y is up)
-                    if (isFloor && floorPrefab != null && triangleFloorPrefab != null)
-                    {
+                /*if (isFloor && floorPrefab != null && triangleFloorPrefab != null)
+                {
                     //var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
                     //f.name = $"Floor({room_name})";
                     //f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
@@ -231,10 +236,10 @@ public partial class DungeonGenerator : MonoBehaviour
                         f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
                         f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
                     }
-                                                                // Cache renderer on prefab variant or:
+                    // Cache renderer on prefab variant or:
                     var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
                     if (rend != null) rend.material.color = colorFloor;
-                }
+                } */
 
                 // Compare with 4 neighbors and add perimeter walls or ramps/cliffs
                 for (int i = 0; i < 4; i++)
@@ -277,11 +282,12 @@ public partial class DungeonGenerator : MonoBehaviour
                                 root);
                             //face.name = $"Wall({room_name})";
                             face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
+
                         }
                     }
 
                     // Only consider transitions between walkable tiles, or visualize room->void edges as cliffs if you prefer
-                    if (!(isFloor && nIsFloor)) continue;
+                    //if (!(isFloor && nIsFloor)) continue;
 
                     //int nySteps = GetHeightFromRoom(new Vector2Int(nx, nz));
                     int nySteps = rooms[room_number].GetHeightInRoom(new Vector2Int(nx, nz));
@@ -292,20 +298,25 @@ public partial class DungeonGenerator : MonoBehaviour
                     nWorld = grid.CellToWorld(new Vector3Int(nx, nz, 0));
                     mid = (world + nWorld) * 0.5f;
 
-                    if (Mathf.Abs(diff) == 1 && rampPrefab != null)
+                    // Ramps or cliffs
+
+                    if ((Mathf.Abs(diff) >= cfg.minimumRamp) && (Mathf.Abs(diff) <= cfg.maximumRamp) && (rampPrefab != null))
                     {
                         // Ramp spans from lower to higher tile
                         bool up = diff > 0;
                         if (up) continue; // don't create two ramps, one from each side, instead pick 'down'
                                           // Place ramp slightly biased toward lower side so the top aligns cleanly
                         int lower = up ? ySteps : nySteps;
+                        float midheight = (ySteps + nySteps) / 2f;
+                        int upper = up ? nySteps : ySteps;
                         var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
-                                                                 //var ramp = Instantiate(rampPrefab, mid + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
-                        var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (lower + 1.0f) * unitHeight, 0), rot, root);
-                        //ramp.name = "Ramp";
-                        ramp.transform.localScale = new Vector3(cell.x, unitHeight, cell.y); // length matches cell, height equals one step
+                        var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (upper) * unitHeight /*- .35f*/, 0), rot, root);
+                        ramp.name = $"Ramp({Math.Abs(diff)})";
+                        ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
+                        //includes_ramp = true;
                     }
-                    else if (Mathf.Abs(diff) >= 2 && cliffPrefab != null)
+                    //else if ((Mathf.Abs(diff) <= cfg.minimumRamp || Mathf.Abs(diff) > cfg.maximumRamp) && cliffPrefab != null)
+                    if (cliffPrefab != null)
                     {
                         bool up = diff > 0;
                         if (up) continue; // don't create two walls, one from each side, instead pick 'down'
@@ -317,6 +328,34 @@ public partial class DungeonGenerator : MonoBehaviour
                         // Scale so its Y matches the height difference; X/Z to cell dimensions
                         face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
                     }
+                } // end for i
+                
+                // Place floor at its height (Y is up)
+                if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)
+                {
+                    //var f = Instantiate(floorPrefab, world + new Vector3(0, ySteps * unitHeight, 0), Quaternion.identity, root);
+                    //f.name = $"Floor({room_name})";
+                    //f.transform.localScale = new Vector3(cell.x, 1f, cell.y); // thickness 1; adjust as needed
+                    //                                                          // set floor color based on room's colorFloor, which we've grabbed earlier in the loop.
+                    //var renderer = f.GetComponent<MeshRenderer>();
+                    //if (renderer != null)
+                    //    renderer.material.color = colorFloor;
+
+                    // When you instantiate, skip naming in bulk builds:
+                    GameObject f;
+                    if (use_triangle_floor)
+                    {
+                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, triangle_floor_dir * 90), root);
+                        f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
+                    }
+                    else
+                    {
+                        f = Instantiate(floorPrefab, world + new Vector3(0f, ySteps * unitHeight, 0f), Quaternion.identity, root);
+                        f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
+                    }
+                                                                // Cache renderer on prefab variant or:
+                    var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
+                    if (rend != null) rend.material.color = colorFloor;
                 }
             }
         }

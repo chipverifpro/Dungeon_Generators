@@ -429,10 +429,10 @@ public partial class DungeonGenerator : MonoBehaviour
                             rooms[end_room].tiles.Remove(tilePos2);
                     }
                     if (hashPath.Add(tilePos2))
-                        {
-                            room.tiles.Add(tilePos2);
-                            room.heights.Add(height);
-                        }
+                    {
+                        room.tiles.Add(tilePos2);
+                        room.heights.Add(height);
+                    }
 
                     map[tilePos.x, tilePos.y] = FLOOR; //Floor
                     mapHeights[tilePos.x, tilePos.y] = height;
