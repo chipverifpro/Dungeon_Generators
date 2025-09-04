@@ -145,10 +145,16 @@ public partial class DungeonGenerator : MonoBehaviour
 
                 if (useDiagonalCorners && isFloor && diagonalWallPrefab != null)
                 {
+                    bool N = IsWallInNeighborhood(room_number, pos + Dir4[0]);
+                    bool E = IsWallInNeighborhood(room_number, pos + Dir4[1]);
+                    bool S = IsWallInNeighborhood(room_number, pos + Dir4[2]);
+                    bool W = IsWallInNeighborhood(room_number, pos + Dir4[3]);
+                    /*
                     bool N = IsTileFromRoom(room_number, pos + Dir4[0], WALL);
                     bool E = IsTileFromRoom(room_number, pos + Dir4[1], WALL);
                     bool S = IsTileFromRoom(room_number, pos + Dir4[2], WALL);
                     bool W = IsTileFromRoom(room_number, pos + Dir4[3], WALL);
+                    */
 
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
@@ -249,9 +255,12 @@ public partial class DungeonGenerator : MonoBehaviour
                     int nz = z + d.y;
                     //if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue; // off-map
 
+                    bool nIsFloor = IsTileInNeighborhood(room_number, new Vector2Int(nx, nz));
+                    bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
+                    /*
                     bool nIsFloor = IsTileFromRoom(room_number, new Vector2Int(nx, nz), FLOOR);
                     bool nIsWall = IsTileFromRoom(room_number, new Vector2Int(nx, nz), WALL);
-
+                    */
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
                     {
@@ -290,7 +299,8 @@ public partial class DungeonGenerator : MonoBehaviour
                     //if (!(isFloor && nIsFloor)) continue;
 
                     //int nySteps = GetHeightFromRoom(new Vector2Int(nx, nz));
-                    int nySteps = rooms[room_number].GetHeightInRoom(new Vector2Int(nx, nz));
+                    int nySteps = GetHeightInNeighborhood(room_number, new Vector2Int(nx, nz));
+                    //int nySteps = rooms[room_number].GetHeightInRoom(new Vector2Int(nx, nz));
                     int diff = nySteps - ySteps;
                     if (diff == 0) continue;
 

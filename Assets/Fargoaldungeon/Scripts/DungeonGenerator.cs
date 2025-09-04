@@ -415,29 +415,59 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 for (int dy = brush_neg; dy < brush_pos; dy++)
                 {
+                    // At both endpoints, only use centerpoint of brush.
+                    // Going beyond this can make odd transitions.
+                    if ((i == 0 || i == path.Count - 1) && ((dx != 0) || (dy != 0)))
+                        continue;
+
                     Vector3Int tilePos = new Vector3Int(point.x + dx, point.y + dy, 0);
                     if (tilePos.x < 0 || tilePos.x >= cfg.mapWidth || tilePos.y < 0 || tilePos.y >= cfg.mapHeight)
                     {
                         continue; // Skip out-of-bounds tiles
                     }
                     tilemap.SetTile(tilePos, floorTile);
-                    
+
                     Vector2Int tilePos2 = new Vector2Int(tilePos.x, tilePos.y);
+                    
+                    // Keep highest point
+                    bool overlap = false;
+                    int neighborheight;
+                    height = CalculateRampHeightFromPosition(tilePos2, start, end, start_height, end_height);
+
                     if (!hashPath.Contains(tilePos2))
                     {
                         // check if neighbor overlap.  If so, remove from neighbor.
                         if (neighbor_start_hashPath.Contains(tilePos2))
-                            rooms[start_room].tiles.Remove(tilePos2);
+                        {
+                            overlap = true;
+                            neighborheight = rooms[start_room].GetHeightInRoom(tilePos2);
+                            if (neighborheight < height)
+                            {
+                                rooms[start_room].tiles.Remove(tilePos2);
+                                room.tiles.Add(tilePos2);
+                                room.heights.Add(height);
+                            }
+                        }
                         if (neighbor_end_hashPath.Contains(tilePos2))
-                            rooms[end_room].tiles.Remove(tilePos2);
+                        {
+                            overlap = true;
+                            neighborheight = rooms[end_room].GetHeightInRoom(tilePos2);
+                            if (neighborheight < height)
+                            {
+                                rooms[end_room].tiles.Remove(tilePos2);
+                                room.tiles.Add(tilePos2);
+                                room.heights.Add(height);
+                            }
+                        }
                     }
-                    if (hashPath.Add(tilePos2))
+                    if (!overlap)
                     {
-                        room.tiles.Add(tilePos2);
-                        height = CalculateRampHeightFromPosition(tilePos2, start, end, start_height, end_height);
-                        room.heights.Add(height);
+                        if (hashPath.Add(tilePos2))
+                        {
+                            room.tiles.Add(tilePos2);
+                            room.heights.Add(height);
+                        }
                     }
-
                     map[tilePos.x, tilePos.y] = FLOOR; //Floor
                     mapHeights[tilePos.x, tilePos.y] = height;
                 }
