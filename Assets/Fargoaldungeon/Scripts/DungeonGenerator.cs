@@ -433,6 +433,13 @@ public partial class DungeonGenerator : MonoBehaviour
                         {
                             overlap = true;
                             neighborheight = rooms[start_room].GetHeightInRoom(tilePos2);
+                            if (((neighborheight - height) > 0) && ((neighborheight - height) < 30))
+                            {
+                                // punch hole in ceiling
+                                rooms[start_room].tiles.Remove(tilePos2);
+                                room.tiles.Add(tilePos2);
+                                room.heights.Add(height);
+                            }
                             if (neighborheight < height)
                             {
                                 rooms[start_room].tiles.Remove(tilePos2);
@@ -444,6 +451,13 @@ public partial class DungeonGenerator : MonoBehaviour
                         {
                             overlap = true;
                             neighborheight = rooms[end_room].GetHeightInRoom(tilePos2);
+                            if (((neighborheight - height) > 0) && ((neighborheight - height) < 30))
+                            {
+                                // punch hole in ceiling
+                                rooms[end_room].tiles.Remove(tilePos2);
+                                room.tiles.Add(tilePos2);
+                                room.heights.Add(height);
+                            }
                             if (neighborheight < height)
                             {
                                 rooms[end_room].tiles.Remove(tilePos2);

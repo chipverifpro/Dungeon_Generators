@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -21,6 +22,9 @@ public partial class DungeonGenerator : MonoBehaviour
             Vector2Int close_i = Vector2Int.zero;
             Vector2Int close_j = Vector2Int.zero;
             int connection_room_i = -1, connection_room_j = -1;
+
+            //bool rooms_overlap = false;
+            int minimum_corridor_length = 0;
 
             BottomBanner.Show($"Connecting {rooms.Count} rooms by ..");
 
@@ -53,13 +57,15 @@ public partial class DungeonGenerator : MonoBehaviour
                 List<Vector2Int> all_tiles_i = get_union_of_connected_room_cells(i);
                 List<Vector2Int> all_tiles_j = get_union_of_connected_room_cells(j);
 
+                minimum_corridor_length = 50;
                 // Closest points between rooom i and room j.
                 center_i = GetCenterOfTiles(all_tiles_i);
-                close_j = GetClosestPointInTilesList(all_tiles_j, center_i);
-                close_i = GetClosestPointInTilesList(all_tiles_i, close_j);
+                close_j = GetClosestPointInTilesList(all_tiles_j, center_i, 0);
+                close_i = GetClosestPointInTilesList(all_tiles_i, close_j, minimum_corridor_length);
 
                 connection_room_i = -1;  // initial assumptions to be adjusted in for loop
                 connection_room_j = -1;
+                //rooms_overlap = false;
                 for (int rn = 0; rn < rooms.Count; rn++)
                 {
                     if (rooms[rn].tiles.Contains(close_i))
@@ -85,10 +91,14 @@ public partial class DungeonGenerator : MonoBehaviour
                 {
                     Debug.Log($"Rooms overlap");
                     // TODO: what to do?
+                    //rooms_overlap = true;
                 }
                 // find height of each corridor endpoint, limiting search to specific room
                 int height_i = GetHeightOfLocationFromOneRoom(rooms[connection_room_i], close_i);
                 int height_j = GetHeightOfLocationFromOneRoom(rooms[connection_room_j], close_j);
+
+                //minimum_corridor_length = (Math.Abs(height_i - height_j));
+
 
                 // Carve the corridor and create a new room of it
                 Room corridorRoom = DrawCorridorSloped(close_i, close_j, height_i, height_j, connection_room_i, connection_room_j);

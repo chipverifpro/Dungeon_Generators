@@ -337,7 +337,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 
     // Get the closest floor tile location in this room to a given target location
     // TODO: for overlapping rooms where corridor will be zero length, do sommething different
-    public Vector2Int GetClosestPointInTilesList(List<Vector2Int> tile_list, Vector2Int target)
+    public Vector2Int GetClosestPointInTilesList(List<Vector2Int> tile_list, Vector2Int target, int minimum_corridor_length)
     {
         int min_distance = int.MaxValue;
         int cur_distance = int.MaxValue;
@@ -348,7 +348,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
         foreach (var t in tile_list)
         {
             cur_distance = (t - target).sqrMagnitude;
-            if (cur_distance < min_distance)
+            if ((cur_distance < min_distance) && (cur_distance > minimum_corridor_length))
             {
                 min_distance = cur_distance;
                 closest_point = t;
