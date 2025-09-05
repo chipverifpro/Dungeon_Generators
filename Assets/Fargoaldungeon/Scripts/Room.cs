@@ -1,10 +1,61 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
 using System;
-using UnityEditor.MemoryProfiler;
-using System.Threading;
+
+public class Cell       // one cell in a Room
+{
+    public Vector2Int pos;          // x,y
+    public int height;              // z
+    public int room_number;         // What room is this cell in?
+    public int type;                // Floor, Solid Stone, Water, etc.
+    public byte wall_sides;         // walls: N-E-S-W bit field
+    public byte door_sides;         // doors: N-E-S-W bit field
+    public Color colorFloor = Color.white;  // floor color
+    public float travel_cost = 1f;  // 1 = open floor, 2 = rough terrain, 0.75 road
+
+    // Delegates for behaviors
+    public Action<Cell> OnView;     // function triggered when viewed
+    public Action<Cell> OnStep;     // function triggered when stepped on
+
+    // Constructors:
+    public Cell(int x, int y, int z)
+    {
+        this.pos.x = x;
+        this.pos.y = y;
+        this.height = z;
+    }
+
+    public Cell(int x, int y)
+    {
+        this.pos.x = x;
+        this.pos.y = y;
+    }
+
+    public Cell(Vector2Int pos)
+    {
+        this.pos = pos;
+    }
+
+    // shortcuts to read access variations
+    public Vector3Int pos3d => new Vector3Int(pos.x, pos.y, height);
+    public int x => pos.x;
+    public int y => pos.y;
+    public int z => height;
+
+    // Helpers to trigger delegates safely
+    public void TriggerView() { OnView?.Invoke(this); }
+    public void TriggerStep() { OnStep?.Invoke(this); }
+
+    // Example of assigning a functiion to the delegates:
+    //   Cell trapCell = new Cell(2, 3);
+    //   trapCell.OnStep = (c) => Debug.Log($"Ouch! Trap triggered at {c.x},{c.y}!");
+    //   trapCell.OnView = (c) => Debug.Log($"You see a suspicious floor tile at {c.x},{c.y}...");
+
+    // Example of calling the delegates:
+    //   currentCell.TriggerView();
+    //   currentCell.TriggerStep();
+}
 
 public class Room
 {
@@ -13,12 +64,16 @@ public class Room
     public String name = "";  // use inherited Object.name
 
     // Tile-by-tile lists of floors/walls/doors/etc
+    public List<Cell> cells = new();
+
+    // NOTE: The above structure will replace these fields below.
     public List<Vector2Int> tiles = new();
     public List<Vector2Int> walls = new();
-    public List<Door> doors = new List<Door>();
-
+    public List<Door> doors = new();
     public List<int> heights = new(); // Heights for each tile in the room, used for 3D generation
+
     public int Size => tiles.Count;
+    public int Last => cells.Count - 1; // Handy index for editing a newly added cell.
     public Color colorFloor = Color.white;
     public List<int> neighbors = new(); // List of neighboring rooms by index
     public bool isCorridor = false; // Indicate if this room is a corridor
@@ -36,11 +91,24 @@ public class Room
     {
         tiles = new List<Vector2Int>(initialTileList);
         heights = new List<int>(initialHeightsList);
+
+        cells = new List<Cell>();
+        for (int i = 0; i < initialTileList.Count; i++)
+        {
+            cells.Add(new Cell(initialTileList[i].x, initialTileList[i].y, initialHeightsList[i]));
+        }
     }
+
     public Room(List<Vector2Int> initialTileList)
     {
         tiles = initialTileList;
         heights = new List<int>(initialTileList.Count); // Initialize heights list with the same count
+
+        cells = new List<Cell>();
+        for (int i = 0; i < initialTileList.Count; i++)
+        {
+            cells.Add(new Cell(initialTileList[i].x, initialTileList[i].y));
+        }
     }
 
     // copy constructor
@@ -52,6 +120,8 @@ public class Room
         name = other.name;
         colorFloor = other.colorFloor;
         isCorridor = other.isCorridor;
+
+        cells = other.cells;
         // TODO: check to see if other parameters need copying
     }
 
@@ -77,8 +147,8 @@ public class Room
                 floor_hash_room.Add(tiles[i]);
         }
         return floor_hash_room.Contains(pos);
-    } 
-    
+    }
+
     public bool IsWallInRoom(Vector2Int pos)
     {
         if (wall_hash_room.Count == 0)
@@ -89,7 +159,7 @@ public class Room
                 wall_hash_room.Add(walls[i]);
         }
         return wall_hash_room.Contains(pos);
-    }  
+    }
 
 
 
@@ -134,6 +204,7 @@ public class Room
 
 public partial class DungeonGenerator : MonoBehaviour
 {
+    // Draw: room -> 2D tiles
     public void DrawMapFromRoomsList(List<Room> rooms)
     {
         tilemap.ClearAllTiles();
@@ -150,7 +221,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
-    // TODO: add option to give floor a gentle perlin ripple
+    // Apply this function to a room to give subtle ripples to the floor heights.
     public Room AddPerlinToFloorHeights(Room room)
     {
         Vector2Int pos;
@@ -164,7 +235,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 pos = room.tiles[i];
                 perlin_floor = (int)(Mathf.PerlinNoise((pos.x + seedX) * cfg.perlinWavelength, (pos.y + seedY) * cfg.perlinWavelength) * cfg.perlinFloorHeights);
                 room.heights[i] += perlin_floor;
-                Debug.Log($"Perlin floor room[{i}].pos[{pos.x}, {pos.y}] += {perlin_floor}");
+                //Debug.Log($"Perlin floor room[{i}].pos[{pos.x}, {pos.y}] += {perlin_floor}");
             }
         }
         return room;
