@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
   RoomAlgorithm: 3
-  TunnelsAlgorithm: 3
+  TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
   randomizeSeed: 0
@@ -31,7 +31,7 @@ MonoBehaviour:
   MergeScatteredRooms: 0
   allowVerticalStacking: 1
   minVerticalStackHeight: 5
-  ovalRooms: 0
+  ovalRooms: 1
   useCellularAutomata: 1
   cellularFillPercent: 45
   CellularGrowthSteps: 5
@@ -44,11 +44,11 @@ MonoBehaviour:
   MinimumRockSize: 25
   softBorderSize: 0
   wallThickness: 1
+  perlinFloorHeights: 10
   corridorWidth: 3
   limit_slope: 0
-  minimumRamp: 3
+  minimumRamp: 11
   maximumRamp: 10
-  corridorDominatesAtEnds: 1
   organicJitterChance: 0.2
   bezierControlOffset: 5
   bezierMaxControl: 0.1

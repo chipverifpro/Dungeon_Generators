@@ -151,11 +151,21 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // TODO: add option to give floor a gentle perlin ripple
-    public Room SetRoomToHeight(Room room, int setHeight)
+    public Room AddPerlinToFloorHeights(Room room)
     {
+        Vector2Int pos;
+        int perlin_floor;
+        float seedX = UnityEngine.Random.Range(0f,9999f);
+        float seedY = UnityEngine.Random.Range(0f,9999f);
         for (int i = 0; i < room.heights.Count; i++)
         {
-            room.heights[i] = setHeight;
+            if (cfg.perlinFloorHeights > 0)
+            {
+                pos = room.tiles[i];
+                perlin_floor = (int)(Mathf.PerlinNoise((pos.x + seedX) * cfg.perlinWavelength, (pos.y + seedY) * cfg.perlinWavelength) * cfg.perlinFloorHeights);
+                room.heights[i] += perlin_floor;
+                Debug.Log($"Perlin floor room[{i}].pos[{pos.x}, {pos.y}] += {perlin_floor}");
+            }
         }
         return room;
     }

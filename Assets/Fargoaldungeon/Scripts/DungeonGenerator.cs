@@ -35,7 +35,7 @@ using Unity.Mathematics;
 -- DONE: Reorganize files
 -- DONE: Use more intelligent yielding to accomplish more each refresh.
 -- Multi-layer map generation
--- Fix corridors between stacked rooms
+-- PARTIALLY: Fix corridors between stacked rooms
 -- Ceiling hight minimum and room merging
 -- Gently sloping floors without stairs (perlin heights)
 -- DONE: Change long 3D routines to coroutines.
@@ -119,18 +119,21 @@ public partial class DungeonGenerator : MonoBehaviour
                     tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomata:
+                    cfg.generateOverlappingRooms = false;
                     cfg.useCellularAutomata = true;
                     cfg.useScatterRooms = false;
                     cfg.usePerlin = false; // Disable Perlin for CA
                     tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomataPerlin:
+                    cfg.generateOverlappingRooms = false;
                     cfg.useCellularAutomata = true;
                     cfg.useScatterRooms = false;
                     cfg.usePerlin = true; // Enable Perlin for CA
                     tavern.enabled = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.Tavern:
+                    cfg.generateOverlappingRooms = false;
                     tavern.enabled = true;
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = false;
@@ -204,19 +207,29 @@ public partial class DungeonGenerator : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
-            if (cfg.useCellularAutomata || cfg.useScatterRooms)
+            if (cfg.perlinFloorHeights > 0)
             {
-                DrawMapByRooms(rooms);
-                DrawWalls();
-
-                // Step 5: Connect rooms with corridors
-                BottomBanner.Show("Connecting Rooms with Corridors...");
-                yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
-
-                DrawMapByRooms(rooms);
-                DrawWalls();
-                yield return tm.YieldOrDelay(cfg.stepDelay);
+                for (int r = 0; r < rooms.Count; r++)
+                {
+                    //int setHeight = rooms[r].heights[0];
+                    rooms[r] = AddPerlinToFloorHeights(rooms[r]);
+                }
             }
+
+            if (cfg.useCellularAutomata || cfg.useScatterRooms)
+                {
+                    DrawMapByRooms(rooms);
+                    DrawWalls();
+
+                    // Step 5: Connect rooms with corridors
+                    BottomBanner.Show("Connecting Rooms with Corridors...");
+                    yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
+
+                    DrawMapByRooms(rooms);
+                    DrawWalls();
+                    yield return tm.YieldOrDelay(cfg.stepDelay);
+                }
+
             BottomBanner.Show("Building Wall Lists...");
             BuildWallListsFromRooms();
 

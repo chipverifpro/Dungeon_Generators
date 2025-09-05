@@ -65,6 +65,7 @@ public class DungeonSettings : ScriptableObject
     public int MinimumRockSize = 20; // Threshold for minimum size of in-room obstacle
     public int softBorderSize = 5; // Size of the noisy border around the map to soften edge, only works on square maps currently
     public int wallThickness = 1;  // Appearance of perimeter walls in 2D map
+    public int perlinFloorHeights = 3;  // Adds a ripple to the floor.
 
     [Header("Corridor Settings")]
     public int corridorWidth = 3;  // Width of passages generated between rooms.
