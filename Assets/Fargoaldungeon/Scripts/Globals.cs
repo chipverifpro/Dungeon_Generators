@@ -4,7 +4,6 @@ using UnityEngine.Tilemaps;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-
     public System.Random rng;
 
     // 2D assets defined in Unity
@@ -25,7 +24,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public GameObject doorOpenPrefab;
     public Transform root;                    // parent for spawned meshes
 
-
+    public static readonly Color colorDefault = new(1f, 0.4f, 0.7f, 0.5f); // semi-transparent pink
 
     // Master list of Rooms makes the current map
     public List<Room> rooms = new(); // Master List of rooms including list of points and metadata

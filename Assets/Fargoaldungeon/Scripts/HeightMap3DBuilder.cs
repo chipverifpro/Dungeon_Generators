@@ -12,7 +12,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public float unitHeight = 0.1f;             // world Y per step
     public bool useDiagonalCorners = true;
     public bool skipOrthogonalWhenDiagonal = true;
-    public int perimeterWallSteps = 30; // height of perimeter faces in steps
+    public int perimeterWallSteps = 30; // height of perimeter walls in steps
 
     public Dictionary<Vector2Int, int> idx;  // Build once at the top of Build3DFromOneRoom
 
@@ -83,7 +83,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
             for (int room_number = 0; room_number < rooms.Count; room_number++)
             {
+                //Debug.Log($"Build3DFromOneRoom START room_number = {room_number}");
                 yield return StartCoroutine(Build3DFromOneRoom(room_number, tm: null));
+                //Debug.Log($"Build3DFromOneRoom DONE room_number = {room_number}");
                 //if (tm.IfYield()) yield return null;
             }
         }
@@ -96,6 +98,7 @@ public partial class DungeonGenerator : MonoBehaviour
         if (tm == null) { tm = TimeManager.Instance.BeginTask("Build3DFromRooms"); local_tm = true; }
         try
         {
+            //Debug.Log($"Build3DFromOneRoom room_number={room_number}");
             Vector3 mid = new();
             Vector3 world = new();
             Vector3 nWorld = new();
@@ -111,17 +114,19 @@ public partial class DungeonGenerator : MonoBehaviour
 
             //if (tm.IfYield()) yield return null;
             string room_name = rooms[room_number].name;
-            int num_tiles = rooms[room_number].tiles.Count;
-            for (int tile_number = 0; tile_number < num_tiles; tile_number++)
+            int num_cells = rooms[room_number].cells.Count;
+            for (int cell_number = 0; cell_number < num_cells; cell_number++)
             {
-                if ((tile_number % 500) == 0) if (tm.IfYield()) yield return null;
-                Vector2Int pos = rooms[room_number].tiles[tile_number];
+                if ((cell_number % 500) == 0) if (tm.IfYield()) yield return null;
+                Vector2Int pos = rooms[room_number].cells[cell_number].pos;
                 int x = pos.x;
                 int z = pos.y;
-                int ySteps = rooms[room_number].heights[tile_number];
+                int ySteps = rooms[room_number].cells[cell_number].height;
                 bool isFloor = true;
                 use_triangle_floor = false;
-                Color colorFloor = rooms[room_number].colorFloor;
+                Color colorFloor = rooms[room_number].cells[cell_number].colorFloor;
+                if (colorFloor == colorDefault) // if cell has no color, use room's color
+                    colorFloor = rooms[room_number].colorFloor;
                 //bool isWall = false; //unused
 
                 // Base world position of this tile center
@@ -137,11 +142,21 @@ public partial class DungeonGenerator : MonoBehaviour
                 {
                     // include neighborhood, which is immediately connected rooms
                     // this allows for proper finding of walls at intersection.
-                    bool N = IsWallInNeighborhood(room_number, pos + Dir4[0]);
-                    bool E = IsWallInNeighborhood(room_number, pos + Dir4[1]);
-                    bool S = IsWallInNeighborhood(room_number, pos + Dir4[2]);
-                    bool W = IsWallInNeighborhood(room_number, pos + Dir4[3]);
+                    //bool N = IsWallInNeighborhood(room_number, pos + Dir4[0]);
+                    //bool E = IsWallInNeighborhood(room_number, pos + Dir4[1]);
+                    //bool S = IsWallInNeighborhood(room_number, pos + Dir4[2]);
+                    //bool W = IsWallInNeighborhood(room_number, pos + Dir4[3]);
 
+                    //if (dir.HasFlag(DirFlags.N))
+                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+                    bool N = mywalls.HasFlag(DirFlags.N);
+                    bool E = mywalls.HasFlag(DirFlags.E);
+                    bool S = mywalls.HasFlag(DirFlags.S);
+                    bool W = mywalls.HasFlag(DirFlags.W);
+                    //bool N = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[0]);
+                    //bool E = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[1]);
+                    //bool S = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[2]);
+                    //bool W = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[3]);
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
                     int num_walls = (N ? 1 : 0) + (S ? 1 : 0) + (E ? 1 : 0) + (W ? 1 : 0);
@@ -213,17 +228,26 @@ public partial class DungeonGenerator : MonoBehaviour
                     int nz = z + d.y;
                     //if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue; // off-map
 
-                    bool nIsFloor = IsTileInNeighborhood(room_number, new Vector2Int(nx, nz));
-                    bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
+                    //bool nIsFloor = IsTileInNeighborhood(room_number, rooms[room_number].neighbors, new Vector2Int(nx, nz));
+                    //bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
+                    //bool nIsWall = !nIsFloor;
+
+                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+
+                    bool nIsWall = false;
+                    if (d.x == 0 && d.y == 1)  nIsWall = mywalls.HasFlag(DirFlags.S);
+                    if (d.x == 1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.W);
+                    if (d.x == 0 && d.y == -1)  nIsWall = mywalls.HasFlag(DirFlags.N);
+                    if (d.x == -1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.E);
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
                     {
                         // Respect suppress flags for the matching direction
-                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressN) ||
-                            (d.x == 1 && d.y == 0 && /*E*/ suppressE) ||
-                            (d.x == 0 && d.y == -1 && /*S*/ suppressS) ||
-                            (d.x == -1 && d.y == 0 && /*W*/ suppressW))
+                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressS) ||
+                            (d.x == 1 && d.y == 0 && /*E*/ suppressW) ||
+                            (d.x == 0 && d.y == -1 && /*S*/ suppressN) ||
+                            (d.x == -1 && d.y == 0 && /*W*/ suppressE))
                         {
                             // skip orthogonal face; diagonal already placed
                         }
@@ -302,7 +326,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     GameObject f;
                     if (use_triangle_floor)
                     {
-                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, triangle_floor_dir * 90), root);
+                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, (2+triangle_floor_dir) * 90), root);
                         f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
                     }
                     else
@@ -323,9 +347,9 @@ public partial class DungeonGenerator : MonoBehaviour
     public void BuildRoomHeightsLookup(int room_number)
     {
         // Build once at the top of Build3DFromOneRoom:
-        idx = new Dictionary<Vector2Int, int>(rooms[room_number].tiles.Count);
-        for (int i = 0; i < rooms[room_number].tiles.Count; i++)
-            idx[rooms[room_number].tiles[i]] = rooms[room_number].heights[i];
+        idx = new Dictionary<Vector2Int, int>(rooms[room_number].cells.Count);
+        for (int i = 0; i < rooms[room_number].cells.Count; i++)
+            idx[rooms[room_number].cells[i].pos] = rooms[room_number].heights[i];
     }
 
     // UNUSED
@@ -339,7 +363,7 @@ public partial class DungeonGenerator : MonoBehaviour
             if (rooms[room_number].IsTileInRoom(pos))
                 return true;
         if (tile_type == WALL)
-            if (rooms[room_number].IsWallInRoom(pos))
+            if (!rooms[room_number].IsTileInRoom(pos))
                 return true;
         return false;
     }

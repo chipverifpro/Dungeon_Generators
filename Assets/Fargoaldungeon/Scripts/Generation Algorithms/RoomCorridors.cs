@@ -9,6 +9,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // ===================================================
     // Generate Corridors
 
+    // NEW
     // Iterates through all unconnected rooms.  Finds a short corridor between two closest super-rooms and
     // generates that corridor as a new room.  Connects both ends to the rooms, making a bigger super-room.
     public IEnumerator ConnectRoomsByCorridors(TimeTask tm = null)
@@ -59,22 +60,26 @@ public partial class DungeonGenerator : MonoBehaviour
 
                 minimum_corridor_length = 50;
                 // Closest points between rooom i and room j.
+                //Debug.Log("Begin GetClosest");
                 center_i = GetCenterOfTiles(all_tiles_i);
                 close_j = GetClosestPointInTilesList(all_tiles_j, center_i, 0);
                 close_i = GetClosestPointInTilesList(all_tiles_i, close_j, minimum_corridor_length);
-
+                //Debug.Log("Done GetClosest");
                 connection_room_i = -1;  // initial assumptions to be adjusted in for loop
                 connection_room_j = -1;
                 //rooms_overlap = false;
                 for (int rn = 0; rn < rooms.Count; rn++)
                 {
-                    if (rooms[rn].tiles.Contains(close_i))
+                    foreach (Cell cell in rooms[rn].cells)
                     {
-                        connection_room_i = rn;
-                    }
-                    if (rooms[rn].tiles.Contains(close_j))
-                    {
-                        connection_room_j = rn;
+                        if (cell.pos == close_i)
+                        {
+                            connection_room_i = rn;
+                        }
+                        if (cell.pos == close_j)
+                        {
+                            connection_room_j = rn;
+                        }
                     }
                 }
                 if (connection_room_i == -1)
@@ -94,6 +99,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     //rooms_overlap = true;
                 }
                 // find height of each corridor endpoint, limiting search to specific room
+                //Debug.Log("Begin GetHeights");
                 int height_i = GetHeightOfLocationFromOneRoom(rooms[connection_room_i], close_i);
                 int height_j = GetHeightOfLocationFromOneRoom(rooms[connection_room_j], close_j);
 
@@ -101,7 +107,9 @@ public partial class DungeonGenerator : MonoBehaviour
 
 
                 // Carve the corridor and create a new room of it
+                //Debug.Log($"Begin DrawCorridorsSloped from room {connection_room_i} to {connection_room_j}");
                 Room corridorRoom = DrawCorridorSloped(close_i, close_j, height_i, height_j, connection_room_i, connection_room_j);
+                //Debug.Log("End DrawCorridorsSloped");
                 corridorRoom.isCorridor = true; // Mark as corridor
                 corridorRoom.name = $"Corridor {connection_room_i}-{connection_room_j}";
                 corridorRoom.setColorFloor(highlight: false); // Set corridor color
@@ -119,6 +127,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Remove second room (j) from unconnected rooms list
                 for (var index = 0; index < unconnected_rooms.Count; index++)
                 {
+                    //Debug.Log($"index = {index} of {unconnected_rooms.Count}");
+                    if (tm.IfYield()) yield return null;
                     if (unconnected_rooms[index] == j)
                     {
                         unconnected_rooms.RemoveAt(index);
@@ -126,12 +136,16 @@ public partial class DungeonGenerator : MonoBehaviour
                     }
                 }
 
+                //Debug.Log($"Begin draw maps with {rooms.Count} rooms");
                 DrawMapFromRoomsList(rooms);
                 DrawWalls();
+
+                //Debug.Log($"End draw maps with {rooms.Count} rooms");
                 //yield return tm.YieldOrDelay(cfg.stepDelay / 3);
                 if (tm.IfYield()) yield return null;
             }
             if (tm.IfYield()) yield return null;
+            //Debug.Log("Ending ConnectRoomsByCorridors");
         }
         finally { if (local_tm) tm.End(); }
     }
@@ -175,6 +189,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return closestPair;
     }
 
+    // UNCHANGED
     // GetCeterOfTiles is used in finding a short corridor between unconnected rooms
     public Vector2Int GetCenterOfTiles(List<Vector2Int> tiles)
     {

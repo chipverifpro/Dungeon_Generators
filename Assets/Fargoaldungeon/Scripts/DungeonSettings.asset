@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 3
+  RoomAlgorithm: 2
   TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
@@ -31,11 +31,11 @@ MonoBehaviour:
   MergeScatteredRooms: 0
   allowVerticalStacking: 1
   minVerticalStackHeight: 5
-  ovalRooms: 1
+  ovalRooms: 0
   useCellularAutomata: 1
   cellularFillPercent: 45
   CellularGrowthSteps: 5
-  usePerlin: 1
+  usePerlin: 0
   perlinWavelength: 0.05
   perlin2Wavelength: 0.01
   perlin2Amplitude: 1
@@ -45,6 +45,7 @@ MonoBehaviour:
   softBorderSize: 0
   wallThickness: 1
   perlinFloorHeights: 10
+  perlinFloorWavelength: 0.05
   corridorWidth: 3
   limit_slope: 0
   minimumRamp: 11
