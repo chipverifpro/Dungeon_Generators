@@ -13,11 +13,11 @@ public enum DirFlags : byte
     S = 1 << 2,
     W = 1 << 3,
 
-    NE = 1 << 4,
+    NE = 1 << 4,    // never used lookups by diagonals.  I only put these in so I dont need to remove the tags from other code.
     SE = 1 << 5,
     SW = 1 << 6,
     NW = 1 << 7,
-    //NE = N | E,
+    //NE = N | E,   // commented out versions caused unexpected behavior in comparisons and convert to string.
     //SE = S | E,
     //SW = S | W,
     //NW = N | W,
@@ -171,7 +171,7 @@ public class Cell       // one cell in a Room
     public DirFlags walls = DirFlags.None;  // walls: N-E-S-W bit field
     public DirFlags doors = DirFlags.None;  // doors: N-E-S-W bit field
     public Color colorFloor = new(1f, 0.4f, 0.7f, 0.5f); // default semi-transparent pink
-
+    public Quaternion tiltFloor = Quaternion.identity; // optional tilt of the floor tile
     public float travel_cost = 1f;  // examples: 1 = open floor, 2 = rough terrain, 0.75 = road
 
     // Delegates for behaviors (see notes below)
@@ -313,15 +313,13 @@ public class Room
     // NEW
     public int GetCellInRoom(Vector2Int pos)
     {
-        //if (cell_dictionary_room.Count != cells.Count)
-        if (cell_dictionary_room.Count == 0)
+        if (cell_dictionary_room.Count == 0) // then build cache
         {
             Debug.Log($"Building cell_dictionary_room.");
             // Build dictionary once and keep it.
             //   Auto-regenerates if "cells" list length changes.
             //   Note that you must manually call ResetCellDictionary()
-            //   yourself if you modify the pos value in any cell, but keep
-            //   the list the same length.
+            //   yourself if you modify the list
             cell_dictionary_room = new(cells.Count);
             int cell_number = 0;
             for (int i = 0; i < cells.Count; i++)
@@ -352,6 +350,26 @@ public class Room
         else return 999; // not found
     }
 
+    public RectInt GetBounds()
+    {
+        if (cells == null || cells.Count == 0)
+            return new RectInt(0, 0, 0, 0);
+
+        int minX = cells[0].x;
+        int maxX = cells[0].x;
+        int minY = cells[0].y;
+        int maxY = cells[0].y;
+
+        foreach (var cell in cells)
+        {
+            if (cell.x < minX) minX = cell.x;
+            if (cell.x > maxX) maxX = cell.x;
+            if (cell.y < minY) minY = cell.y;
+            if (cell.y > maxY) maxY = cell.y;
+        }
+
+        return new RectInt(minX, minY, (maxX - minX + 1), (maxY - minY + 1));
+    }
 
     // ==================== Color Helper functions...
 
@@ -392,6 +410,10 @@ public class Room
 
 public partial class DungeonGenerator : MonoBehaviour
 {
+    Heightfield hf;
+    bool hf_valid = false; // so we only create it once.
+    DirFlags wall_dirs;
+
     // =======================================================
     // helper routines for Rooms
 
@@ -430,6 +452,182 @@ public partial class DungeonGenerator : MonoBehaviour
         return room;
     }
 
+    public Room TiltFloor(Room room, Vector2 topDir, float angleDeg, float heightUnitsPerTile = 1f)
+    {
+        // Guard rails
+        if (room == null || room.cells == null || room.cells.Count == 0) return room;
+        if (topDir.sqrMagnitude < 1e-8f) return room;
+        if (Mathf.Abs(angleDeg) < 1e-6f) return room;
+
+        // Normalize direction (toward the "top" of the tilt = higher)
+        Vector2 dir = topDir.normalized;
+
+        // Room center from bounds (midpoint between min and max)
+        RectInt b = room.GetBounds();                   // ensure this returns inclusive bounds
+        float cx = b.xMin + (b.width  - 1) * 0.5f;
+        float cy = b.yMin + (b.height - 1) * 0.5f;
+
+        // Per-tile vertical rise given the slope angle.
+        // If one grid step in XY equals 1 "height unit", set heightUnitsPerTile = 1.
+        // If you quantize heights (e.g., 1 height unit = 0.01 meters), pass that scale in.
+        float slopePerTile = Mathf.Tan(angleDeg * Mathf.Deg2Rad) * heightUnitsPerTile;
+
+        // (Optional) compute the maximum signed projection run from center to room edge
+        // along the given direction; useful if you want to reason about max delta:
+        // float hx = (b.width  - 1) * 0.5f;
+        // float hy = (b.height - 1) * 0.5f;
+        // float maxProjAbs = Mathf.Abs(dir.x) * hx + Mathf.Abs(dir.y) * hy;
+        // float maxHeightDelta = slopePerTile * maxProjAbs;
+
+        foreach (var cell in room.cells)
+        {
+            // Signed distance of this cell from the center along tilt direction
+            float proj = (cell.x - cx) * dir.x + (cell.y - cy) * dir.y;
+
+            // Height change = slope * run (rise over run)
+            float delta = slopePerTile * proj;
+
+            // Integer heights: round to nearest (stable & symmetric around center)
+            int dInt = Mathf.RoundToInt(delta);
+            cell.height += dInt;
+        }
+
+        return room;
+    }
+
+    // ==================== Tile Tilt functions ====================
+
+    /// <summary>
+    /// Compute tilt Euler (pitch=x, yaw=y(=0), roll=z) with robust handling of missing neighbors.
+    /// Pass null for any neighbor that doesn't exist.
+    /// h* are in grid height units; heightUnit converts to world units.
+    /// edgeTiltScale in [0..1]: 1 = full one-sided tilt, 0 = flatten at edges.
+    /// </summary>
+    public static Quaternion ComputeTiltTile(
+        float hCenter,
+        float? hNorth, float? hEast, float? hSouth, float? hWest,
+        float tileSizeX, float tileSizeZ,
+        float heightUnit = 1f,
+        float maxAbsAngleDeg = 75f,
+        float edgeTiltScale = 0.8f, // soften edge tilts slightly
+        float baseYawDeg = 0f
+    )
+    {
+        float dx = Mathf.Max(1e-6f, tileSizeX);
+        float dz = Mathf.Max(1e-6f, tileSizeZ);
+
+        // --- slope along X (east-west) ---
+        float gx;
+        bool hasE = hEast.HasValue, hasW = hWest.HasValue;
+        if (hasE && hasW)
+        {
+            gx = ((hEast.Value - hWest.Value) * heightUnit) / (2f * dx);
+        }
+        else if (hasE)
+        {
+            gx = ((hEast.Value - hCenter) * heightUnit) / dx;
+            gx *= edgeTiltScale;
+        }
+        else if (hasW)
+        {
+            gx = ((hCenter - hWest.Value) * heightUnit) / dx;
+            gx *= edgeTiltScale;
+        }
+        else
+        {
+            gx = 0f;
+        }
+
+        // --- slope along Z (north-south) ---
+        float gz;
+        bool hasN = hNorth.HasValue, hasS = hSouth.HasValue;
+        if (hasN && hasS)
+        {
+            gz = ((hNorth.Value - hSouth.Value) * heightUnit) / (2f * dz);
+        }
+        else if (hasN)
+        {
+            gz = ((hNorth.Value - hCenter) * heightUnit) / dz;
+            gz *= edgeTiltScale;
+        }
+        else if (hasS)
+        {
+            gz = ((hCenter - hSouth.Value) * heightUnit) / dz;
+            gz *= edgeTiltScale;
+        }
+        else
+        {
+            gz = 0f;
+        }
+
+        // Convert slopes to angles
+        float pitchDeg = Mathf.Rad2Deg * Mathf.Atan(gz);   // tilt around X toward +Z when gz>0
+        float rollDeg = -Mathf.Rad2Deg * Mathf.Atan(gx);  // tilt around Z toward +X when gx>0
+
+        // Clamp extremes for stability
+        pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+        rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+
+        //var e = ComputeTiltTile(hCenter, hNorth, hEast, hSouth, hWest,
+        //                            tileSizeX, tileSizeZ, heightUnit,
+        //                            maxAbsAngleDeg, edgeTiltScale, baseYawDeg);
+        //return Quaternion.Euler(0f, baseYawDeg, 0f) * e;
+        var e = Quaternion.Euler(pitchDeg, baseYawDeg, rollDeg);
+        return e;
+    }
+
+    /*
+        /// <summary>
+        /// Compute tilt Euler angles (pitch, yaw, roll) for a tile given heights
+        /// at center and its 4 neighbors. Yaw is 0; pitch (X) and roll (Z) tilt the tile.
+        /// Units:
+        ///   h* are in "height units" (e.g., your int height grid)
+        ///   heightUnit: world units per 1 height unit (e.g., 0.01m if heights are centimeters)
+        ///   tileSizeX/Z: world size of a tile along X/Z (meters)
+        /// </summary>
+        public static Vector3 ComputeTiltEuler_original(
+            float hCenter, float hNorth, float hEast, float hSouth, float hWest,
+            float tileSizeX, float tileSizeZ,
+            float heightUnit = 1f,
+            float maxAbsAngleDeg = 89f // clamp to avoid extreme flips
+        )
+        {
+            // Central differences: dy/dx and dy/dz
+            // Convert height units -> world units by multiplying heightUnit.
+            float gx = ((hEast - hWest) * heightUnit) / (2f * Mathf.Max(1e-6f, tileSizeX)); // ∂y/∂x
+            float gz = ((hNorth - hSouth) * heightUnit) / (2f * Mathf.Max(1e-6f, tileSizeZ)); // ∂y/∂z
+
+            // Convert slopes to angles
+            float pitchDeg = Mathf.Rad2Deg * Mathf.Atan(gz);  // rotate around X to lift +Z when gz>0
+            float rollDeg = -Mathf.Rad2Deg * Mathf.Atan(gx); // rotate around Z to lift +X when gx>0
+
+            // Optional: clamp to keep geometry sane
+            pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+            rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+
+            // yaw = 0 (no spin)
+            return new Vector3(pitchDeg, 0f, rollDeg);
+        }
+
+
+        /// <summary>
+        /// If you prefer a quaternion directly.
+        /// </summary>
+        public static Quaternion ComputeTiltRotation(
+            float hCenter, float hNorth, float hEast, float hSouth, float hWest,
+            float tileSizeX, float tileSizeZ,
+            float heightUnit = 1f,
+            float baseYawDeg = 0f
+        )
+        {
+            var e = ComputeTiltEuler(hCenter, hNorth, hEast, hSouth, hWest, tileSizeX, tileSizeZ, heightUnit);
+            // If your tile needs a base yaw (e.g., to face a texture direction), apply it before tilt
+            return Quaternion.Euler(0f, baseYawDeg, 0f) * Quaternion.Euler(e);
+        }
+    */
+
+    // ==================== Room Height functions ====================
+
     // UNCHANGED
     public int GetHeightOfLocationFromOneRoom(Room room, Vector2Int pos)
     {
@@ -454,8 +652,77 @@ public partial class DungeonGenerator : MonoBehaviour
         return 999;
     }
 
-    // NEW
+    // uses Heightfield.cs:
+    public void PrepareHeightfield()
+    {
+        // count all the cells to allocate enough for the tmp array
+        int totalCellCount = 0;
+        foreach (var room in rooms) totalCellCount += room.cell_dictionary_room.Count;
+
+        // Prepare cells from your rooms:
+        var tmp = new List<RoomCell>(totalCellCount);
+        int room_id = 0;
+        int cell_id = 0;
+        int worldWidth = 1;
+        int worldHeight = 1;
+        foreach (var room in rooms)
+        {
+            cell_id = 0;
+            foreach (var cell in room.cells)
+            { // (x,y,height)
+                tmp.Add(new RoomCell(cell.x, cell.y, cell.height, room_id, cell_id));
+                if (cell.x > worldWidth) worldWidth = cell.x;
+                if (cell.y > worldHeight) worldHeight = cell.y;
+                cell_id++;
+            }
+            room_id++;
+        }
+
+        // Build the global array hf
+        hf = Heightfield.BuildFromCells(tmp, worldWidth, worldHeight, cfg.minRoomHeight);
+        hf_valid = true;
+    }
+
+
     public IEnumerator BuildWallsAroundFloorsInRooms(TimeTask tm = null)
+    {
+        bool local_tm = false;
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("BuildWallsAroundFloorsInRooms"); local_tm = true; }
+        try
+        {
+            // Build the heighfield hf if it doesn't yet exist.
+            if (!hf_valid)
+            {
+                PrepareHeightfield();
+                if (tm.IfYield()) yield return null;
+            }
+
+            // for all cells, find walls around floors
+            int room_number = 0;
+            foreach (Room room in rooms)
+            {
+                int cell_num = 0;
+                foreach (var cell in room.cells)
+                {
+                    var dirs = HeightfieldWalls.GetExposedDirs(
+                        hf, cell.x, cell.y, cell.height, cfg.minRoomHeight,
+                        currentRoomId: room_number,
+                        policy: NeighborPolicy.SameLevelOnly,
+                        treatBoundsAsWalls: true
+                    );
+                    cell.walls = dirs;
+
+                    cell_num++;
+                }
+                room_number++;
+                if (tm.IfYield()) yield return null;
+            }
+        }
+        finally { if (local_tm) tm.End(); }
+    }
+
+    // WITHOUT Heightfield.cs:
+    public IEnumerator BuildWallsAroundFloorsInRooms_OLD(TimeTask tm = null)
     {
         bool local_tm = false;
         if (tm == null) { tm = TimeManager.Instance.BeginTask("Build3DFromRooms"); local_tm = true; }
@@ -466,26 +733,22 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 foreach (var cell in room.cells)
                 {
-                    foreach (var dir in directions_xy)
+                    foreach (var dir in directions_xy) // only 4 directions
                     {
                         if (!IsTileInNeighborhood(room_number, room.neighbors, cell.pos + dir))
-                        //if (!room.IsTileInRoom(cell.pos+dir))
+                        //if (!room.IsTileInRoom(cell.pos+dir)) // faster but sees room connections as walls
                         {
                             // No neighboring floor seen in direction dir,
                             // so OR that bit into the wall flags for this cell...
                             cell.walls |= DirFlagsEx.FromVector2Int(dir);
-
                         }
-
-                        // Display as debug...  SLOW
-                        Vector3Int pos3d = new Vector3Int(cell.x, cell.y, 0);
-                        tilemap.SetTile(pos3d, wallTile);
-                        tilemap.SetTileFlags(pos3d, TileFlags.None);
-                        tilemap.SetColor(pos3d, Color.red);
                     }
-
-                    //Debug.Log($"cell.walls({cell.x},{cell.y} = {cell.walls})");
-                    if (tm.IfYield()) yield return null;
+                    // Display as debug...  SLOW, only for debug.
+                    Vector3Int pos3d = new Vector3Int(cell.x, cell.y, 0);
+                    tilemap.SetTile(pos3d, wallTile);
+                    tilemap.SetTileFlags(pos3d, TileFlags.None);
+                    tilemap.SetColor(pos3d, Color.red);
+                    if (tm.IfYield()) yield return null; // needed to see debug display
                 }
                 room_number++;
                 //Debug.Log($"BuildWallsAroundFloorsInRooms room {room_number} of {rooms.Count}");
@@ -608,7 +871,7 @@ public partial class DungeonGenerator : MonoBehaviour
         for (int i = 0; i < room_neighbors.Count; i++)
         {
             isit = rooms[room_neighbors[i]].IsTileInRoom(pos);
-            if (isit) break;
+            if (isit) return isit;
         }
         //Debug.Log($"isit = {isit}, in room {room_number}");
         return isit;

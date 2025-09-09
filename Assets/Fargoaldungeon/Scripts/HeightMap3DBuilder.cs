@@ -177,7 +177,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
-                            triangle_floor_dir = 0;
+                            triangle_floor_dir = 0; // correct
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
                         }
                         // NW corner (N & W)
@@ -189,7 +189,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
-                            triangle_floor_dir = 1;
+                            triangle_floor_dir = 3; // correct
                             if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
                         }
                         // SE corner (S & E)
@@ -201,7 +201,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
-                            triangle_floor_dir = 3;
+                            triangle_floor_dir = 1; // correct
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
                         }
                         // SW corner (S & W)
@@ -213,7 +213,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             t.transform.localScale = new Vector3(cell.x * 0.1f, wallH, diagLen);
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
-                            triangle_floor_dir = 2;
+                            triangle_floor_dir = 2; // correct
                             if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
                         }
                     }
@@ -235,19 +235,19 @@ public partial class DungeonGenerator : MonoBehaviour
                     DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
 
                     bool nIsWall = false;
-                    if (d.x == 0 && d.y == 1)  nIsWall = mywalls.HasFlag(DirFlags.S);
-                    if (d.x == 1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.W);
-                    if (d.x == 0 && d.y == -1)  nIsWall = mywalls.HasFlag(DirFlags.N);
-                    if (d.x == -1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.E);
+                    if (d.x == 0 && d.y == 1)  nIsWall = mywalls.HasFlag(DirFlags.N);
+                    if (d.x == 1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.E);
+                    if (d.x == 0 && d.y == -1)  nIsWall = mywalls.HasFlag(DirFlags.S);
+                    if (d.x == -1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.W);
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
                     {
                         // Respect suppress flags for the matching direction
-                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressS) ||
-                            (d.x == 1 && d.y == 0 && /*E*/ suppressW) ||
-                            (d.x == 0 && d.y == -1 && /*S*/ suppressN) ||
-                            (d.x == -1 && d.y == 0 && /*W*/ suppressE))
+                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressN) ||
+                            (d.x == 1 && d.y == 0 && /*E*/ suppressE) ||
+                            (d.x == 0 && d.y == -1 && /*S*/ suppressS) ||
+                            (d.x == -1 && d.y == 0 && /*W*/ suppressW))
                         {
                             // skip orthogonal face; diagonal already placed
                         }
@@ -265,8 +265,8 @@ public partial class DungeonGenerator : MonoBehaviour
                             float baseY = floorSteps * unitHeight;
 
                             var face = Instantiate(cliffPrefab,
-                                mid + new Vector3(0, baseY + 0.5f * ht, 0),
-                                RotFromDir(new Vector2Int(nx - x, nz - z)),
+                                mid + new Vector3(0, baseY + (0.5f * ht), 0),
+                                RotFromDir(new Vector2Int((nx - x), (nz - z))),
                                 root);
                             //face.name = $"Wall({room_name})";
                             face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
@@ -304,7 +304,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
                         //includes_ramp = true;
                     }
-
+/*
                     if (cliffPrefab != null)
                     {
                         bool up = diff > 0;
@@ -317,22 +317,52 @@ public partial class DungeonGenerator : MonoBehaviour
                         // Scale so its Y matches the height difference; X/Z to cell dimensions
                         face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
                     }
+                    */
                 } // end for i
                 
                 // Place floor at its height (Y is up)
                 if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)
                 {
+                    Quaternion tilt = rooms[room_number].cells[cell_number].tiltFloor;
+                    Vector3 position = world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f);
+
+                    // Adjust scale to keep tile edges flush with neighbors when tilted
+                    // This assumes tilt is only around X and Z axes, not Yaw.
+                    // If you have extreme tilts, this can cause large scale changes.
+                    // You might want to clamp the scale to a maximum.
+                    // Alternatively, you could redesign your tiles to be larger than the cell size,
+                    // and overlap slightly to avoid gaps when tilted.
+                    float rollRad = tilt.eulerAngles.z * Mathf.Deg2Rad;
+                    float pitchRad = tilt.eulerAngles.x * Mathf.Deg2Rad;
+                    float cosRoll = Mathf.Cos(rollRad);
+                    float cosPitch = Mathf.Cos(pitchRad);
+                    float scaleX = (Mathf.Abs(cosRoll) > 1e-4f) ? 1f / cosRoll : 1f;
+                    float scaleZ = (Mathf.Abs(cosPitch) > 1e-4f) ? 1f / cosPitch : 1f;
+
+                    //float scaleX = 1f / Mathf.Cos(rollRad);
+                    //float scaleZ = 1f / Mathf.Cos(pitchRad);
+
+                    Vector3 finalScale = new Vector3(scaleX, 1f, scaleZ);
+
                     // When you instantiate, skip naming in bulk builds:
                     GameObject f;
                     if (use_triangle_floor)
                     {
-                        f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, (2+triangle_floor_dir) * 90), root);
+                        Quaternion triangle_floor_rot = Quaternion.Euler(-90f, (triangle_floor_dir) * 90f, 90f);
+                        //f = Instantiate(triangleFloorPrefab, world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f), Quaternion.Euler(90f, 0f, (2+triangle_floor_dir) * 90), root);
+                        //f = Instantiate(triangleFloorPrefab, position, tilt * Quaternion.Euler(90f, 0f, (triangle_floor_dir) * 90), root);
+                        f = Instantiate(triangleFloorPrefab, position, triangle_floor_rot /** tilt*/, root);
+                        f.transform.localScale = finalScale * 50f;  // WHY 50?
+                        f.transform.Rotate(tilt.eulerAngles, Space.World);
                         f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
                     }
                     else
                     {
-                        f = Instantiate(floorPrefab, world + new Vector3(0f, ySteps * unitHeight, 0f), Quaternion.identity, root);
-                        f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
+
+                        //Debug.Log("Tilt: " + tilt.eulerAngles);  // DEBUG
+                        f = Instantiate(floorPrefab, position, tilt, root);
+                        f.transform.localScale = finalScale;
+                        //f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
                     }
                                                                 // Cache renderer on prefab variant or:
                     var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed

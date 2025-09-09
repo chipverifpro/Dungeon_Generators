@@ -26,6 +26,15 @@ public class DungeonSettings : ScriptableObject
     public int mapHeight = 150;
     public bool roundWorld = false; // sometimes not having square map edges is nice.
     public int maxElevation = 100;
+    public float unitHeight = 0.1f;  // World units (meters) per height unit in the height map.
+    
+    [Header("Room Floor and Tilt Settings")]
+    public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
+    public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
+    public int slopeRoomMaxAngle = 10;  // If > 0, tilt room floors by up to this angle in degrees.
+    public bool enableTiltedTiles = true;  // If true, tilt individual floor tiles to match height map.
+    public int tiltFloorTilesMaxAngle = 45;  // If > 0, tilt individual floor tiles by up to this angle in degrees.
+    public float edgeTiltScale = 0.95f; // Scale down tilt near edges to avoid extreme tilts
 
     [Header("Scatter Room Settings")]
     public bool useScatterRooms = false;
@@ -65,8 +74,7 @@ public class DungeonSettings : ScriptableObject
     public int MinimumRockSize = 20; // Threshold for minimum size of in-room obstacle
     public int softBorderSize = 5; // Size of the noisy border around the map to soften edge, only works on square maps currently
     public int wallThickness = 1;  // Appearance of perimeter walls in 2D map
-    public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
-    public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
+    public int minRoomHeight = 30;  // Minimum height difference between floor and ceiling to be considered a room
 
     [Header("Corridor Settings")]
     public int corridorWidth = 3;  // Width of passages generated between rooms.
@@ -83,7 +91,7 @@ public class DungeonSettings : ScriptableObject
 
     [Header("Neighbor Cache Settings")]
     public NeighborCache.Shape neighborShape = NeighborCache.Shape.Square;
-    public bool includeDiagonals = true;
+    public bool includeDiagonals = false;
 
     [Header("Building Settings")]
     public bool createBuilding = false;
