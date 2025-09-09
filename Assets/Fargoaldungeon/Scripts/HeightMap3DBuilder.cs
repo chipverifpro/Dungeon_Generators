@@ -164,7 +164,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (num_walls == 2)  // must have exactly two walls to use diagonal wall
                     {
                         float floorY = ySteps * unitHeight;
-                        float wallH = Mathf.Max(1, perimeterWallSteps) * unitHeight;
+                        float wallH = Mathf.Max(1, perimeterWallSteps) * (unitHeight);
                         float diagLen = DiagonalInsideLength(cell);
                         Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
 
@@ -259,7 +259,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             mid = 0.5f * (world + nWorld);
 
                             //int floorSteps = GetHeightFromRoom(pos);
-                            int floorSteps = rooms[room_number].GetHeightInRoom(pos);
+                            int floorSteps = rooms[room_number].cells[cell_number].height;
 
                             float ht = Mathf.Max(1, perimeterWallSteps) * unitHeight;
                             float baseY = floorSteps * unitHeight;
