@@ -26,10 +26,14 @@ public class DungeonSettings : ScriptableObject
     public int maxElevation = 100;
     public float unitHeight = 0.1f;  // World units (meters) per height unit in the height map.
     
-    [Header("Room Floor and Tilt Settings")]
+    [Header("Room Floor Bumpiness Settings")]
     public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
     public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
+
+    [Header("Tilt Entire Rooms Settings")]
     public int slopeRoomMaxAngle = 10;  // If > 0, tilt room floors by up to this angle in degrees.
+
+    [Header("Smooth Floor by Tilting every Floor Tile Settings")]
     public bool enableTiltedTiles = true;  // If true, tilt individual floor tiles to match height map.
     public int tiltFloorTilesMaxAngle = 45;  // If > 0, tilt individual floor tiles by up to this angle in degrees.
     public float edgeTiltScale = 0.95f; // Scale down tilt near edges to avoid extreme tilts

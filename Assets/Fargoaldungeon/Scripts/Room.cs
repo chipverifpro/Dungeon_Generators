@@ -528,11 +528,13 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             gx = ((hEast.Value - hCenter) * heightUnit) / dx;
             gx *= edgeTiltScale;
+            //return Quaternion.Euler(0f, baseYawDeg, 0f); // disable slope entirely
         }
         else if (hasW)
         {
             gx = ((hCenter - hWest.Value) * heightUnit) / dx;
             gx *= edgeTiltScale;
+            //return Quaternion.Euler(0f, baseYawDeg, 0f); // disable slope entirely
         }
         else
         {
@@ -566,8 +568,11 @@ public partial class DungeonGenerator : MonoBehaviour
         float rollDeg = -Mathf.Rad2Deg * Mathf.Atan(gx);  // tilt around Z toward +X when gx>0
 
         // Clamp extremes for stability
-        pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
-        rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+        //pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+        //rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
+
+        if (Mathf.Abs(pitchDeg) > maxAbsAngleDeg) pitchDeg = 0f;
+        if (Mathf.Abs(rollDeg) > maxAbsAngleDeg) rollDeg = 0f;
 
         //var e = ComputeTiltTile(hCenter, hNorth, hEast, hSouth, hWest,
         //                            tileSizeX, tileSizeZ, heightUnit,
