@@ -16,26 +16,31 @@ using System.Data;
    (allows corridors above/below rooms)
 -- DONE: Clamp ramp slopes at 1.
 -- DONE: Don't draw diagonals when 3 walls on one tile.
-
-   TODO list...
--- Simplex Noise
--- Presets of interesting dungeons - menu or random selection
--- Adding extra corridors to break up tree
 -- DONE: Smart hash calculations
--- More tile types: stairs, doors, traps (with properties)
--- Fix early regeneration button (abort in-progress)
--- Fix pulldown after recompile
 -- DONE: Don't show build progress option implementation
--- Enforce minimum width room connectivity
--- Walkthrough capability
--- Camera flight controls
 -- DONE: Reorganize files
 -- DONE: Use more intelligent yielding to accomplish more each refresh.
 -- DONE: Multi-layer map generation
--- PARTIALLY: Fix corridors between stacked rooms
--- Ceiling hight minimum and room merging
 -- DONE: Gently sloping floors without stairs (perlin heights)
 -- DONE: Change long 3D routines to coroutines.
+-- DONE: Presets of interesting dungeons - menu or random selection
+-- DONE: Fix corridors between stacked rooms
+
+   TODO list...
+-- Simplex Noise
+-- Adding extra corridors to break up tree
+-- More tile types: stairs, doors, traps (with properties)
+-- Fix early regeneration button (abort in-progress)
+-- Fix pulldown after recompile
+-- Enforce minimum width room connectivity
+-- Walkthrough capability
+-- Camera flight controls
+-- Ceiling height minimum and room merging
+
+-- Hex tiles
+-- Remove dead code
+-- Multiple passes of room generation layers
+-- Doors
  */
 
 // Master Dungeon Generation Class...
@@ -193,22 +198,23 @@ public partial class DungeonGenerator : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
+            // Optionally add Perlin noise to floor heights
             if (cfg.perlinFloorHeights > 0)
             {
                 for (int r = 0; r < rooms.Count; r++)
                 {
-                    //int setHeight = rooms[r].heights[0];
                     rooms[r] = AddPerlinToFloorHeights(rooms[r]);
                 }
             }
 
+            // Optionally slope entire rooms in a random direction
             if (cfg.slopeRoomMaxAngle > 0)
             {
                 for (int r = 0; r < rooms.Count; r++)
                 {
                     Vector2 topDir = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)).normalized;
                     //Debug.Log("Sloping room " + r + " in direction " + topDir + " with max angle " + cfg.slopeRoomMaxAngle);
-                    rooms[r] = TiltFloorOfRoom(rooms[r], topDir, cfg.slopeRoomMaxAngle, heightUnitsPerTile: cfg.unitHeight);
+                    rooms[r] = TiltRoom(rooms[r], topDir, cfg.slopeRoomMaxAngle, heightUnitsPerTile: cfg.unitHeight);
                 }
             }
 
@@ -231,6 +237,7 @@ public partial class DungeonGenerator : MonoBehaviour
             yield return null;
             yield return StartCoroutine(BuildWallsAroundFloorsInRooms(tm: null));
 
+            // Optionally tilt individual floor tiles
             if (cfg.enableTiltedTiles && cfg.tiltFloorTilesMaxAngle != 0)  // If > 0, tilt individual floor tiles by up to this angle in degrees.
             {
                 BottomBanner.Show("Calculating Floor Tilts...");
@@ -255,6 +262,7 @@ public partial class DungeonGenerator : MonoBehaviour
         TimeManager.Instance.DumpStats();
     }
 
+    // ------------ Floor tile tilting functions ------------
     public IEnumerator TiltAllFloors(TimeTask tm = null)
     {
         bool local_tm = false;

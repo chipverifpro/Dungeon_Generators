@@ -452,7 +452,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return room;
     }
 
-    public Room TiltFloorOfRoom(Room room, Vector2 topDir, float angleDeg, float heightUnitsPerTile = 1f)
+    public Room TiltRoom(Room room, Vector2 topDir, float angleDeg, float heightUnitsPerTile = 1f)
     {
         // Guard rails
         if (room == null || room.cells == null || room.cells.Count == 0) return room;
@@ -470,7 +470,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // Per-tile vertical rise given the slope angle.
         // If one grid step in XY equals 1 "height unit", set heightUnitsPerTile = 1.
         // If you quantize heights (e.g., 1 height unit = 0.01 meters), pass that scale in.
-        float slopePerTile = Mathf.Tan(angleDeg * Mathf.Deg2Rad) * heightUnitsPerTile;
+        float slopePerTile = Mathf.Tan(angleDeg * Mathf.Deg2Rad) / heightUnitsPerTile;
 
         // (Optional) compute the maximum signed projection run from center to room edge
         // along the given direction; useful if you want to reason about max delta:
@@ -479,6 +479,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // float maxProjAbs = Mathf.Abs(dir.x) * hx + Mathf.Abs(dir.y) * hy;
         // float maxHeightDelta = slopePerTile * maxProjAbs;
 
+        Debug.Log($"Tilting room {room.my_room_number} in direction {dir} with max angle {angleDeg}°. Slope per tile = {slopePerTile:F3} height units.");
         foreach (var cell in room.cells)
         {
             // Signed distance of this cell from the center along tilt direction

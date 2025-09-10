@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 2
+  RoomAlgorithm: 3
   TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
@@ -23,9 +23,9 @@ MonoBehaviour:
   roundWorld: 1
   maxElevation: 100
   unitHeight: 0.1
-  perlinFloorHeights: 60
+  perlinFloorHeights: 30
   perlinFloorWavelength: 0.05
-  slopeRoomMaxAngle: 30
+  slopeRoomMaxAngle: 10
   enableTiltedTiles: 1
   tiltFloorTilesMaxAngle: 45
   edgeTiltScale: 0.85
@@ -45,7 +45,7 @@ MonoBehaviour:
   useCellularAutomata: 1
   cellularFillPercent: 45
   CellularGrowthSteps: 5
-  usePerlin: 0
+  usePerlin: 1
   perlinWavelength: 0.05
   perlin2Wavelength: 0.01
   perlin2Amplitude: 1
@@ -55,7 +55,7 @@ MonoBehaviour:
   softBorderSize: 0
   wallThickness: 1
   minRoomHeight: 30
-  corridorWidth: 3
+  corridorWidth: 4
   limit_slope: 0
   minimumRamp: 11
   maximumRamp: 10
