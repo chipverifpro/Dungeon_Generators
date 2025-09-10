@@ -38,7 +38,20 @@ public partial class DungeonGenerator : MonoBehaviour
     // Future use by Door capability...
     Dictionary<int, Door> doorById; // partner lookup and save/load
 
-
+    // global variables for return of success and failure results (some functions only)
+    [HideInInspector] public bool success;    // global generic return value from various tasks
+    [HideInInspector] public string failure;    // global failure description string
+    
+    // list of directions for neighbor checks
+    public Vector2Int[] directions_xy = { Vector2Int.up,
+                                   Vector2Int.down,
+                                   Vector2Int.left,
+                                   Vector2Int.right, };
+                            //       Vector2Int.up + Vector2Int.left,
+                            //       Vector2Int.up + Vector2Int.right,
+                            //       Vector2Int.down + Vector2Int.left,
+                            //       Vector2Int.down + Vector2Int.right };
+                            
     private void Awake()
     {
         // initialize references

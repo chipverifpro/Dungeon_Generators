@@ -452,7 +452,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return room;
     }
 
-    public Room TiltFloor(Room room, Vector2 topDir, float angleDeg, float heightUnitsPerTile = 1f)
+    public Room TiltFloorOfRoom(Room room, Vector2 topDir, float angleDeg, float heightUnitsPerTile = 1f)
     {
         // Guard rails
         if (room == null || room.cells == null || room.cells.Count == 0) return room;
@@ -691,7 +691,7 @@ public partial class DungeonGenerator : MonoBehaviour
         try
         {
             // Build the heighfield hf if it doesn't yet exist.
-            if (!hf_valid)
+            if (!hf_valid || hf == null || hf.Width == 0 || hf.Height == 0)
             {
                 PrepareHeightfield();
                 if (tm.IfYield()) yield return null;
@@ -717,43 +717,6 @@ public partial class DungeonGenerator : MonoBehaviour
                 room_number++;
                 if (tm.IfYield()) yield return null;
             }
-        }
-        finally { if (local_tm) tm.End(); }
-    }
-
-    // WITHOUT Heightfield.cs:
-    public IEnumerator BuildWallsAroundFloorsInRooms_OLD(TimeTask tm = null)
-    {
-        bool local_tm = false;
-        if (tm == null) { tm = TimeManager.Instance.BeginTask("Build3DFromRooms"); local_tm = true; }
-        try
-        {
-            int room_number = 0;
-            foreach (Room room in rooms)
-            {
-                foreach (var cell in room.cells)
-                {
-                    foreach (var dir in directions_xy) // only 4 directions
-                    {
-                        if (!IsTileInNeighborhood(room_number, room.neighbors, cell.pos + dir))
-                        //if (!room.IsTileInRoom(cell.pos+dir)) // faster but sees room connections as walls
-                        {
-                            // No neighboring floor seen in direction dir,
-                            // so OR that bit into the wall flags for this cell...
-                            cell.walls |= DirFlagsEx.FromVector2Int(dir);
-                        }
-                    }
-                    // Display as debug...  SLOW, only for debug.
-                    Vector3Int pos3d = new Vector3Int(cell.x, cell.y, 0);
-                    tilemap.SetTile(pos3d, wallTile);
-                    tilemap.SetTileFlags(pos3d, TileFlags.None);
-                    tilemap.SetColor(pos3d, Color.red);
-                    if (tm.IfYield()) yield return null; // needed to see debug display
-                }
-                room_number++;
-                //Debug.Log($"BuildWallsAroundFloorsInRooms room {room_number} of {rooms.Count}");
-            }
-            //Debug.Log($"BuildWallsAroundFloorsInRooms DONE");
         }
         finally { if (local_tm) tm.End(); }
     }
@@ -791,7 +754,6 @@ public partial class DungeonGenerator : MonoBehaviour
         }
 
     }
-
 
     // UNCHANGED
     // create a complete list of all rooms connected, ignoring duplicates
@@ -861,7 +823,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return ht;
     }
 
-    // UNCHANGED.
+    // UNCHANGED. UNUSED
     public bool IsTileInNeighborhood(int room_number, List<int> room_neighbors, Vector2Int pos)
     {
         //Debug.Log($"IsTileInNeighborhood: room_neighbors.Count={room_neighbors.Count} pos = {pos.x},{pos.y}");

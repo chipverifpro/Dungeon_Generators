@@ -1,6 +1,4 @@
 using UnityEngine;
-using UnityEngine.Rendering;
-
 
 
 [CreateAssetMenu(fileName = "DungeonSettings", menuName = "Scriptable Objects/DungeonSettings")]
@@ -35,6 +33,13 @@ public class DungeonSettings : ScriptableObject
     public bool enableTiltedTiles = true;  // If true, tilt individual floor tiles to match height map.
     public int tiltFloorTilesMaxAngle = 45;  // If > 0, tilt individual floor tiles by up to this angle in degrees.
     public float edgeTiltScale = 0.95f; // Scale down tilt near edges to avoid extreme tilts
+
+    [Header("3D Build Settings")]
+    //public float unitHeight = 0.1f;             // world Y per step
+    public bool useDiagonalCorners = true;
+    public bool skipOrthogonalWhenDiagonal = true;
+    public int perimeterWallSteps = 30; // height of perimeter walls in steps
+
 
     [Header("Scatter Room Settings")]
     public bool useScatterRooms = false;

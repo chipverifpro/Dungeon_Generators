@@ -9,15 +9,17 @@ using UnityEngine.UIElements;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-    public float unitHeight = 0.1f;             // world Y per step
-    public bool useDiagonalCorners = true;
-    public bool skipOrthogonalWhenDiagonal = true;
-    public int perimeterWallSteps = 30; // height of perimeter walls in steps
+    [Header("3D Build Settings")]
+//    public float unitHeight = 0.1f;             // world Y per step
+//    public bool useDiagonalCorners = true;
+//    public bool skipOrthogonalWhenDiagonal = true;
+//    public int perimeterWallSteps = 30; // height of perimeter walls in steps
 
     public Dictionary<Vector2Int, int> idx;  // Build once at the top of Build3DFromOneRoom
 
     // If your ramp mesh "forward" is +Z, map directions to rotations:
     static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
+
     static Quaternion RotFromDir(Vector2Int d)
     {
         if (d == new Vector2Int(0, 1)) return Quaternion.Euler(0, 0, 0);   // face +Z
@@ -138,7 +140,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 // -------- diagonal corner smoothing (before orthogonal perimeter faces) --------
                 bool suppressN = false, suppressE = false, suppressS = false, suppressW = false;
 
-                if (useDiagonalCorners && isFloor && diagonalWallPrefab != null)
+                if (cfg.useDiagonalCorners && isFloor && diagonalWallPrefab != null)
                 {
                     // include neighborhood, which is immediately connected rooms
                     // this allows for proper finding of walls at intersection.
@@ -163,8 +165,8 @@ public partial class DungeonGenerator : MonoBehaviour
 
                     if (num_walls == 2)  // must have exactly two walls to use diagonal wall
                     {
-                        float floorY = ySteps * unitHeight;
-                        float wallH = Mathf.Max(1, perimeterWallSteps) * (unitHeight);
+                        float floorY = ySteps * cfg.unitHeight;
+                        float wallH = Mathf.Max(1, cfg.perimeterWallSteps) * cfg.unitHeight;
                         float diagLen = DiagonalInsideLength(cell);
                         Vector3 baseY = new Vector3(0f, floorY + wallH * 0.5f, 0f);
 
@@ -178,7 +180,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
                             triangle_floor_dir = 0; // correct
-                            if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
+                            if (cfg.skipOrthogonalWhenDiagonal) { suppressN = true; suppressE = true; }
                         }
                         // NW corner (N & W)
                         if (N && W /* && NW */)
@@ -190,7 +192,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
                             triangle_floor_dir = 3; // correct
-                            if (skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
+                            if (cfg.skipOrthogonalWhenDiagonal) { suppressN = true; suppressW = true; }
                         }
                         // SE corner (S & E)
                         if (S && E /* && SE */)
@@ -202,7 +204,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
                             triangle_floor_dir = 1; // correct
-                            if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
+                            if (cfg.skipOrthogonalWhenDiagonal) { suppressS = true; suppressE = true; }
                         }
                         // SW corner (S & W)
                         if (S && W /* && SW */)
@@ -214,7 +216,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             //t.name = $"Wall({room_name})";
                             use_triangle_floor = true;
                             triangle_floor_dir = 2; // correct
-                            if (skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
+                            if (cfg.skipOrthogonalWhenDiagonal) { suppressS = true; suppressW = true; }
                         }
                     }
                 }
@@ -261,8 +263,8 @@ public partial class DungeonGenerator : MonoBehaviour
                             //int floorSteps = GetHeightFromRoom(pos);
                             int floorSteps = rooms[room_number].cells[cell_number].height;
 
-                            float ht = Mathf.Max(1, perimeterWallSteps) * unitHeight;
-                            float baseY = floorSteps * unitHeight;
+                            float ht = Mathf.Max(1, cfg.perimeterWallSteps) * cfg.unitHeight;
+                            float baseY = floorSteps * cfg.unitHeight;
 
                             var face = Instantiate(cliffPrefab,
                                 mid + new Vector3(0, baseY + (0.5f * ht), 0),
@@ -299,9 +301,9 @@ public partial class DungeonGenerator : MonoBehaviour
                         float midheight = (ySteps + nySteps) / 2f;
                         int upper = up ? nySteps : ySteps;
                         var rot = RotFromDir(d * (up ? 1 : -1)); // face uphill
-                        var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (upper) * unitHeight /*- .35f*/, 0), rot, root);
+                        var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (upper) * cfg.unitHeight /*- .35f*/, 0), rot, root);
                         ramp.name = $"Ramp({Math.Abs(diff)})";
-                        ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
+                        ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * cfg.unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
                         //includes_ramp = true;
                     }
 /*
@@ -324,7 +326,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)
                 {
                     Quaternion tilt = rooms[room_number].cells[cell_number].tiltFloor;
-                    Vector3 position = world + new Vector3(-0.0f, ySteps * unitHeight, 0.0f);
+                    Vector3 position = world + new Vector3(-0.0f, ySteps * cfg.unitHeight, 0.0f);
 
                     // Adjust scale to keep tile edges flush with neighbors when tilted
                     // This assumes tilt is only around X and Z axes, not Yaw.
@@ -374,7 +376,7 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // UNUSED
-    public void BuildRoomHeightsLookup(int room_number)
+    public void BuildRoomHeightsLookup_OLD(int room_number)
     {
         // Build once at the top of Build3DFromOneRoom:
         idx = new Dictionary<Vector2Int, int>(rooms[room_number].cells.Count);
@@ -383,11 +385,11 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // UNUSED
-    public int GetHeightFromRoom(Vector2Int pos)
+    public int GetHeightFromRoom_OLD(Vector2Int pos)
         => idx.TryGetValue(pos, out var v) ? v : 999;
 
     // UNUSED
-    bool IsTileFromRoom(int room_number, Vector2Int pos, byte tile_type)
+    bool IsTileFromRoom_OLD(int room_number, Vector2Int pos, byte tile_type)
     {
         if (tile_type == FLOOR)
             if (rooms[room_number].IsTileInRoom(pos))

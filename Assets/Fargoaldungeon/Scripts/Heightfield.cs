@@ -105,6 +105,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     Array.Clear(c.segRoomCounts, 0, c.segRoomCounts.Length);
                 }
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool InBounds(int x, int y, int w, int h)
             => (uint)x < (uint)w && (uint)y < (uint)h;
