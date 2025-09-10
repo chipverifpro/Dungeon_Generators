@@ -25,7 +25,7 @@ public class DungeonSettings : ScriptableObject
     public bool roundWorld = false; // sometimes not having square map edges is nice.
     public int maxElevation = 100;
     public float unitHeight = 0.1f;  // World units (meters) per height unit in the height map.
-    
+
     [Header("Room Floor Bumpiness Settings")]
     public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
     public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
@@ -90,7 +90,7 @@ public class DungeonSettings : ScriptableObject
     public bool limit_slope = true;  // don't allow slopes to exceed walkability
     public int minimumRamp = 2;  // less than this is not considered a ramp
     public int maximumRamp = 8;  // more than this is considered a cliff
-    
+
     [Header("Organic Type corridor Settings")]
     public float organicJitterChance = 0.2f; // Chance to introduce a wiggle in "organic" corridors
 
@@ -107,4 +107,70 @@ public class DungeonSettings : ScriptableObject
     public int cellar_floor_height = -10;
     public int ground_floor_height = 0;
     public int next_floor_height = 10;
+    
+    // ---- Algorithm selectors per stage ----
+    public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes }
+    public enum RoomSeedAlgo { AlongCorridors, PoissonAlongCorridors, UniformGrid }
+    public enum RoomGrowAlgo { CreditWavefront, PressureField, OrthogonalRays }
+    public enum ScrapAlgo    { VoronoiFill, ClosetsOnly, NearestRoom }
+    public enum DoorAlgo     { EnsureConnectivity, SparseLoops, ManyLoops }
+
+    [Header("Pipeline Algorithms")]
+    public CorridorAlgo corridorAlgo = CorridorAlgo.WanderingMST;
+    public RoomSeedAlgo roomSeedAlgo = RoomSeedAlgo.AlongCorridors;
+    public RoomGrowAlgo roomGrowAlgo = RoomGrowAlgo.CreditWavefront;
+    public ScrapAlgo    scrapAlgo    = ScrapAlgo.VoronoiFill;
+    public DoorAlgo     doorAlgo     = DoorAlgo.EnsureConnectivity;
+
+    // ---- Tunable parameters per stage (keep lean; add as you need) ----
+    [System.Serializable]
+    public struct CorridorParams
+    {
+        public int spineCount;         // long wandering spines
+        public float wanderiness;      // 0..1
+        public float loopChance;       // 0..1
+        public int corridorWidth;      // lock at 1..2 typically
+    }
+    [Header("Corridor Params")]
+    public CorridorParams corridor = new CorridorParams { spineCount=2, wanderiness=0.25f, loopChance=0.15f, corridorWidth=1 };
+
+    [System.Serializable]
+    public struct SeedParams
+    {
+        public int spacing;            // seed every N cells along corridors
+        public float alternateSides;   // 0..1 (probability to alternate sides)
+        public int jitter;             // random offset in cells
+    }
+    [Header("Room Seeding Params")]
+    public SeedParams RoomSeeding = new SeedParams { spacing=8, alternateSides=1f, jitter=2 };
+
+    [System.Serializable]
+    public struct GrowParams
+    {
+        public int areaCreditMin;
+        public int areaCreditMax;
+        public int wallMoat;           // reserved wall thickness (usually 1)
+        public int splitArea;          // split rooms larger than this
+        public float splitAspect;      // split if aspect > this (e.g., 3)
+    }
+    [Header("Room Growth Params")]
+    public GrowParams grow = new GrowParams { areaCreditMin=40, areaCreditMax=140, wallMoat=1, splitArea=300, splitAspect=3f };
+
+    [System.Serializable]
+    public struct ScrapParams
+    {
+        public int closetMaxArea;      // turn scraps <= this into closets
+    }
+    [Header("Scrap Cleanup Params")]
+    public ScrapParams scraps = new ScrapParams { closetMaxArea=12 };
+
+    [System.Serializable]
+    public struct DoorParams
+    {
+        public int maxRoomToRoomDoors; // budget for extra loops
+        public float loopBias;         // prefer far connections
+    }
+    [Header("Door Params")]
+    public DoorParams doors = new DoorParams { maxRoomToRoomDoors=20, loopBias=0.75f };
 }
+
