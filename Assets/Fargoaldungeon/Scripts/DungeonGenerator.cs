@@ -129,6 +129,9 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = false;
                     break;
+                case DungeonSettings.RoomAlgorithm_e.PackedRooms:
+                    yield return StartCoroutine(GeneratePackedRooms());
+                    yield break; // PackedRooms handles its own coroutine flow
             }
 
             BottomBanner.Show("Initialize dungeon...");
@@ -370,25 +373,16 @@ public partial class DungeonGenerator : MonoBehaviour
     // NEW
     public void DrawMapByRooms(List<Room> rooms, bool clearscreen = true)
     {
-        Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
+        //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
         if (clearscreen) tilemap.ClearAllTiles();
+
+        if (map == null) map = new byte[cfg.mapWidth, cfg.mapHeight];
+        if (mapHeights == null) mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
 
         foreach (var room in rooms)
         {
-            // OLD_VERSION
-            //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
-            //            foreach (var point in room.tiles)
-            //            {
-            //                if (!clearscreen) tilemap.SetTile(new Vector3Int(point.x, point.y, 0), null); // clear old tile
-            //                tilemap.SetTile(new Vector3Int(point.x, point.y, 0), floorTile);
-            //                tilemap.SetTileFlags(new Vector3Int(point.x, point.y, 0), TileFlags.None); // Allow color changes
-            //                tilemap.SetColor(new Vector3Int(point.x, point.y, 0), room.colorFloor); // Set room color
-            //
-            //                map[point.x, point.y] = FLOOR;
-            //                mapHeights[point.x, point.y] = GetHeightOfLocationFromAllRooms(rooms, point);
-            //            }
             // CELL_VERSION
-            //Debug.Log("Drawing " + room.Name + " size: " + room.tiles.Count);
+            //Debug.Log("DrawMapByRooms: Drawing size: " + room.cells.Count);
             foreach (var cell in room.cells)
             {
                 Vector3Int pos3 = cell.pos3d;

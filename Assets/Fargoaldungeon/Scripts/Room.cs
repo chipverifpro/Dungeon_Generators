@@ -240,6 +240,9 @@ public class Room
     public List<int> neighbors = new(); // List of neighboring rooms by index into global "rooms" list
     public bool isCorridor = false;     // Indicate if this room was generated as a corridor
 
+    public int area = 0;
+    public RectInt bounds; // minX, minY, sizeX, sizeY
+
     // OLD style: quick lookup in multiple lists for floors, walls, heights.
     // HashSets allow fast check whether room contains something at a position.
     // See the functions below: bool IsTileInRoom(pos), bool IsWallInRoom(pos)
@@ -528,13 +531,11 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             gx = ((hEast.Value - hCenter) * heightUnit) / dx;
             gx *= edgeTiltScale;
-            //return Quaternion.Euler(0f, baseYawDeg, 0f); // disable slope entirely
         }
         else if (hasW)
         {
             gx = ((hCenter - hWest.Value) * heightUnit) / dx;
             gx *= edgeTiltScale;
-            //return Quaternion.Euler(0f, baseYawDeg, 0f); // disable slope entirely
         }
         else
         {
@@ -567,70 +568,17 @@ public partial class DungeonGenerator : MonoBehaviour
         float pitchDeg = Mathf.Rad2Deg * Mathf.Atan(gz);   // tilt around X toward +Z when gz>0
         float rollDeg = -Mathf.Rad2Deg * Mathf.Atan(gx);  // tilt around Z toward +X when gx>0
 
-        // Clamp extremes for stability
+        // Clamp extremes for stability.  leaves cliffs looking funky
         //pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
         //rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
 
+        // if extreme, just flatten.  better for cliffs.
         if (Mathf.Abs(pitchDeg) > maxAbsAngleDeg) pitchDeg = 0f;
         if (Mathf.Abs(rollDeg) > maxAbsAngleDeg) rollDeg = 0f;
 
-        //var e = ComputeTiltTile(hCenter, hNorth, hEast, hSouth, hWest,
-        //                            tileSizeX, tileSizeZ, heightUnit,
-        //                            maxAbsAngleDeg, edgeTiltScale, baseYawDeg);
-        //return Quaternion.Euler(0f, baseYawDeg, 0f) * e;
         var e = Quaternion.Euler(pitchDeg, baseYawDeg, rollDeg);
         return e;
     }
-
-    /*
-        /// <summary>
-        /// Compute tilt Euler angles (pitch, yaw, roll) for a tile given heights
-        /// at center and its 4 neighbors. Yaw is 0; pitch (X) and roll (Z) tilt the tile.
-        /// Units:
-        ///   h* are in "height units" (e.g., your int height grid)
-        ///   heightUnit: world units per 1 height unit (e.g., 0.01m if heights are centimeters)
-        ///   tileSizeX/Z: world size of a tile along X/Z (meters)
-        /// </summary>
-        public static Vector3 ComputeTiltEuler_original(
-            float hCenter, float hNorth, float hEast, float hSouth, float hWest,
-            float tileSizeX, float tileSizeZ,
-            float heightUnit = 1f,
-            float maxAbsAngleDeg = 89f // clamp to avoid extreme flips
-        )
-        {
-            // Central differences: dy/dx and dy/dz
-            // Convert height units -> world units by multiplying heightUnit.
-            float gx = ((hEast - hWest) * heightUnit) / (2f * Mathf.Max(1e-6f, tileSizeX)); // ∂y/∂x
-            float gz = ((hNorth - hSouth) * heightUnit) / (2f * Mathf.Max(1e-6f, tileSizeZ)); // ∂y/∂z
-
-            // Convert slopes to angles
-            float pitchDeg = Mathf.Rad2Deg * Mathf.Atan(gz);  // rotate around X to lift +Z when gz>0
-            float rollDeg = -Mathf.Rad2Deg * Mathf.Atan(gx); // rotate around Z to lift +X when gx>0
-
-            // Optional: clamp to keep geometry sane
-            pitchDeg = Mathf.Clamp(pitchDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
-            rollDeg = Mathf.Clamp(rollDeg, -maxAbsAngleDeg, maxAbsAngleDeg);
-
-            // yaw = 0 (no spin)
-            return new Vector3(pitchDeg, 0f, rollDeg);
-        }
-
-
-        /// <summary>
-        /// If you prefer a quaternion directly.
-        /// </summary>
-        public static Quaternion ComputeTiltRotation(
-            float hCenter, float hNorth, float hEast, float hSouth, float hWest,
-            float tileSizeX, float tileSizeZ,
-            float heightUnit = 1f,
-            float baseYawDeg = 0f
-        )
-        {
-            var e = ComputeTiltEuler(hCenter, hNorth, hEast, hSouth, hWest, tileSizeX, tileSizeZ, heightUnit);
-            // If your tile needs a base yaw (e.g., to face a texture direction), apply it before tilt
-            return Quaternion.Euler(0f, baseYawDeg, 0f) * Quaternion.Euler(e);
-        }
-    */
 
     // ==================== Room Height functions ====================
 

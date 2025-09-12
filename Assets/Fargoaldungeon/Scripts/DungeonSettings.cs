@@ -5,7 +5,7 @@ using UnityEngine;
 public class DungeonSettings : ScriptableObject
 {
     // Type enumerations...
-    public enum RoomAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin, Tavern }
+    public enum RoomAlgorithm_e { Scatter_Overlap, Scatter_NoOverlap, CellularAutomata, CellularAutomataPerlin, Tavern, PackedRooms }
     public enum TunnelsAlgorithm_e { TunnelsOrthogonal, TunnelsStraight, TunnelsOrganic, TunnelsCurved }
 
 
@@ -109,7 +109,7 @@ public class DungeonSettings : ScriptableObject
     public int next_floor_height = 10;
     
     // ---- Algorithm selectors per stage ----
-    public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes }
+    public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes, DrunkardsWalk }
     public enum RoomSeedAlgo { AlongCorridors, PoissonAlongCorridors, UniformGrid }
     public enum RoomGrowAlgo { CreditWavefront, PressureField, OrthogonalRays }
     public enum ScrapAlgo    { VoronoiFill, ClosetsOnly, NearestRoom }

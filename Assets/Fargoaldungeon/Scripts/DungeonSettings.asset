@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 3
+  RoomAlgorithm: 0
   TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
@@ -23,26 +23,26 @@ MonoBehaviour:
   roundWorld: 1
   maxElevation: 100
   unitHeight: 0.1
-  perlinFloorHeights: 30
+  perlinFloorHeights: 60
   perlinFloorWavelength: 0.05
   slopeRoomMaxAngle: 10
   enableTiltedTiles: 1
-  tiltFloorTilesMaxAngle: 45
-  edgeTiltScale: 0.85
+  tiltFloorTilesMaxAngle: 30
+  edgeTiltScale: 0.01
   useDiagonalCorners: 1
   skipOrthogonalWhenDiagonal: 1
   perimeterWallSteps: 30
-  useScatterRooms: 0
+  useScatterRooms: 1
   roomAttempts: 50
   roomsMax: 15
   minRoomSize: 30
   maxRoomSize: 60
-  generateOverlappingRooms: 0
-  MergeScatteredRooms: 0
+  generateOverlappingRooms: 1
+  MergeScatteredRooms: 1
   allowVerticalStacking: 1
   minVerticalStackHeight: 5
   ovalRooms: 0
-  useCellularAutomata: 1
+  useCellularAutomata: 0
   cellularFillPercent: 45
   CellularGrowthSteps: 5
   usePerlin: 1
@@ -68,3 +68,28 @@ MonoBehaviour:
   cellar_floor_height: -10
   ground_floor_height: 0
   next_floor_height: 10
+  corridorAlgo: 0
+  roomSeedAlgo: 0
+  roomGrowAlgo: 0
+  scrapAlgo: 0
+  doorAlgo: 0
+  corridor:
+    spineCount: 2
+    wanderiness: 0.25
+    loopChance: 0.15
+    corridorWidth: 1
+  RoomSeeding:
+    spacing: 8
+    alternateSides: 1
+    jitter: 2
+  grow:
+    areaCreditMin: 40
+    areaCreditMax: 140
+    wallMoat: 1
+    splitArea: 300
+    splitAspect: 3
+  scraps:
+    closetMaxArea: 12
+  doors:
+    maxRoomToRoomDoors: 20
+    loopBias: 0.75
