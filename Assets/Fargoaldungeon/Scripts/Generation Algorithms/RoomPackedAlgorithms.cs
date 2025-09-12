@@ -46,25 +46,25 @@ public partial class DungeonGenerator : MonoBehaviour
         // 2) Room seeding
         yield return StartCoroutine(RunRoomSeeding());
         DrawMapByRooms(rooms);
-        Debug.Log("After room seeding, rooms = " + rooms_temp.Count);
+        Debug.Log("After room seeding, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 3) Room growth
         yield return StartCoroutine(RunRoomGrowth());
         DrawMapByRooms(rooms);
-        Debug.Log("After room growth, rooms = " + rooms_temp.Count);
+        Debug.Log("After room growth, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 4) Scraps
         yield return StartCoroutine(RunScraps());
         DrawMapByRooms(rooms);
-        Debug.Log("After scraps, rooms = " + rooms_temp.Count);
+        Debug.Log("After scraps, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 5) Doors/connectivity
         yield return StartCoroutine(RunDoors());
         DrawMapByRooms(rooms);
-        Debug.Log("After doors, rooms = " + rooms_temp.Count);
+        Debug.Log("After doors, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         BottomBanner.Show($"Done seed={seed} in {(Time.realtimeSinceStartup - t0):F2}s");
@@ -319,7 +319,7 @@ public partial class DungeonGenerator : MonoBehaviour
             rooms.Add(tmp_room);
             Debug.Log("Drawing rooms = " + rooms.Count);
             DrawMapByRooms(rooms, clearscreen: true);
-            yield return new WaitForSeconds(1f);
+            yield return null; // new WaitForSeconds(1f);
 
             corridorCells.Clear();
         }
@@ -333,7 +333,7 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         BottomBanner.Show("Corridors: WanderingMST");
         int W = cfg.mapWidth, H = cfg.mapHeight;
-        int width = Mathf.Clamp(cfg.corridor.corridorWidth, 1, 5);
+        int width = Mathf.Clamp(cfg.corridor.corridorWidth, 1, 2);
         int spines = Mathf.Max(1, cfg.corridor.spineCount);
         float wander = Mathf.Clamp01(cfg.corridor.wanderiness);
         float loopChance = Mathf.Clamp01(cfg.corridor.loopChance);
@@ -347,7 +347,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         Debug.Log("Corridors WanderingMST: Beginning Drawing rooms = " + rooms.Count);
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return new WaitForSeconds(1f);
+        yield return null;  // new WaitForSeconds(1f);
 
         var tmp_room = new Room { cells = new List<Cell>(), isCorridor = true };
         tmp_room.setColorFloor(highlight: false);
@@ -365,7 +365,7 @@ public partial class DungeonGenerator : MonoBehaviour
             Vector2Int dir = RandomCardinal();
 
             int steps = (int)(0.7f * (W + H)); // long-ish 0.7
-            steps = 50;
+            //steps = 50;
             int sampleEvery = 12; //12
             int sinceSample = 0;
 
@@ -413,14 +413,16 @@ public partial class DungeonGenerator : MonoBehaviour
                         rooms.Add(tmp_room);    // Add to master room list
             */
 
-            yield return new WaitForSeconds(1f);
+            yield return null; // new WaitForSeconds(1f);
         }
 
         room_temp = ExtractRoomFromVectors(nodes);
         Debug.Log("nodes = " + nodes.Count + " after steps, before thinned ");
+        room_temp.setColorFloor(highlight: false);
+        foreach (var cell in room_temp.cells) { cell.colorFloor = room_temp.colorFloor; }
         rooms_temp.Add(room_temp);
         DrawMapByRooms(rooms_temp);
-        yield return new WaitForSeconds(10f);
+        yield return null; // new WaitForSeconds(1f);
 
         // ---- before computing MST: dedupe + thin + cap ----
         if (nodes.Count < 2) yield break;
@@ -455,7 +457,7 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.Log("nodes = " + nodes.Count + " after thinned ");
         rooms_temp.Add(room_temp);
         DrawMapByRooms(rooms_temp);
-        yield return new WaitForSeconds(10f);
+        yield return null; // new WaitForSeconds(1f);
 
         // 2c) Build MST in a time-sliced way
         List<(Vector2Int a, Vector2Int b)> mstEdges = new List<(Vector2Int, Vector2Int)>(nodes.Count - 1);
@@ -468,6 +470,7 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             tmp_room = new Room { cells = new List<Cell>(), isCorridor = true };
             tmp_room.setColorFloor(highlight: false);
+
             yield return StartCoroutine(CarveLineWithYield(tmp_room, e.a, e.b, width, yieldEvery: 256));
             rooms.Add(tmp_room);
         }
@@ -483,11 +486,15 @@ public partial class DungeonGenerator : MonoBehaviour
 
             tmp_room = new Room { cells = new List<Cell>(), isCorridor = true };
             tmp_room.setColorFloor(highlight: false);
+
             yield return StartCoroutine(CarveLineWithYield(tmp_room, a, b, width, yieldEvery: 256));
             rooms.Add(tmp_room);
 
             if ((k & 3) == 0) yield return null;
         }
+
+        DrawMapByRooms(rooms, clearscreen: true);
+        yield return new WaitForSeconds(1f);
 
         // Helpers...
 
@@ -625,11 +632,37 @@ public partial class DungeonGenerator : MonoBehaviour
 
             // Optionally split oversized rooms every few rounds
             if ((round++ % 20) == 0)
-                SplitOversizedRooms(moat);
+                SplitOversizedRooms(moat, frontiers);
 
             if (!anyClaimed) break; // no more expansion possible
         }
-
+        // TODO: convert claimed PackCells into Room.cells lists
+        //for (int ri = 0; ri < nRooms; ri++)
+        //{
+        //    var r = packMap.rooms[ri];
+        //    r.cells.Clear();
+        //}
+        for (int x = 0; x < packMap.w; x++)
+        {
+            for (int y = 0; y < packMap.h; y++)
+            {
+                var c = packMap.g[x, y];
+                if (c.roomId < 0) continue;
+                // find room by id and add cell to that room
+                foreach (var r in rooms)
+                {
+                    if (r.my_room_number == c.roomId)
+                    {
+                        r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
+                        break;
+                    }
+                }
+            }
+            yield return null;
+        }
+        DrawMapByRooms(rooms, clearscreen: true);
+        yield return new WaitForSeconds(1f);
+    }
         // ---- local helpers ----
         IEnumerable<(int x, int y)> FourNeighbors(int x, int y)
         {
@@ -687,7 +720,7 @@ public partial class DungeonGenerator : MonoBehaviour
             // bounds will be finalized later; optional: update a running RectInt here
         }
 
-        void SplitOversizedRooms(int moatCells)
+        void SplitOversizedRooms(int moatCells, List<HashSet<(int, int)>> frontiers)
         {
             for (int i = 0; i < packMap.rooms.Count; i++)
             {
@@ -743,7 +776,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (CanClaim(ri, nb.x, nb.y, moatCells))
                         dst.Add((nb.x, nb.y));
         }
-    }
+    
 
     // ======================= Seeding: AlongCorridors =======================
     IEnumerator Seed_AlongCorridors()
@@ -756,6 +789,21 @@ public partial class DungeonGenerator : MonoBehaviour
         int jitter = Mathf.Clamp(cfg.RoomSeeding.jitter, 0, spacing - 1);
         float altProb = Mathf.Clamp01(cfg.RoomSeeding.alternateSides); // probability to alternate sides L/R
 
+        // make a list of all corridor cell locations:
+        foreach (Room r in rooms)
+        {
+            if (r.isCorridor)
+            {
+                foreach (Cell c in r.cells)
+                {
+                    packMap.g[c.x, c.y].isCorridor = true;  // build array for fast lookup
+                    if (packMap.corridors == null)
+                        packMap.corridors = new HashSet<(int, int)>();
+                    if (!packMap.corridors.Contains((c.x, c.y)))
+                        packMap.corridors.Add((c.x, c.y));
+                }
+            }
+        }
         if (packMap.corridors == null || packMap.corridors.Count == 0)
         {
             BottomBanner.Show("  (No corridors found; seeding skipped)");
@@ -869,13 +917,17 @@ public partial class DungeonGenerator : MonoBehaviour
             if ((created & 63) == 0) yield return null;
         }
 
+
         BottomBanner.Show($"  Seeded {created} room(s) from {anchors.Count} corridor anchors.");
 
+        DrawMapByRooms(rooms, clearscreen: true);
+        yield return null; // new WaitForSeconds(1f);
+    }
         // ---- local helpers ----
-        bool In(int x, int y) => (uint)x < (uint)W && (uint)y < (uint)H;
 
         int CountCorridorNeighbors(int x, int y)
         {
+            int W=cfg.mapWidth, H=cfg.mapHeight;
             int c = 0;
             if (x > 0 && packMap.g[x - 1, y].isCorridor) c++;
             if (x < W - 1 && packMap.g[x + 1, y].isCorridor) c++;
@@ -886,6 +938,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         Vector2Int PickTangentDir(int x, int y)
         {
+            int W=cfg.mapWidth, H=cfg.mapHeight;
             // Favor a straight neighbor pair if present (→ a stable tangent)
             bool L = x > 0 && packMap.g[x - 1, y].isCorridor;
             bool R = x < W - 1 && packMap.g[x + 1, y].isCorridor;
@@ -909,19 +962,6 @@ public partial class DungeonGenerator : MonoBehaviour
             // left: (x,y)->(-y,x) ; right: (x,y)->(y,-x)
             return left ? new Vector2Int(-t.y, t.x) : new Vector2Int(t.y, -t.x);
         }
-
-        Vector2Int RandomCardinal()
-        {
-            return rng.Next(4) switch
-            {
-                0 => new Vector2Int(1, 0),
-                1 => new Vector2Int(-1, 0),
-                2 => new Vector2Int(0, 1),
-                _ => new Vector2Int(0, -1),
-            };
-        }
-
-        int Manhattan(Vector2Int a, Vector2Int b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
 
         void Shuffle(List<Vector2Int> list)
         {
@@ -952,19 +992,26 @@ public partial class DungeonGenerator : MonoBehaviour
             return true;
         }
 
-        void CreateRoomSeedAt(int x, int y)
-        {
-            var r = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
-            var c = packMap.g[x, y];
-            c.roomId = r.id;
-            r.cells.Add(c);
-            r.bounds = new RectInt(x, y, 1, 1);
-            packMap.rooms.Add(r);
-        }
+    void CreateRoomSeedAt(int x, int y)
+    {
+        var r = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
+        var c = packMap.g[x, y];
+        c.roomId = r.id;
+        r.cells.Add(c);
+        r.bounds = new RectInt(x, y, 1, 1);
+        packMap.rooms.Add(r);
+
+        // Also add to main room list for drawing
+        Room room = new Room { my_room_number = r.id, cells = new List<Cell> { new Cell(x, y) }, isCorridor = false };
+        room.setColorFloor(highlight: true);
+        rooms.Add(room);
     }
 
 
+
+
     // ======================= Convert PackMap to usable format =======================
+/*
     public List<Room> ExtractRoomsFromPackedRooms(PackMap packMap)
     {
         Color color;
@@ -1039,7 +1086,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
         return result;
     }
-
+*/
     public Room ExtractRoomFromVectors(List<Vector2Int> vect)
     {
         Color color;
@@ -1118,16 +1165,19 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // Uses your existing painter & storage; keep it dumb for debugging.
-    void CarveDisk(Room tmp_room, Vector2Int c, int rad)
+    void CarveDisk(Room tmp_room, Vector2Int c, int penWidth)
     {
         int W = cfg.mapWidth, H = cfg.mapHeight;
+        int min = -(int)Math.Floor((penWidth / 2f)); // makes the negative more to zero
+        int max = min + penWidth - 1;
 
-        for (int dy = -rad; dy <= rad; dy++)
-            for (int dx = -rad; dx <= rad; dx++)
+        Debug.Log($"  CarveDisk at {c.x},{c.y} width={penWidth}");
+        for (int dy = min; dy <= max; dy++)
+            for (int dx = min; dx <= max; dx++)
             {
                 int x = c.x + dx, y = c.y + dy;
                 if ((uint)x >= (uint)W || (uint)y >= (uint)H) continue;
-                if (dx * dx + dy * dy > rad * rad) continue; // disk; swap to diamond if you prefer
+                if (dx * dx + dy * dy > (penWidth / 2f) * (penWidth / 2f)) continue; // disk; swap to diamond if you prefer
 
                 // create a new cell and add it to the room that was passed in
                 var tmp_cell = new Cell(x, y);
