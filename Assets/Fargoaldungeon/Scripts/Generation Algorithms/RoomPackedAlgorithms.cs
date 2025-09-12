@@ -342,6 +342,9 @@ public partial class DungeonGenerator : MonoBehaviour
         var rngf = new System.Func<float>(() => (float)rng.NextDouble());
         var nodes = new List<Vector2Int>();  // sampled waypoints along spines
 
+        List<Room> rooms_temp = new(); // temporary Room list for compatibility with DrawMapByRooms
+        Room room_temp;
+
         Debug.Log("Corridors WanderingMST: Beginning Drawing rooms = " + rooms.Count);
         DrawMapByRooms(rooms, clearscreen: true);
         yield return new WaitForSeconds(1f);
@@ -409,10 +412,15 @@ public partial class DungeonGenerator : MonoBehaviour
                         }
                         rooms.Add(tmp_room);    // Add to master room list
             */
-            Debug.Log("nodes = " + nodes + ", rooms = " + rooms.Count + ", cells = " + tmp_room.cells.Count + " after spine " + (s + 1));
-            //DrawMapByRooms(rooms, clearscreen: true);
+
             yield return new WaitForSeconds(1f);
         }
+
+        room_temp = ExtractRoomFromVectors(nodes);
+        Debug.Log("nodes = " + nodes.Count + " after steps, before thinned ");
+        rooms_temp.Add(room_temp);
+        DrawMapByRooms(rooms_temp);
+        yield return new WaitForSeconds(10f);
 
         // ---- before computing MST: dedupe + thin + cap ----
         if (nodes.Count < 2) yield break;
@@ -428,7 +436,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // 2b) Blue-noise thin the node set (enforce Manhattan spacing)
         int minNodeSpacing = 10;                     // tune: larger = fewer nodes
-        int maxNodes = 200; //600                   // safety cap to keep MST cheap
+        int maxNodes = 20; //600                   // safety cap to keep MST cheap
         var thinned = new List<Vector2Int>(Mathf.Min(maxNodes, dedup.Count));
         foreach (var p in dedup)
         {
@@ -443,10 +451,11 @@ public partial class DungeonGenerator : MonoBehaviour
         }
         nodes = thinned;
 
-        //rooms_temp = ExtractRoomsFromVectors(nodes);
+        room_temp = ExtractRoomFromVectors(nodes);
         Debug.Log("nodes = " + nodes.Count + " after thinned ");
-        //DrawMapByRooms(rooms_temp);
-        yield return new WaitForSeconds(1f);
+        rooms_temp.Add(room_temp);
+        DrawMapByRooms(rooms_temp);
+        yield return new WaitForSeconds(10f);
 
         // 2c) Build MST in a time-sliced way
         List<(Vector2Int a, Vector2Int b)> mstEdges = new List<(Vector2Int, Vector2Int)>(nodes.Count - 1);
@@ -1031,12 +1040,12 @@ public partial class DungeonGenerator : MonoBehaviour
         return result;
     }
 
-    public List<Room> ExtractRoomsFromVectors(List<Vector2Int> vect)
+    public Room ExtractRoomFromVectors(List<Vector2Int> vect)
     {
         Color color;
         Debug.Log($"Extracting {vect.Count} vectors..");
 
-        var result = new List<Room>(vect.Count);
+        var result = new Room();
         //HashSet<(int, int)> corridorHash = new();
         // Convert corridors
         foreach (var pr in vect)
@@ -1048,7 +1057,7 @@ public partial class DungeonGenerator : MonoBehaviour
             int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
 
             // Create this Room's cell list (x,y) only
-            foreach (var c in packMap.g)
+            foreach (var c in vect)
             {
                 cells.Add(new Cell(c.x, c.y));
                 { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
@@ -1066,13 +1075,15 @@ public partial class DungeonGenerator : MonoBehaviour
             r.setColorFloor(highlight: false);
             color = r.colorFloor;
             foreach (Cell cell in r.cells) cell.colorFloor = color;
-            result.Add(r);
+
+            return r;
         }
 
         return result;
     }
 
 
+    // ======================= Shared Utility functions =======================
     // shared functions pulled out of above
     Vector2Int RandomCardinal()
     {
