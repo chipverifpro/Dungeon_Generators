@@ -108,7 +108,7 @@ public partial class DungeonGenerator : MonoBehaviour
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool InBounds(int x, int y, int w, int h)
-            => (uint)x < (uint)w && (uint)y < (uint)h;
+            => (uint)x < (uint)w && (uint)y < (uint)h && x>=0 && y>=0;
 
         /// <summary>
         /// Insert a single cell (x,y,z,roomId).
@@ -519,7 +519,7 @@ public partial class DungeonGenerator : MonoBehaviour
             int x, int y, int z,
             int threshold,
             int currentRoomId = -1,
-            NeighborPolicy policy = NeighborPolicy.SameLevelOnly,
+            NeighborPolicy policy = NeighborPolicy.TreatDifferentRoomAsWall, //old default: SameLevelOnly,
             bool treatBoundsAsWalls = true)
         {
             DirFlags flags = DirFlags.None;
