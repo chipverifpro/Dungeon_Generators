@@ -646,10 +646,12 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // ================= 1) STRIP ROUNDS (rectangular growth) =================
         int stripRounds = 40;
+        int wavefrontRounds = 50;
         int targetAspect = 2; // tune: try to keep rooms from going too skinny
         int maxAspect = 5;    // tune: if exceeded, cool long axis
         int cooldownOnFail = 3; // tune: how long to cool a side that failed to grow
         int yieldEvery = 256;
+
         if (stripRounds > 0)
         {
             BottomBanner.Show($"Growth: Strip rounds (x{stripRounds}) + Wavefront");
@@ -714,7 +716,7 @@ public partial class DungeonGenerator : MonoBehaviour
             }
         }
         // ======= Wavefront rounds (irregular growth) =======
-        int wavefrontRounds = 5;
+
         if (wavefrontRounds > 0)
         {
             credits = new int[nRooms];
@@ -768,30 +770,40 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (!anyClaimed) break; // no more expansion possible
             }
         }
+
         // TODO: convert claimed PackCells into Room.cells lists
-            //for (int ri = 0; ri < nRooms; ri++)
-            //{
-            //    var r = packMap.rooms[ri];
-            //    r.cells.Clear();
-            //}
-            for (int x = 0; x < packMap.w; x++)
+        //for (int ri = 0; ri < nRooms; ri++)
+        //{
+        //    var r = packMap.rooms[ri];
+        //    r.cells.Clear();
+        //}
+
+        // DEBUG: Delete all non-corridor Room Cells (only contains seeds, which would be duplicated):
+        foreach (Room room in rooms)
+        {
+            if (room.isCorridor == false) room.cells.Clear();
+        }
+        
+        // foreach (Room r in rooms) r.cells.Clear();  // Debug: eliminate everything
+        for (int x = 0; x < packMap.w; x++)
+        {
+            for (int y = 0; y < packMap.h; y++)
             {
-                for (int y = 0; y < packMap.h; y++)
+                var c = packMap.g[x, y];
+                if (c.roomId < 0) continue;
+                // find room by id and add cell to that room
+                foreach (var r in rooms)
                 {
-                    var c = packMap.g[x, y];
-                    if (c.roomId < 0) continue;
-                    // find room by id and add cell to that room
-                    foreach (var r in rooms)
+                    if (r.my_room_number == c.roomId)
                     {
-                        if (r.my_room_number == c.roomId)
-                        {
-                            r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
-                            break;
-                        }
+                        r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
+                        break;
                     }
                 }
-                yield return null;
             }
+            yield return null;
+        }
+        
         DrawMapByRooms(rooms, clearscreen: true);
         yield return new WaitForSeconds(1f);
     }
@@ -953,7 +965,7 @@ public partial class DungeonGenerator : MonoBehaviour
     //   ));
     IEnumerator Grow_StripThenWavefront(
         int stripRounds = 8,                 // how many rounds of side-strip growth
-        int wavefrontRounds = 2,             // how many finishing rounds of wavefront
+        int wavefrontRounds = 0,             // how many finishing rounds of wavefront
         int waveClaimsPerRoomPerRound = 4,   // per-room claims per finishing round
         int moatOverride = -1,               // -1 => use cfg.grow.wallMoat
         float targetAspect = 1.2f,           // bias: grow along short axis first
@@ -962,86 +974,92 @@ public partial class DungeonGenerator : MonoBehaviour
         int yieldEvery = 512                 // cooperative yield cadence
     )
     {
-        int W = packMap.w, H = packMap.h;
-        int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(0, cfg.grow.wallMoat);
-        //bool grown = false;
+        BottomBanner.Show("Growth: StripThenWavefront is INVALID");
+        yield break;
+/*
+                        BottomBanner.Show("Growth: Strip");
+                        int W = packMap.w, H = packMap.h;
+                        int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(0, cfg.grow.wallMoat);
+                        //bool grown = false;
 
-        if (packMap.rooms == null || packMap.rooms.Count == 0) yield break;
+                        if (packMap.rooms == null || packMap.rooms.Count == 0) yield break;
 
-        // Build initial AABBs and per-room side cooldowns
-        var aabbs = new List<RectInt>(packMap.rooms.Count);
-        var cooldown = new Dictionary<int, int[]>(packMap.rooms.Count); // 0:E 1:W 2:N 3:S
+                        // Build initial AABBs and per-room side cooldowns
+                        var aabbs = new List<RectInt>(packMap.rooms.Count);
+                        var cooldown = new Dictionary<int, int[]>(packMap.rooms.Count); // 0:E 1:W 2:N 3:S
 
-        for (int ri = 0; ri < packMap.rooms.Count; ri++)
-        {
-            aabbs.Add(ComputeAabb(packMap.rooms[ri]));
-            cooldown[ri] = new int[4];
-        }
-
-        int touched = 0;
-
-        // ================= 1) STRIP ROUNDS (rectangular growth) =================
-        for (int round = 0; round < stripRounds; round++)
-        {
-            bool anyGrewThisRound = false;
-
-
-            for (int ri = 0; ri < packMap.rooms.Count; ri++)
-            {
-                var room = packMap.rooms[ri];
-                if (room.cells.Count == 0) continue;
-
-                var bb = aabbs[ri];
-                int width = Mathf.Max(1, bb.width);
-                int height = Mathf.Max(1, bb.height);
-                float aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
-
-                // Score sides (E,W,N,S). Prefer short axis; skip cooled sides.
-                var order = ScoreSidesForStrip(ri, bb, targetAspect, aspect, cooldown[ri]);
-                //bool grown = false;
-
-                for (int k = 0; k < order.Count; k++)
-                {
-                    int side = order[k];
-                    if (cooldown[ri][side] > 0) continue;
-
-                    if (TryGrowFullStrip(ri, ref bb, side, moat))
-                    {
-                        // success: update AABB & cooldown bookkeeping
-                        aabbs[ri] = bb;
-                        //grown = true;
-                        anyGrewThisRound = true;
-
-                        // Small guard: if aspect exploded, roll back by cooling the long axis next time
-                        width = Mathf.Max(1, bb.width); height = Mathf.Max(1, bb.height);
-                        aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
-                        if (aspect > maxAspect)
+                        for (int ri = 0; ri < packMap.rooms.Count; ri++)
                         {
-                            // cool the long axis sides for a bit
-                            if (width > height) { cooldown[ri][2] = Mathf.Max(cooldown[ri][2], cooldownOnFail); cooldown[ri][3] = Mathf.Max(cooldown[ri][3], cooldownOnFail); }
-                            else { cooldown[ri][0] = Mathf.Max(cooldown[ri][0], cooldownOnFail); cooldown[ri][1] = Mathf.Max(cooldown[ri][1], cooldownOnFail); }
+                            aabbs.Add(ComputeAabb(packMap.rooms[ri]));
+                            cooldown[ri] = new int[4];
                         }
 
-                        break; // grow one strip per room per round
-                    }
-                    else
-                    {
-                        cooldown[ri][side] = Mathf.Max(cooldown[ri][side], cooldownOnFail);
-                    }
-                }
+                        int touched = 0;
 
-                // decay cooldowns
-                var cd = cooldown[ri];
-                for (int i = 0; i < 4; i++) if (cd[i] > 0) cd[i]--;
+                        // ================= 1) STRIP ROUNDS (rectangular growth) =================
+                        for (int round = 0; round < stripRounds; round++)
+                        {
+                            bool anyGrewThisRound = false;
 
-                if ((++touched % yieldEvery) == 0) yield return null;
-            }
 
-            // Early exit if nothing grew
-            if (!anyGrewThisRound) break;
-        }
+                            for (int ri = 0; ri < packMap.rooms.Count; ri++)
+                            {
+                                var room = packMap.rooms[ri];
+                                if (room.cells.Count == 0) continue;    // this room is gone ?????? Why would that happen ?
 
+                                var bb = aabbs[ri];
+                                int width = Mathf.Max(1, bb.width);
+                                int height = Mathf.Max(1, bb.height);
+                                float aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+
+                                // Score sides (E,W,N,S). Prefer short axis; skip cooled sides.
+                                var order = ScoreSidesForStrip(ri, bb, targetAspect, aspect, cooldown[ri]);
+                                //bool grown = false;
+
+                                for (int k = 0; k < order.Count; k++)
+                                {
+                                    int side = order[k];
+                                    if (cooldown[ri][side] > 0) continue;
+
+                                    if (TryGrowFullStrip(ri, ref bb, side, moat))
+                                    {
+                                        // success: update AABB & cooldown bookkeeping
+                                        aabbs[ri] = bb;
+                                        //grown = true;
+                                        anyGrewThisRound = true;
+
+                                        // Small guard: if aspect exploded, roll back by cooling the long axis next time
+                                        width = Mathf.Max(1, bb.width); height = Mathf.Max(1, bb.height);
+                                        aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+                                        if (aspect > maxAspect)
+                                        {
+                                            // cool the long axis sides for a bit
+                                            if (width > height) { cooldown[ri][2] = Mathf.Max(cooldown[ri][2], cooldownOnFail); cooldown[ri][3] = Mathf.Max(cooldown[ri][3], cooldownOnFail); }
+                                            else { cooldown[ri][0] = Mathf.Max(cooldown[ri][0], cooldownOnFail); cooldown[ri][1] = Mathf.Max(cooldown[ri][1], cooldownOnFail); }
+                                        }
+
+                                        break; // grow one strip per room per round
+                                    }
+                                    else
+                                    {
+                                        cooldown[ri][side] = Mathf.Max(cooldown[ri][side], cooldownOnFail);
+                                    }
+                                }
+
+                                // decay cooldowns
+                                var cd = cooldown[ri];
+                                for (int i = 0; i < 4; i++) if (cd[i] > 0) cd[i]--;
+
+                                if ((++touched % yieldEvery) == 0) yield return null;
+                            }
+
+                            // Early exit if nothing grew
+                            if (!anyGrewThisRound) break;
+                        }
+                */
         // ================= 2) WAVEFRONT ROUNDS (soft smoothing) =================
+        //Grow_CreditWavefront();
+        /*
         if (wavefrontRounds > 0 && waveClaimsPerRoomPerRound > 0)
         {
             // Build frontiers
@@ -1088,9 +1106,11 @@ public partial class DungeonGenerator : MonoBehaviour
 
                 if (!anyClaimed) break;
             }
-        }
+        } */
     }
     // --------------------------- helpers ---------------------------
+
+    // ComputeAabb() gets the bounding rectangle of all cell locations in a PackRoom
     RectInt ComputeAabb(PackRoom r)
     {
         int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
@@ -1262,6 +1282,7 @@ public partial class DungeonGenerator : MonoBehaviour
         int jitter = Mathf.Clamp(cfg.RoomSeeding.jitter, 0, spacing - 1);
         float altProb = Mathf.Clamp01(cfg.RoomSeeding.alternateSides); // probability to alternate sides L/R
 
+        /*
         // make a list of all corridor cell locations:
         foreach (Room r in rooms)
         {
@@ -1279,6 +1300,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 }
             }
         }
+        */
         if (packMap.corridors == null || packMap.corridors.Count == 0)
         {
             BottomBanner.Show("  (No corridors found; seeding skipped)");
@@ -1411,6 +1433,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return c;
     }
 
+    // PickTangentDir() works for corridors 1 or 2 cells wide, not for 3 or more.
     Vector2Int PickTangentDir(int x, int y)
     {
         int W=cfg.mapWidth, H=cfg.mapHeight;
@@ -1480,6 +1503,8 @@ public partial class DungeonGenerator : MonoBehaviour
         packMap.rooms.Add(r);
         // Also add to main room list for drawing
         Room room = new Room { my_room_number = r.id, cells = new List<Cell> { new Cell(x, y, 2) }, isCorridor = false };
+        // DEBUG: Don't include the seed in the new Room.
+        //Room room = new Room { my_room_number = r.id, cells = new List<Cell> { }, isCorridor = false };
         room.setColorFloor(highlight: true);
         rooms.Add(room);
         Debug.Log($"Created Room {c.roomId} seed at {x},{y}");
@@ -1686,6 +1711,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     int Manhattan(Vector2Int a, Vector2Int b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
     
+    // RasterizeLineSafe() looks to be a Bresenham line algorithm for any point to point lines
     IEnumerable<Vector2Int> RasterizeLineSafe(Vector2Int a, Vector2Int b)
     {
         int x0 = a.x, y0 = a.y, x1 = b.x, y1 = b.y;
