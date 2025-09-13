@@ -651,7 +651,9 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (tm.IfYield()) yield return null;
             }
 
-            // for all cells, find walls around floors
+            // For all cells, find walls around floors
+            // use an appropriate policy for the type of map:
+            NeighborPolicy policy = cfg.useThinWalls ? NeighborPolicy.TreatDifferentRoomAsWall : NeighborPolicy.SameLevelOnly;
             int room_number = 0;
             foreach (Room room in rooms)
             {
@@ -661,7 +663,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     var dirs = HeightfieldWalls.GetExposedDirs(
                         hf, cell.x, cell.y, cell.height, cfg.minRoomHeight,
                         currentRoomId: room_number,
-                        policy: NeighborPolicy.SameLevelOnly,
+                        policy: policy,
                         treatBoundsAsWalls: true
                     );
                     cell.walls = dirs;

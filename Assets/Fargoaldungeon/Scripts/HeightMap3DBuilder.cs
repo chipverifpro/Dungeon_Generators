@@ -356,7 +356,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         f = Instantiate(triangleFloorPrefab, position, triangle_floor_rot /** tilt*/, root);
                         f.transform.localScale = finalScale * 50f;  // WHY 50?
                         f.transform.Rotate(tilt.eulerAngles, Space.World);
-                        f.name = $"Triangle({room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
+                        f.name = $"Triangle({room_number}:{room_name},{ySteps},{triangle_floor_dir})"; // comment out in perf builds
                     }
                     else
                     {
@@ -364,7 +364,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         //Debug.Log("Tilt: " + tilt.eulerAngles);  // DEBUG
                         f = Instantiate(floorPrefab, position, tilt, root);
                         f.transform.localScale = finalScale;
-                        //f.name = $"Floor({room_name},{ySteps})"; // comment out in perf builds
+                        f.name = $"Floor({room_number}:{room_name},{ySteps})"; // comment out in perf builds
                     }
                                                                 // Cache renderer on prefab variant or:
                     var rend = f.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed

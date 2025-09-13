@@ -102,12 +102,16 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = true;
                     //tavern.enabled = false;
+                    cfg.usePackedRooms = false;
+                    cfg.useDiagonalCorners = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.Scatter_NoOverlap:
                     cfg.generateOverlappingRooms = false;
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = true;
                     //tavern.enabled = false;
+                    cfg.usePackedRooms = false;
+                    cfg.useDiagonalCorners = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomata:
                     cfg.generateOverlappingRooms = false;
@@ -115,6 +119,8 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useScatterRooms = false;
                     cfg.usePerlin = false; // Disable Perlin for CA
                     //tavern.enabled = false;
+                    cfg.usePackedRooms = false;
+                    cfg.useDiagonalCorners = true;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.CellularAutomataPerlin:
                     cfg.generateOverlappingRooms = false;
@@ -122,16 +128,23 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useScatterRooms = false;
                     cfg.usePerlin = true; // Enable Perlin for CA
                     //tavern.enabled = false;
+                    cfg.usePackedRooms = false;
+                    cfg.useDiagonalCorners = true;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.Tavern:
                     cfg.generateOverlappingRooms = false;
                     //tavern.enabled = true;
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = false;
+                    cfg.usePackedRooms = false;
+                    cfg.useDiagonalCorners = false;
                     break;
                 case DungeonSettings.RoomAlgorithm_e.PackedRooms:
-                    yield return StartCoroutine(GeneratePackedRooms());
-                    yield break; // PackedRooms handles its own coroutine flow
+                    cfg.useCellularAutomata = false;
+                    cfg.useScatterRooms = false;
+                    cfg.usePackedRooms = true;
+                    cfg.useDiagonalCorners = false;
+                    break;
             }
 
             BottomBanner.Show("Initialize dungeon...");
@@ -147,11 +160,15 @@ public partial class DungeonGenerator : MonoBehaviour
             // ===== Step 2. Place rooms
 
             // TAVERN
-//            if (tavern.enabled)
-//            {
-//                yield return StartCoroutine(BuildTavern(tm: null));
-//            }
+            //            if (tavern.enabled)
+            //            {
+            //                yield return StartCoroutine(BuildTavern(tm: null));
+            //            }
 
+            if (cfg.usePackedRooms)
+            {
+                yield return StartCoroutine(GeneratePackedRooms());
+            }
             if (cfg.useCellularAutomata) // Cellular Automata generation
             {
                 BottomBanner.Show("Cellular Automata cavern generation iterating...");
@@ -201,39 +218,42 @@ public partial class DungeonGenerator : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
-            // Optionally add Perlin noise to floor heights
-            if (cfg.perlinFloorHeights > 0)
-            {
-                for (int r = 0; r < rooms.Count; r++)
-                {
-                    rooms[r] = AddPerlinToFloorHeights(rooms[r]);
-                }
-            }
-
-            // Optionally slope entire rooms in a random direction
-            if (cfg.slopeRoomMaxAngle > 0)
-            {
-                for (int r = 0; r < rooms.Count; r++)
-                {
-                    Vector2 topDir = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)).normalized;
-                    //Debug.Log("Sloping room " + r + " in direction " + topDir + " with max angle " + cfg.slopeRoomMaxAngle);
-                    rooms[r] = TiltRoom(rooms[r], topDir, cfg.slopeRoomMaxAngle, heightUnitsPerTile: cfg.unitHeight);
-                }
-            }
-
-            // ======== End Rooms, Begin Corridors ========
             if (cfg.useCellularAutomata || cfg.useScatterRooms)
             {
-                DrawMapByRooms(rooms);
-                DrawWalls();
+                // Optionally add Perlin noise to floor heights
+                if (cfg.perlinFloorHeights > 0)
+                {
+                    for (int r = 0; r < rooms.Count; r++)
+                    {
+                        rooms[r] = AddPerlinToFloorHeights(rooms[r]);
+                    }
+                }
 
-                // Step 5: Connect rooms with corridors
-                BottomBanner.Show("Connecting Rooms with Corridors...");
-                yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
+                // Optionally slope entire rooms in a random direction
+                if (cfg.slopeRoomMaxAngle > 0)
+                {
+                    for (int r = 0; r < rooms.Count; r++)
+                    {
+                        Vector2 topDir = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)).normalized;
+                        //Debug.Log("Sloping room " + r + " in direction " + topDir + " with max angle " + cfg.slopeRoomMaxAngle);
+                        rooms[r] = TiltRoom(rooms[r], topDir, cfg.slopeRoomMaxAngle, heightUnitsPerTile: cfg.unitHeight);
+                    }
+                }
 
-                DrawMapByRooms(rooms);
-                DrawWalls();
-                yield return tm.YieldOrDelay(cfg.stepDelay);
+                // ======== End Rooms, Begin Corridors ========
+                if (cfg.useCellularAutomata || cfg.useScatterRooms)
+                {
+                    DrawMapByRooms(rooms);
+                    DrawWalls();
+
+                    // Step 5: Connect rooms with corridors
+                    BottomBanner.Show("Connecting Rooms with Corridors...");
+                    yield return StartCoroutine(ConnectRoomsByCorridors(tm: null));
+
+                    DrawMapByRooms(rooms);
+                    DrawWalls();
+                    yield return tm.YieldOrDelay(cfg.stepDelay);
+                }
             }
 
             BottomBanner.Show("Building Wall Lists...");

@@ -18,6 +18,7 @@ public class DungeonSettings : ScriptableObject
     public float stepDelay = 0.2f; // how many seconds to wait between generation steps
     public bool randomizeSeed = true;
     public int seed = 0;
+    public bool useThinWalls = false;
 
     [Header("World Map Settings")]
     public int mapWidth = 150;
@@ -123,6 +124,9 @@ public class DungeonSettings : ScriptableObject
     public DoorAlgo     doorAlgo     = DoorAlgo.EnsureConnectivity;
 
     // ---- Tunable parameters per stage (keep lean; add as you need) ----
+    [Header("Packed Room Params")]
+    public bool usePackedRooms = false;
+
     [System.Serializable]
     public struct CorridorParams
     {

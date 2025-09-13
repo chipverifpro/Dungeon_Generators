@@ -263,7 +263,8 @@ public partial class DungeonGenerator : MonoBehaviour
         //corridorWidth = Mathf.Clamp(corridorWidth <= 0 ? cfg.corridor.corridorWidth : corridorWidth, 1, 5);
 
         List<PackCell> corridorCells = new(); // to pass to DrawMapByRooms
-        Room tmp_room = new();
+        Room tmp_room;
+        Cell tmp_real_cell;
 
         // Simple RNG fallback: use your 'rng' if you have it; else UnityEngine.Random
         System.Func<float> R01 = () => (rng != null) ? (float)rng.NextDouble() : UnityEngine.Random.value;
@@ -273,6 +274,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         for (int wlk = 0; wlk < walkers; wlk++)
         {
+            tmp_room = new();
             // Start near center (stable) or random edge if you prefer
             // Vector2Int p = new Vector2Int(W / 2, H / 2);
             Vector2Int p = RandomEdgeStart(W, H); // alternative start
@@ -285,6 +287,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Carve corridor at p
                 PackCell cell_tmp;
                 cell_tmp = new PackCell { x = p.x, y = p.y };
+                tmp_real_cell = new Cell ( p );
+                //tmp_room.cells.Add(tmp_real_cell); // This Add is done in CarveDisk
                 packMap.corridors.Add((p.x, p.y)); // needed for next stage
                 packMap.g[p.x, p.y].isCorridor = true;
                 CarveDisk(tmp_room, p, corridorWidth); // paint corridor cell(s)
@@ -334,8 +338,14 @@ public partial class DungeonGenerator : MonoBehaviour
                 if ((carved % yieldEvery) == 0) yield return null;
             }
             //var tmp_room = new Room { cells = new List<Cell>(corridorCells), isCorridor = true };
+            tmp_room.my_room_number = rooms.Count; // a unique room number
             tmp_room.setColorFloor(highlight: false);
-            foreach (var cell in tmp_room.cells) { cell.colorFloor = tmp_room.colorFloor; }
+            tmp_room.isCorridor = true;
+            foreach (var cell in tmp_room.cells)
+            {
+                cell.room_number = tmp_room.my_room_number;
+                cell.colorFloor = tmp_room.colorFloor;
+            }
 
             rooms.Add(tmp_room);
             Debug.Log("Drawing rooms = " + rooms.Count);
@@ -1175,6 +1185,8 @@ public partial class DungeonGenerator : MonoBehaviour
 
     bool CanClaim(int ri, int x, int y, int moatCells)
     {
+        if (cfg.useThinWalls) moatCells = 0;
+
         int W = cfg.mapWidth, H = cfg.mapHeight;
         if ((uint)x >= (uint)W || (uint)y >= (uint)H) return false;
         var c = packMap.g[x, y];
