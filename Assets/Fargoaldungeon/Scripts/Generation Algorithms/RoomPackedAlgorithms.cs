@@ -1,7 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Tilemaps;
 using Random = System.Random;
 
 public partial class DungeonGenerator : MonoBehaviour
@@ -80,14 +83,16 @@ public partial class DungeonGenerator : MonoBehaviour
             case DungeonSettings.CorridorAlgo.GridMazes: return Corridors_GridMazes();
             case DungeonSettings.CorridorAlgo.DrunkardsWalk:
                 return Corridors_DrunkardsWalk(
-                walkers: 5,
-                stepsPerWalker: 100, // short-ish for debug
-                turnProbability: 0.15f,
+                walkers: cfg.corridor.drunkWalkers,
+                stepsPerWalker: cfg.corridor.drunkStepsPerWalker,
+                minimumStraight: cfg.corridor.drunkMinimumStraight,
+                wander: cfg.corridor.wanderiness,
                 corridorWidth: cfg.corridor.corridorWidth
             );
             default: return Corridors_WanderingMST();
         }
     }
+
     IEnumerator RunRoomSeeding()
     {
         switch (cfg.roomSeedAlgo)
@@ -103,6 +108,7 @@ public partial class DungeonGenerator : MonoBehaviour
         switch (cfg.roomGrowAlgo)
         {
             case DungeonSettings.RoomGrowAlgo.CreditWavefront: return Grow_CreditWavefront();
+            case DungeonSettings.RoomGrowAlgo.StripThenWavefront: return Grow_StripThenWavefront();
             case DungeonSettings.RoomGrowAlgo.PressureField: return Grow_PressureField();
             case DungeonSettings.RoomGrowAlgo.OrthogonalRays: return Grow_OrthogonalRays();
             default: return Grow_CreditWavefront();
@@ -245,7 +251,8 @@ public partial class DungeonGenerator : MonoBehaviour
     IEnumerator Corridors_DrunkardsWalk(
         int walkers = 2,
         int stepsPerWalker = 400,
-        float turnProbability = 0.30f,   // chance to turn 90° each step
+        int minimumStraight = 10,
+        float wander = 30f,              // determines chance to turn 90° each step
         int corridorWidth = 1,           // 1..2 to keep it skinny
         bool bounceAtEdges = true,       // if false, pick new random start when we hit an edge
         int yieldEvery = 256             // cooperative yield cadence
@@ -253,9 +260,10 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         BottomBanner.Show("Corridors: Drunkard's Walk");
         int W = cfg.mapWidth, H = cfg.mapHeight;
-        corridorWidth = Mathf.Clamp(corridorWidth <= 0 ? cfg.corridor.corridorWidth : corridorWidth, 1, 2);
+        //corridorWidth = Mathf.Clamp(corridorWidth <= 0 ? cfg.corridor.corridorWidth : corridorWidth, 1, 5);
 
-        List<Cell> corridorCells = new(); // to pass to DrawMapByRooms
+        List<PackCell> corridorCells = new(); // to pass to DrawMapByRooms
+        Room tmp_room = new();
 
         // Simple RNG fallback: use your 'rng' if you have it; else UnityEngine.Random
         System.Func<float> R01 = () => (rng != null) ? (float)rng.NextDouble() : UnityEngine.Random.value;
@@ -269,41 +277,54 @@ public partial class DungeonGenerator : MonoBehaviour
             // Vector2Int p = new Vector2Int(W / 2, H / 2);
             Vector2Int p = RandomEdgeStart(W, H); // alternative start
 
-            Vector2Int dir = RandomCardinal();
-
+            //Vector2Int dir = RandomCardinal();
+            Vector2Int dir = DirAwayFromEdge(p);
+            int straightRounds = (int)((R01()+1) * minimumStraight);
             for (int step = 0; step < stepsPerWalker; step++)
             {
                 // Carve corridor at p
-                corridorCells.Add(new Cell(p.x, p.y));
+                PackCell cell_tmp;
+                cell_tmp = new PackCell { x = p.x, y = p.y };
+                packMap.corridors.Add((p.x, p.y)); // needed for next stage
+                packMap.g[p.x, p.y].isCorridor = true;
+                CarveDisk(tmp_room, p, corridorWidth); // paint corridor cell(s)
                 carved++;
 
                 // Maybe turn 90°
-                if (R01() < turnProbability)
-                    dir = (R01() < 0.5f) ? TurnLeft(dir, true) : TurnLeft(dir, false);
+                // Wander the direction a bit, but verify we went a minimum distance straight
+                straightRounds--;
+                if (straightRounds <= 0)
+                {
+                    Vector2Int predir = dir;
+                    if (R01() < wander / 1000f) // odds of turning
+                        dir = (R01() < 0.5f) ? TurnLeft(dir, true) : TurnLeft(dir, false);
+                    if (predir != dir) straightRounds = (int)((R01()+1) * minimumStraight);
+                }
 
                 // Advance
                 Vector2Int np = p + dir;
 
-                if (!In(np.x, np.y))
+                if (!In(np.x, np.y))   // must turn or teleport
                 {
+                    straightRounds = (int)((R01()+1f) * minimumStraight); // between min and 2*min
                     if (bounceAtEdges)
                     {
-                        // bounce: turn and try to continue
-                        dir = TurnLeft(dir, R01() < 0.5f);
+                        // bounce: straight back
+                        dir = DirAwayFromEdge(p);
                         np = p + dir;
 
                         if (!In(np.x, np.y))
                         {
                             // fully stuck: pick a fresh random in-bounds location
                             np = new Vector2Int(RInt(0, W), RInt(0, H));
-                            dir = RandomCardinal();
+                            dir = DirAwayFromEdge(np);
                         }
                     }
                     else
                     {
                         // restart from new random position
                         np = new Vector2Int(RInt(0, W), RInt(0, H));
-                        dir = RandomCardinal();
+                        dir = DirAwayFromEdge(np);
                     }
                 }
 
@@ -312,7 +333,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Periodic yield to keep Editor responsive
                 if ((carved % yieldEvery) == 0) yield return null;
             }
-            var tmp_room = new Room { cells = new List<Cell>(corridorCells), isCorridor = true };
+            //var tmp_room = new Room { cells = new List<Cell>(corridorCells), isCorridor = true };
             tmp_room.setColorFloor(highlight: false);
             foreach (var cell in tmp_room.cells) { cell.colorFloor = tmp_room.colorFloor; }
 
@@ -321,7 +342,8 @@ public partial class DungeonGenerator : MonoBehaviour
             DrawMapByRooms(rooms, clearscreen: true);
             yield return null; // new WaitForSeconds(1f);
 
-            corridorCells.Clear();
+             
+            //corridorCells.Clear();
         }
 
         BottomBanner.Show($"Corridors: Drunkard's Walk done. Carved ~{carved} cells.");
@@ -333,9 +355,11 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         BottomBanner.Show("Corridors: WanderingMST");
         int W = cfg.mapWidth, H = cfg.mapHeight;
+
+        // clamp params to reasonable ranges
         int width = Mathf.Clamp(cfg.corridor.corridorWidth, 1, 2);
         int spines = Mathf.Max(1, cfg.corridor.spineCount);
-        float wander = Mathf.Clamp01(cfg.corridor.wanderiness);
+        float wander = Mathf.Clamp(cfg.corridor.wanderiness, 0f, 100f);
         float loopChance = Mathf.Clamp01(cfg.corridor.loopChance);
 
         // 1) Make wandering spines starting near PackMap edges
@@ -356,13 +380,15 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             Debug.Log($"Corridor spine {s + 1} of {spines}");
             yield return null;
+            int min_straightRounds = 20;
+            int straightRounds = 0;
 
             //var tmp_room = new Room { cells = new List<Cell>(), isCorridor = true };
             //tmp_room.setColorFloor(highlight: false);
 
             // Start near a random border
             Vector2Int p = RandomEdgeStart(W, H);
-            Vector2Int dir = RandomCardinal();
+            Vector2Int dir = DirAwayFromEdge(p);
 
             int steps = (int)(0.7f * (W + H)); // long-ish 0.7
             //steps = 50;
@@ -374,6 +400,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 Debug.Log($"  step {i + 1} of {steps} at {p.x},{p.y} dir={dir.x},{dir.y}");
                 yield return null;
                 if (i == 250) break; // DEBUG CHECK
+                straightRounds++;
 
                 CarveDisk(tmp_room, p, width); // paint corridor cell(s)
                 sinceSample++;
@@ -385,8 +412,13 @@ public partial class DungeonGenerator : MonoBehaviour
                     sinceSample = 0;
                 }
 
-                // Wander the direction a bit
-                if (rngf() < 0.15f + wander * 0.5f) dir = MaybeTurn(dir, rng, wander);
+                // Wander the direction a bit, but verify we went a minimum distance straight
+                if (straightRounds >= min_straightRounds)
+                {
+                    Vector2Int predir = dir;
+                    if (rngf() < wander / 1000) dir = MaybeTurn(dir, rng, wander);
+                    if (predir != dir) straightRounds = 0;
+                }
 
                 // Step forward; clamp to PackMap
                 Vector2Int np = p + dir;
@@ -590,88 +622,179 @@ public partial class DungeonGenerator : MonoBehaviour
         int activeRooms = nRooms;
         int safety = packMap.w * packMap.h * 4; // generous
         int round = 0;
+        // Build initial AABBs and per-room side cooldowns
+        var aabbs = new List<RectInt>(packMap.rooms.Count);
+        var cooldown = new Dictionary<int, int[]>(packMap.rooms.Count); // 0:E 1:W 2:N 3:S
 
-        while (activeRooms > 0 && safety-- > 0)
+        for (int ri = 0; ri < packMap.rooms.Count; ri++)
         {
-            bool anyClaimed = false;
+            aabbs.Add(ComputeAabb(packMap.rooms[ri]));
+            cooldown[ri] = new int[4];
+        }
 
-            for (int ri = 0; ri < nRooms; ri++)
+        int touched = 0;
+
+        // ================= 1) STRIP ROUNDS (rectangular growth) =================
+        int stripRounds = 40;
+        int targetAspect = 2; // tune: try to keep rooms from going too skinny
+        int maxAspect = 5;    // tune: if exceeded, cool long axis
+        int cooldownOnFail = 3; // tune: how long to cool a side that failed to grow
+        int yieldEvery = 256;
+        if (stripRounds > 0)
+        {
+            BottomBanner.Show($"Growth: Strip rounds (x{stripRounds}) + Wavefront");
+            for (round = 0; round < stripRounds; round++)
             {
-                if (credits[ri] <= 0) continue;
-                if (frontiers[ri].Count == 0) continue;
+                bool anyGrewThisRound = false;
 
-                // Pick a frontier cell (simple heuristic: prefer most neighbors of same room to smooth shapes)
-                var claim = PickFrontier(frontiers[ri], ri);
 
-                if (claim.x >= 0)
+                for (int ri = 0; ri < packMap.rooms.Count; ri++)
                 {
-                    ClaimCell(ri, claim.x, claim.y);
-                    credits[ri]--;
-                    anyClaimed = true;
+                    var room = packMap.rooms[ri];
+                    if (room.cells.Count == 0) continue;
 
-                    // Update frontier around the new claim
-                    foreach (var nb in FourNeighbors(claim.x, claim.y))
+                    var bb = aabbs[ri];
+                    int width = Mathf.Max(1, bb.width);
+                    int height = Mathf.Max(1, bb.height);
+                    float aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+
+                    // Score sides (E,W,N,S). Prefer short axis; skip cooled sides.
+                    var order = ScoreSidesForStrip(ri, bb, targetAspect, aspect, cooldown[ri]);
+                    //bool grown = false;
+
+                    for (int k = 0; k < order.Count; k++)
                     {
-                        if (CanClaim(ri, nb.x, nb.y, moat))
-                            frontiers[ri].Add((nb.x, nb.y));
+                        int side = order[k];
+                        if (cooldown[ri][side] > 0) continue;
+
+                        if (TryGrowFullStrip(ri, ref bb, side, moat))
+                        {
+                            // success: update AABB & cooldown bookkeeping
+                            aabbs[ri] = bb;
+                            //grown = true;
+                            anyGrewThisRound = true;
+
+                            // Small guard: if aspect exploded, roll back by cooling the long axis next time
+                            width = Mathf.Max(1, bb.width); height = Mathf.Max(1, bb.height);
+                            aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+                            if (aspect > maxAspect)
+                            {
+                                // cool the long axis sides for a bit
+                                if (width > height) { cooldown[ri][2] = Mathf.Max(cooldown[ri][2], cooldownOnFail); cooldown[ri][3] = Mathf.Max(cooldown[ri][3], cooldownOnFail); }
+                                else { cooldown[ri][0] = Mathf.Max(cooldown[ri][0], cooldownOnFail); cooldown[ri][1] = Mathf.Max(cooldown[ri][1], cooldownOnFail); }
+                            }
+
+                            break; // grow one strip per room per round
+                        }
+                        else
+                        {
+                            cooldown[ri][side] = Mathf.Max(cooldown[ri][side], cooldownOnFail);
+                        }
                     }
-                    // Remove the claimed cell from all frontiers
-                    frontiers[ri].Remove((claim.x, claim.y));
-                    for (int rj = 0; rj < nRooms; rj++)
-                        if (rj != ri) frontiers[rj].Remove((claim.x, claim.y));
+
+                    // decay cooldowns
+                    var cd = cooldown[ri];
+                    for (int i = 0; i < 4; i++) if (cd[i] > 0) cd[i]--;
+
+                    if ((++touched % yieldEvery) == 0) yield return null;
                 }
 
-                // yield cooperatively
-                if (((ri + round) & 63) == 0) yield return null;
+                // Early exit if nothing grew
+                if (!anyGrewThisRound) break;
             }
+        }
+        // ======= Wavefront rounds (irregular growth) =======
+        int wavefrontRounds = 5;
+        if (wavefrontRounds > 0)
+        {
+            credits = new int[nRooms];
+            for (int i = 0; i < nRooms; i++)
+                credits[i] = rng.Next(cfg.grow.areaCreditMin, cfg.grow.areaCreditMax + 1);
 
-            // Clean up exhausted rooms
-            activeRooms = 0;
-            for (int ri = 0; ri < nRooms; ri++)
-                if (credits[ri] > 0 && frontiers[ri].Count > 0) activeRooms++;
+            BottomBanner.Show($"Growth: Wavefront rounds (up to {wavefrontRounds})");
+            while (activeRooms > 0 && safety-- > 0)
+            {
+                bool anyClaimed = false;
 
-            // Optionally split oversized rooms every few rounds
-            if ((round++ % 20) == 0)
-                SplitOversizedRooms(moat, frontiers);
+                for (int ri = 0; ri < nRooms; ri++)
+                {
+                    if (credits[ri] <= 0) continue;
+                    if (frontiers[ri].Count == 0) continue;
 
-            if (!anyClaimed) break; // no more expansion possible
+                    // Pick a frontier cell (simple heuristic: prefer most neighbors of same room to smooth shapes)
+                    var claim = PickFrontier(frontiers[ri], ri);
+
+                    if (claim.x >= 0)
+                    {
+                        ClaimCell(ri, claim.x, claim.y);
+                        credits[ri]--;
+                        anyClaimed = true;
+
+                        // Update frontier around the new claim
+                        foreach (var nb in FourNeighbors(claim.x, claim.y))
+                        {
+                            if (CanClaim(ri, nb.x, nb.y, moat))
+                                frontiers[ri].Add((nb.x, nb.y));
+                        }
+                        // Remove the claimed cell from all frontiers
+                        frontiers[ri].Remove((claim.x, claim.y));
+                        for (int rj = 0; rj < nRooms; rj++)
+                            if (rj != ri) frontiers[rj].Remove((claim.x, claim.y));
+                    }
+
+                    // yield cooperatively
+                    if (((ri + round) & 63) == 0) yield return null;
+                }
+
+                // Clean up exhausted rooms
+                activeRooms = 0;
+                for (int ri = 0; ri < nRooms; ri++)
+                    if (credits[ri] > 0 && frontiers[ri].Count > 0) activeRooms++;
+
+                // Optionally split oversized rooms every few rounds
+                if ((round++ % 20) == 0)
+                    SplitOversizedRooms(moat, frontiers);
+
+                if (!anyClaimed) break; // no more expansion possible
+            }
         }
         // TODO: convert claimed PackCells into Room.cells lists
-        //for (int ri = 0; ri < nRooms; ri++)
-        //{
-        //    var r = packMap.rooms[ri];
-        //    r.cells.Clear();
-        //}
-        for (int x = 0; x < packMap.w; x++)
-        {
-            for (int y = 0; y < packMap.h; y++)
+            //for (int ri = 0; ri < nRooms; ri++)
+            //{
+            //    var r = packMap.rooms[ri];
+            //    r.cells.Clear();
+            //}
+            for (int x = 0; x < packMap.w; x++)
             {
-                var c = packMap.g[x, y];
-                if (c.roomId < 0) continue;
-                // find room by id and add cell to that room
-                foreach (var r in rooms)
+                for (int y = 0; y < packMap.h; y++)
                 {
-                    if (r.my_room_number == c.roomId)
+                    var c = packMap.g[x, y];
+                    if (c.roomId < 0) continue;
+                    // find room by id and add cell to that room
+                    foreach (var r in rooms)
                     {
-                        r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
-                        break;
+                        if (r.my_room_number == c.roomId)
+                        {
+                            r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
+                            break;
+                        }
                     }
                 }
+                yield return null;
             }
-            yield return null;
-        }
         DrawMapByRooms(rooms, clearscreen: true);
         yield return new WaitForSeconds(1f);
     }
-        // ---- local helpers ----
-        IEnumerable<(int x, int y)> FourNeighbors(int x, int y)
-        {
-            if (x > 0) yield return (x - 1, y);
-            if (x < packMap.w - 1) yield return (x + 1, y);
-            if (y > 0) yield return (x, y - 1);
-            if (y < packMap.h - 1) yield return (x, y + 1);
-        }
-
+    // ---- local helpers ----
+    /*       IEnumerable<(int x, int y)> FourNeighbors(int x, int y)
+            {
+                if (x > 0) yield return (x - 1, y);
+                if (x < packMap.w - 1) yield return (x + 1, y);
+                if (y > 0) yield return (x, y - 1);
+                if (y < packMap.h - 1) yield return (x, y + 1);
+            }
+    */
+    /*
         bool CanClaim(int ri, int x, int y, int moatCells)
         {
             if ((uint)x >= (uint)packMap.w || (uint)y >= (uint)packMap.h) return false;
@@ -690,7 +813,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 }
             return true;
         }
-
+    */
         (int x, int y) PickFrontier(HashSet<(int x, int y)> frontier, int ri)
         {
             int bestScore = int.MinValue;
@@ -712,60 +835,99 @@ public partial class DungeonGenerator : MonoBehaviour
             return best;
         }
 
-        void ClaimCell(int ri, int x, int y)
-        {
-            var c = packMap.g[x, y];
-            c.roomId = packMap.rooms[ri].id;
-            packMap.rooms[ri].cells.Add(c);
-            // bounds will be finalized later; optional: update a running RectInt here
-        }
+    /*
+    void ClaimCell(int ri, int x, int y)
+    {
+        var c = packMap.g[x, y];
+        c.roomId = packMap.rooms[ri].id;
+        packMap.rooms[ri].cells.Add(c);
+        // bounds will be finalized later; optional: update a running RectInt here
+    }
+    */
 
-        void SplitOversizedRooms(int moatCells, List<HashSet<(int, int)>> frontiers)
+    void SplitOversizedRooms(int moatCells, List<HashSet<(int, int)>> frontiers)
+    {
+        for (int i = 0; i < packMap.rooms.Count; i++)
         {
-            for (int i = 0; i < packMap.rooms.Count; i++)
+            var r = packMap.rooms[i];
+            int area = r.cells.Count;
+            if (area <= cfg.grow.splitArea) continue;
+
+            // Compute room AABB and aspect ratio
+            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
+            foreach (var c in r.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
+            int w = Mathf.Max(1, maxx - minx + 1);
+            int h = Mathf.Max(1, maxy - miny + 1);
+            float aspect = (float)Mathf.Max(w, h) / Mathf.Max(1, Mathf.Min(w, h));
+            if (aspect < cfg.grow.splitAspect) continue;
+
+            bool splitVert = (w >= h); // cut along long axis
+            int cut = splitVert ? (minx + w / 2) : (miny + h / 2);
+
+            // Create new room
+            var newRoom = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
+            Room new_real_room = new();
+            // Reassign cells and carve a 1-cell wall along cut line
+            var keep = new List<PackCell>();
+            foreach (var c in r.cells)
             {
-                var r = packMap.rooms[i];
-                int area = r.cells.Count;
-                if (area <= cfg.grow.splitArea) continue;
+                bool leftSide = splitVert ? (c.x < cut) : (c.y < cut);
+                bool onCut = splitVert ? (c.x == cut) : (c.y == cut);
 
-                // Compute room AABB and aspect ratio
-                int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-                foreach (var c in r.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-                int w = Mathf.Max(1, maxx - minx + 1);
-                int h = Mathf.Max(1, maxy - miny + 1);
-                float aspect = (float)Mathf.Max(w, h) / Mathf.Max(1, Mathf.Min(w, h));
-                if (aspect < cfg.grow.splitAspect) continue;
-
-                bool splitVert = (w >= h); // cut along long axis
-                int cut = splitVert ? (minx + w / 2) : (miny + h / 2);
-
-                // Create new room
-                var newRoom = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
-                // Reassign cells and carve a 1-cell wall along cut line
-                var keep = new List<PackCell>();
-                foreach (var c in r.cells)
+                if (onCut)
                 {
-                    bool leftSide = splitVert ? (c.x < cut) : (c.y < cut);
-                    bool onCut = splitVert ? (c.x == cut) : (c.y == cut);
-
-                    if (onCut)
-                    {
-                        // leave as wall: unassign
-                        c.roomId = -1;
-                        continue;
-                    }
-                    if (leftSide) keep.Add(c);
-                    else { c.roomId = newRoom.id; newRoom.cells.Add(c); }
+                    // leave as wall: unassign
+                    int old_room_id = c.roomId;
+                    c.roomId = -1;
+                    // remove from the Room.Cells list
+                    Cell cell;
+                    cell = rooms[old_room_id].cells.Find(cell => cell.pos.x == c.x && cell.pos.y == c.y);
+                    rooms[old_room_id].cells.Remove(cell);
+                    // clear the tile on the screen
+                    tilemap.SetTile(new Vector3Int(c.x, c.y, 0), null);
+                    continue;
                 }
-                r.cells = keep;
-                if (newRoom.cells.Count > 0) packMap.rooms.Add(newRoom);
+                if (leftSide) // keep in original room
+                {
+                    int old_room_id = c.roomId;
+                    keep.Add(c);
 
-                // refresh frontiers roughly (cheap approach: recompute perimeter for both rooms)
-                // NOTE: frontiers list size must match rooms; expand if we added a new room
-                while (frontiers.Count < packMap.rooms.Count) frontiers.Add(new HashSet<(int, int)>());
-                RebuildFrontierFor(i, moatCells, frontiers[i]);
-                RebuildFrontierFor(newRoom.id, moatCells, frontiers[newRoom.id]);
+                }
+                else // rightSide, move to new room
+                {
+                    int old_room_id = c.roomId;
+                    int new_room_id = newRoom.id;
+                    c.roomId = newRoom.id;
+                    newRoom.cells.Add(c);
+
+                    // add a cell to a new room
+                    Cell new_real_cell = new(c.x, c.y);
+                    new_real_room.cells.Add(new_real_cell);
+
+                    // remove from the Room.Cells list
+                    Cell cell = rooms[old_room_id].cells.Find(cell => cell.pos.x == c.x && cell.pos.y == c.y);
+                    rooms[old_room_id].cells.Remove(cell);
+
+                    // clear the tile on the screen
+                    tilemap.SetTile(new Vector3Int(c.x, c.y, 0), null);
+                }
             }
+            r.cells = keep;
+            if (newRoom.cells.Count > 0)
+            {
+                packMap.rooms.Add(newRoom);
+                rooms.Add(new_real_room);
+            } 
+
+            // refresh frontiers roughly (cheap approach: recompute perimeter for both rooms)
+            // NOTE: frontiers list size must match rooms; expand if we added a new room
+            while (frontiers.Count < packMap.rooms.Count) frontiers.Add(new HashSet<(int, int)>());
+            RebuildFrontierFor(i, moatCells, frontiers[i]);
+            RebuildFrontierFor(newRoom.id, moatCells, frontiers[newRoom.id]);
+
+            
+        }
+            
         }
 
         void RebuildFrontierFor(int ri, int moatCells, HashSet<(int, int)> dst)
@@ -776,14 +938,317 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (CanClaim(ri, nb.x, nb.y, moatCells))
                         dst.Add((nb.x, nb.y));
         }
-    
+
+    // ======================= Growth: Strip-then-Wavefront (Hybrid) =======================
+    // Drop this inside your DungeonGenerator class.
+    // Usage example:
+    //   yield return StartCoroutine(Grow_StripThenWavefront(
+    //       stripRounds: 8, wavefrontRounds: 2, waveClaimsPerRoomPerRound: 4
+    //   ));
+    IEnumerator Grow_StripThenWavefront(
+        int stripRounds = 8,                 // how many rounds of side-strip growth
+        int wavefrontRounds = 2,             // how many finishing rounds of wavefront
+        int waveClaimsPerRoomPerRound = 4,   // per-room claims per finishing round
+        int moatOverride = -1,               // -1 => use cfg.grow.wallMoat
+        float targetAspect = 1.2f,           // bias: grow along short axis first
+        float maxAspect = 3.0f,              // never let rooms get too skinny
+        int cooldownOnFail = 2,              // cool a side for N rounds after failed strip
+        int yieldEvery = 512                 // cooperative yield cadence
+    )
+    {
+        int W = packMap.w, H = packMap.h;
+        int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(1, cfg.grow.wallMoat);
+        //bool grown = false;
+
+        if (packMap.rooms == null || packMap.rooms.Count == 0) yield break;
+
+        // Build initial AABBs and per-room side cooldowns
+        var aabbs = new List<RectInt>(packMap.rooms.Count);
+        var cooldown = new Dictionary<int, int[]>(packMap.rooms.Count); // 0:E 1:W 2:N 3:S
+
+        for (int ri = 0; ri < packMap.rooms.Count; ri++)
+        {
+            aabbs.Add(ComputeAabb(packMap.rooms[ri]));
+            cooldown[ri] = new int[4];
+        }
+
+        int touched = 0;
+
+        // ================= 1) STRIP ROUNDS (rectangular growth) =================
+        for (int round = 0; round < stripRounds; round++)
+        {
+            bool anyGrewThisRound = false;
+
+
+            for (int ri = 0; ri < packMap.rooms.Count; ri++)
+            {
+                var room = packMap.rooms[ri];
+                if (room.cells.Count == 0) continue;
+
+                var bb = aabbs[ri];
+                int width = Mathf.Max(1, bb.width);
+                int height = Mathf.Max(1, bb.height);
+                float aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+
+                // Score sides (E,W,N,S). Prefer short axis; skip cooled sides.
+                var order = ScoreSidesForStrip(ri, bb, targetAspect, aspect, cooldown[ri]);
+                //bool grown = false;
+
+                for (int k = 0; k < order.Count; k++)
+                {
+                    int side = order[k];
+                    if (cooldown[ri][side] > 0) continue;
+
+                    if (TryGrowFullStrip(ri, ref bb, side, moat))
+                    {
+                        // success: update AABB & cooldown bookkeeping
+                        aabbs[ri] = bb;
+                        //grown = true;
+                        anyGrewThisRound = true;
+
+                        // Small guard: if aspect exploded, roll back by cooling the long axis next time
+                        width = Mathf.Max(1, bb.width); height = Mathf.Max(1, bb.height);
+                        aspect = (float)Mathf.Max(width, height) / Mathf.Max(1, Mathf.Min(width, height));
+                        if (aspect > maxAspect)
+                        {
+                            // cool the long axis sides for a bit
+                            if (width > height) { cooldown[ri][2] = Mathf.Max(cooldown[ri][2], cooldownOnFail); cooldown[ri][3] = Mathf.Max(cooldown[ri][3], cooldownOnFail); }
+                            else { cooldown[ri][0] = Mathf.Max(cooldown[ri][0], cooldownOnFail); cooldown[ri][1] = Mathf.Max(cooldown[ri][1], cooldownOnFail); }
+                        }
+
+                        break; // grow one strip per room per round
+                    }
+                    else
+                    {
+                        cooldown[ri][side] = Mathf.Max(cooldown[ri][side], cooldownOnFail);
+                    }
+                }
+
+                // decay cooldowns
+                var cd = cooldown[ri];
+                for (int i = 0; i < 4; i++) if (cd[i] > 0) cd[i]--;
+
+                if ((++touched % yieldEvery) == 0) yield return null;
+            }
+
+            // Early exit if nothing grew
+            if (!anyGrewThisRound) break;
+        }
+
+        // ================= 2) WAVEFRONT ROUNDS (soft smoothing) =================
+        if (wavefrontRounds > 0 && waveClaimsPerRoomPerRound > 0)
+        {
+            // Build frontiers
+            var frontiers = new List<HashSet<(int x, int y)>>(packMap.rooms.Count);
+            for (int ri = 0; ri < packMap.rooms.Count; ri++)
+            {
+                var f = new HashSet<(int, int)>();
+                foreach (var c in packMap.rooms[ri].cells)
+                    foreach (var nb in FourNeighbors(c.x, c.y))
+                        if (CanClaim(ri, nb.x, nb.y, moat))
+                            f.Add((nb.x, nb.y));
+                frontiers.Add(f);
+            }
+
+            for (int round = 0; round < wavefrontRounds; round++)
+            {
+                bool anyClaimed = false;
+
+                for (int ri = 0; ri < packMap.rooms.Count; ri++)
+                {
+                    var f = frontiers[ri];
+                    int claims = 0;
+                    while (claims < waveClaimsPerRoomPerRound && f.Count > 0)
+                    {
+                        var pick = PickFrontier_CompactBias(f, ri);
+                        if (pick.x < 0) break;
+
+                        ClaimCell(ri, pick.x, pick.y);
+                        anyClaimed = true; claims++;
+
+                        // update frontier around new claim
+                        foreach (var nb in FourNeighbors(pick.x, pick.y))
+                            if (CanClaim(ri, nb.x, nb.y, moat))
+                                f.Add((nb.x, nb.y));
+
+                        // remove from all frontiers
+                        f.Remove((pick.x, pick.y));
+                        for (int rj = 0; rj < frontiers.Count; rj++)
+                            if (rj != ri) frontiers[rj].Remove((pick.x, pick.y));
+
+                        if ((++touched % yieldEvery) == 0) yield return null;
+                    }
+                }
+
+                if (!anyClaimed) break;
+            }
+        }
+    }
+    // --------------------------- helpers ---------------------------
+    RectInt ComputeAabb(PackRoom r)
+    {
+        int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
+        foreach (var c in r.cells)
+        {
+            if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x;
+            if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y;
+        }
+        if (minx == int.MaxValue) return new RectInt(0, 0, 0, 0);
+        return new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
+    }
+
+    // Return sides in best-first order: 0:E,1:W,2:N,3:S
+    List<int> ScoreSidesForStrip(int ri, RectInt bb, float targetAsp, float currentAsp, int[] cd)
+    {
+        int w = Mathf.Max(1, bb.width), h = Mathf.Max(1, bb.height);
+        bool preferShortAxis = (w > h * targetAsp); // true => grow N/S; false => E/W preferred if h > w*targetAsp
+
+        var list = new List<(int side, int score)>(4);
+        int baseScoreE = (h); // E/W adds a column of 'h' cells
+        int baseScoreW = (h);
+        int baseScoreN = (w); // N/S adds a row of 'w' cells
+        int baseScoreS = (w);
+
+        int cooldownPenalty(int side) => (cd[side] > 0) ? (cd[side] * 1000) : 0;
+
+        // start with base gain
+        int sE = baseScoreE - cooldownPenalty(0);
+        int sW = baseScoreW - cooldownPenalty(1);
+        int sN = baseScoreN - cooldownPenalty(2);
+        int sS = baseScoreS - cooldownPenalty(3);
+
+        // compactness bias: push short axis first
+        if (preferShortAxis) { sN += 10; sS += 10; }
+        else                 { sE += 10; sW += 10; }
+
+        list.Add((0, sE)); list.Add((1, sW)); list.Add((2, sN)); list.Add((3, sS));
+        list.Sort((a, b) => b.score.CompareTo(a.score));
+        var order = new List<int>(4) { list[0].side, list[1].side, list[2].side, list[3].side };
+        return order;
+    }
+
+    // Try to grow a full 1-cell strip on the chosen side. Returns true if the whole strip was claimed.
+    // side: 0=E (x=max+1), 1=W (x=min-1), 2=N (y=max+1), 3=S (y=min-1)
+    bool TryGrowFullStrip(int ri, ref RectInt bb, int side, int moatCells)
+    {
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int minx = bb.xMin, maxx = bb.xMax - 1;
+        int miny = bb.yMin, maxy = bb.yMax - 1;
+
+        if (side == 0) // E
+        {
+            int x = maxx + 1;
+            if ((uint)x >= (uint)W) return false;
+            for (int y = miny; y <= maxy; y++)
+                if (!CanClaim(ri, x, y, moatCells)) return false;
+
+            for (int y = miny; y <= maxy; y++) ClaimCell(ri, x, y);
+            bb.width += 1;
+            return true;
+        }
+        if (side == 1) // W
+        {
+            int x = minx - 1;
+            if (x < 0) return false;
+            for (int y = miny; y <= maxy; y++)
+                if (!CanClaim(ri, x, y, moatCells)) return false;
+
+            for (int y = miny; y <= maxy; y++) ClaimCell(ri, x, y);
+            bb.x -= 1; bb.width += 1;
+            return true;
+        }
+        if (side == 2) // N
+        {
+            int y = maxy + 1;
+            if ((uint)y >= (uint)H) return false;
+            for (int x = minx; x <= maxx; x++)
+                if (!CanClaim(ri, x, y, moatCells)) return false;
+
+            for (int x = minx; x <= maxx; x++) ClaimCell(ri, x, y);
+            bb.height += 1;
+            return true;
+        }
+        else // 3:S
+        {
+            int y = miny - 1;
+            if (y < 0) return false;
+            for (int x = minx; x <= maxx; x++)
+                if (!CanClaim(ri, x, y, moatCells)) return false;
+
+            for (int x = minx; x <= maxx; x++) ClaimCell(ri, x, y);
+            bb.y -= 1; bb.height += 1;
+            return true;
+        }
+    }
+
+    // Wavefront helpers (compactness-biased pick)
+    (int x,int y) PickFrontier_CompactBias(HashSet<(int x,int y)> frontier, int ri)
+    {
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int bestScore = int.MinValue; (int x,int y) best = (-1,-1);
+        foreach (var p in frontier)
+        {
+            int s = 0;
+            foreach (var nb in FourNeighbors(p.x, p.y))
+            {
+                if ((uint)nb.x >= (uint)W || (uint)nb.y >= (uint)H) continue;
+                if (packMap.g[nb.x, nb.y].roomId == ri) s += 2;               // prefer filling along our boundary
+                if (packMap.g[nb.x, nb.y].isCorridor) s -= 3;                  // keep distance to corridors
+            }
+            if (s > bestScore) { bestScore = s; best = p; }
+        }
+        if (best.x < 0 && frontier.Count > 0) foreach (var p in frontier) { best = p; break; }
+        return best;
+    }
+
+    IEnumerable<(int x,int y)> FourNeighbors(int x, int y)
+    {
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        if (x > 0)       yield return (x - 1, y);
+        if (x < W - 1)   yield return (x + 1, y);
+        if (y > 0)       yield return (x, y - 1);
+        if (y < H - 1)   yield return (x, y + 1);
+    }
+
+    bool CanClaim(int ri, int x, int y, int moatCells)
+    {
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        if ((uint)x >= (uint)W || (uint)y >= (uint)H) return false;
+        var c = packMap.g[x, y];
+        if (c.isCorridor) return false;
+        if (c.roomId >= 0 && c.roomId != ri) return false;
+
+        // keep a moat around corridors and other rooms
+        for (int dy = -moatCells; dy <= moatCells; dy++)
+        for (int dx = -moatCells; dx <= moatCells; dx++)
+        {
+            int nx = x + dx, ny = y + dy;
+            if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) continue;
+            var n = packMap.g[nx, ny];
+            if (n.isCorridor) return false;
+            if (n.roomId >= 0 && n.roomId != ri) return false;
+        }
+        return true;
+    }
+
+    void ClaimCell(int ri, int x, int y)
+    {
+        var c = packMap.g[x, y];
+        if (c.roomId == ri) return;
+        c.roomId = ri;
+        packMap.rooms[ri].cells.Add(c);
+    }
+
+
+
 
     // ======================= Seeding: AlongCorridors =======================
     IEnumerator Seed_AlongCorridors()
     {
         BottomBanner.Show("Seeding: AlongCorridors");
 
-        int W = packMap.w, H = packMap.h;
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        //int W = packMap.w, H = packMap.h;
         int moat = Mathf.Max(1, cfg.grow.wallMoat);
         int spacing = Mathf.Max(2, cfg.RoomSeeding.spacing);     // min spacing between seeds along corridors
         int jitter = Mathf.Clamp(cfg.RoomSeeding.jitter, 0, spacing - 1);
@@ -796,6 +1261,8 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 foreach (Cell c in r.cells)
                 {
+                    // TODO: use Room and Cells instead of packMap
+
                     packMap.g[c.x, c.y].isCorridor = true;  // build array for fast lookup
                     if (packMap.corridors == null)
                         packMap.corridors = new HashSet<(int, int)>();
@@ -1143,6 +1610,18 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
+    // This replaces RandomCardinal for starting positions to keep from following borders too much.
+    Vector2Int DirAwayFromEdge(Vector2Int pos)
+    {
+        int border = 10;    // distance to edge that is considered too close
+        int W = cfg.mapWidth, H = cfg.mapHeight;
+        if ((W - pos.x) < border) return new Vector2Int(-1, 0);
+        if ((pos.x) < border)     return new Vector2Int(1, 0);
+        if ((H - pos.y) < border) return new Vector2Int(0, -1);
+        if ((pos.y) < border)     return new Vector2Int(0, 1);
+        return RandomCardinal();  // not near any edge
+    }
+
     Vector2Int TurnLeft(Vector2Int d, bool left)
     {
         // left: (x,y)->(-y,x) ; right: (x,y)->(y,-x)
@@ -1189,7 +1668,7 @@ public partial class DungeonGenerator : MonoBehaviour
     Vector2Int MaybeTurn(Vector2Int d, Random r, float wander)
     {
         // with some prob, keep going; else turn 90° left/right
-        if (r.NextDouble() < (0.65f - 0.4f * wander)) return d;
+        if (r.NextDouble() < (wander/1000f)) return d; //(0.65f - 0.4f * wander)) return d;
         return (r.Next(2) == 0) ? TurnLeft(d, true) : TurnLeft(d, false);
     }
 

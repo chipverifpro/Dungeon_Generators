@@ -111,7 +111,7 @@ public class DungeonSettings : ScriptableObject
     // ---- Algorithm selectors per stage ----
     public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes, DrunkardsWalk }
     public enum RoomSeedAlgo { AlongCorridors, PoissonAlongCorridors, UniformGrid }
-    public enum RoomGrowAlgo { CreditWavefront, PressureField, OrthogonalRays }
+    public enum RoomGrowAlgo { CreditWavefront, StripThenWavefront, PressureField, OrthogonalRays }
     public enum ScrapAlgo    { VoronoiFill, ClosetsOnly, NearestRoom }
     public enum DoorAlgo     { EnsureConnectivity, SparseLoops, ManyLoops }
 
@@ -126,13 +126,17 @@ public class DungeonSettings : ScriptableObject
     [System.Serializable]
     public struct CorridorParams
     {
+        public int corridorWidth;      // narrow is 1..2
         public int spineCount;         // long wandering spines
         public float wanderiness;      // 0..1
         public float loopChance;       // 0..1
-        public int corridorWidth;      // lock at 1..2 typically
+        
+        public int drunkWalkers;                 // Drunkard's Walk
+        public int drunkStepsPerWalker;
+        public int drunkMinimumStraight;
     }
     [Header("Corridor Params")]
-    public CorridorParams corridor = new CorridorParams { spineCount=2, wanderiness=0.25f, loopChance=0.15f, corridorWidth=1 };
+    public CorridorParams corridor = new CorridorParams { spineCount=2, wanderiness=0.25f, loopChance=0.15f, corridorWidth=1, drunkWalkers = 2, drunkStepsPerWalker = 400, drunkMinimumStraight = 10,};
 
     [System.Serializable]
     public struct SeedParams
@@ -144,6 +148,7 @@ public class DungeonSettings : ScriptableObject
     [Header("Room Seeding Params")]
     public SeedParams RoomSeeding = new SeedParams { spacing=8, alternateSides=1f, jitter=2 };
 
+
     [System.Serializable]
     public struct GrowParams
     {
@@ -152,6 +157,7 @@ public class DungeonSettings : ScriptableObject
         public int wallMoat;           // reserved wall thickness (usually 1)
         public int splitArea;          // split rooms larger than this
         public float splitAspect;      // split if aspect > this (e.g., 3)
+        
     }
     [Header("Room Growth Params")]
     public GrowParams grow = new GrowParams { areaCreditMin=40, areaCreditMax=140, wallMoat=1, splitArea=300, splitAspect=3f };

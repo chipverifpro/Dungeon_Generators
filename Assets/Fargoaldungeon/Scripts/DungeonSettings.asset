@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 0
+  RoomAlgorithm: 5
   TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
-  randomizeSeed: 0
-  seed: 1024256362
-  mapWidth: 300
-  mapHeight: 300
+  randomizeSeed: 1
+  seed: 138114956
+  mapWidth: 100
+  mapHeight: 100
   roundWorld: 1
   maxElevation: 100
   unitHeight: 0.1
@@ -68,26 +68,29 @@ MonoBehaviour:
   cellar_floor_height: -10
   ground_floor_height: 0
   next_floor_height: 10
-  corridorAlgo: 0
+  corridorAlgo: 3
   roomSeedAlgo: 0
   roomGrowAlgo: 0
   scrapAlgo: 0
   doorAlgo: 0
   corridor:
-    spineCount: 2
-    wanderiness: 0.25
-    loopChance: 0.15
     corridorWidth: 1
+    spineCount: 8
+    wanderiness: 25
+    loopChance: 0.15
+    drunkWalkers: 5
+    drunkStepsPerWalker: 100
+    drunkMinimumStraight: 10
   RoomSeeding:
-    spacing: 8
+    spacing: 12
     alternateSides: 1
     jitter: 2
   grow:
-    areaCreditMin: 40
-    areaCreditMax: 140
+    areaCreditMin: 200
+    areaCreditMax: 1200
     wallMoat: 1
-    splitArea: 300
-    splitAspect: 3
+    splitArea: 50
+    splitAspect: 2
   scraps:
     closetMaxArea: 12
   doors:
