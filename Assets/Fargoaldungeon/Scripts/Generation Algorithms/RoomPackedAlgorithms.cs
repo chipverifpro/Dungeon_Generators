@@ -409,7 +409,7 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 Debug.Log($"  step {i + 1} of {steps} at {p.x},{p.y} dir={dir.x},{dir.y}");
                 yield return null;
-                if (i == 250) break; // DEBUG CHECK
+                //if (i == 250) break; // DEBUG CHECK to prevent infinite hang
                 straightRounds++;
 
                 CarveDisk(tmp_room, p, width); // paint corridor cell(s)
@@ -606,7 +606,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // - Corridors already painted (cell.isCorridor = true)
         // - We will preserve a 1-cell wall moat (= cfg.grow.wallMoat) around rooms & corridors
 
-        int moat = Mathf.Max(1, cfg.grow.wallMoat);
+        int moat = Mathf.Max(0, cfg.grow.wallMoat);
         int nRooms = packMap.rooms.Count;
         if (nRooms == 0) yield break;
 
@@ -824,7 +824,7 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             var r = packMap.rooms[i];
             int area = r.cells.Count;
-            if (area <= cfg.grow.splitArea) continue;
+            if (area <= cfg.grow.splitArea) continue; // Don't cut room
 
             // Compute room AABB and aspect ratio
             int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
@@ -832,7 +832,7 @@ public partial class DungeonGenerator : MonoBehaviour
             int w = Mathf.Max(1, maxx - minx + 1);
             int h = Mathf.Max(1, maxy - miny + 1);
             float aspect = (float)Mathf.Max(w, h) / Mathf.Max(1, Mathf.Min(w, h));
-            if (aspect < cfg.grow.splitAspect) continue;
+            if (aspect < cfg.grow.splitAspect) continue; // Don't cut room
 
             bool splitVert = (w >= h); // cut along long axis
             int cut = splitVert ? (minx + w / 2) : (miny + h / 2);
@@ -840,22 +840,36 @@ public partial class DungeonGenerator : MonoBehaviour
             // Create new room
             var newRoom = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
             Room new_real_room = new();
+            new_real_room.setColorFloor(highlight: false);  // DEBUG: make it look like a corridor
             // Reassign cells and carve a 1-cell wall along cut line
             var keep = new List<PackCell>();
             foreach (var c in r.cells)
             {
-                bool leftSide = splitVert ? (c.x < cut) : (c.y < cut);
-                bool onCut = splitVert ? (c.x == cut) : (c.y == cut);
+                bool leftSide;
+                bool onCut;
+                if (cfg.useThinWalls)
+                {
+                    leftSide = splitVert ? (c.x < cut) : (c.y < cut);
+                    onCut = false;
+                }
+                else
+                {
+                    leftSide = splitVert ? (c.x < cut) : (c.y < cut);
+                    onCut = splitVert ? (c.x == cut) : (c.y == cut);
+                }
 
                 if (onCut)
                 {
                     // leave as wall: unassign
                     int old_room_id = c.roomId;
                     c.roomId = -1;
-                    // remove from the Room.Cells list
-                    Cell cell;
-                    cell = rooms[old_room_id].cells.Find(cell => cell.pos.x == c.x && cell.pos.y == c.y);
-                    rooms[old_room_id].cells.Remove(cell);
+                    // remove from the Room.Cells list. // DEBUG: Does this work????
+                    DeleteAllCellsAtPos(new Vector2Int(c.x, c.y));
+                    //Cell cell;
+                    //cell = rooms[old_room_id].cells.Find(cell => cell.pos.x == c.x && cell.pos.y == c.y);
+                    //if (!rooms[old_room_id].cells.Remove(cell))
+                    //    Debug.Log("onCut: Failed trying to remove cell from room ");
+
                     // clear the tile on the screen
                     tilemap.SetTile(new Vector3Int(c.x, c.y, 0), null);
                     continue;
@@ -874,12 +888,13 @@ public partial class DungeonGenerator : MonoBehaviour
                     newRoom.cells.Add(c);
 
                     // add a cell to a new room
-                    Cell new_real_cell = new(c.x, c.y);
+                    Cell new_real_cell = new(c.x, c.y, 100);    // DEBUG: Float new room above others
                     new_real_room.cells.Add(new_real_cell);
 
-                    // remove from the Room.Cells list
-                    Cell cell = rooms[old_room_id].cells.Find(cell => cell.pos.x == c.x && cell.pos.y == c.y);
-                    rooms[old_room_id].cells.Remove(cell);
+                    // remove from the Room.Cells list.  
+                    //Debug.Log("old_room_id = " + old_room_id);
+                    // DEBUG: NEVER MATCHES old_room_id, so search through all rooms
+                    DeleteAllCellsAtPos(new Vector2Int(c.x, c.y));
 
                     // clear the tile on the screen
                     tilemap.SetTile(new Vector3Int(c.x, c.y, 0), null);
@@ -890,8 +905,9 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 packMap.rooms.Add(newRoom);
                 rooms.Add(new_real_room);
-            } 
+            }
 
+            Debug.Log($"Splitting room {i} into newroom {newRoom.id}; splitvert {splitVert}; cutline = {cut}");
             // refresh frontiers roughly (cheap approach: recompute perimeter for both rooms)
             // NOTE: frontiers list size must match rooms; expand if we added a new room
             while (frontiers.Count < packMap.rooms.Count) frontiers.Add(new HashSet<(int, int)>());
@@ -903,6 +919,23 @@ public partial class DungeonGenerator : MonoBehaviour
             
     }
 
+    // Temporary hack for getting rid of lost cells
+    int DeleteAllCellsAtPos(Vector2Int pos)
+    {
+        int num_deleted = 0;
+        for (int try_room_id = 0; try_room_id < rooms.Count; try_room_id++)
+        {
+            int cell_index = rooms[try_room_id].cells.FindIndex(cell => cell.pos.x == pos.x && cell.pos.y == pos.y);
+            if (cell_index != -1)
+            {
+                Cell cell = rooms[try_room_id].cells[cell_index];
+                Debug.Log($"cell_index A = {cell_index}, room_number = {try_room_id}");//, old_room_id = {old_room_id}");
+                rooms[try_room_id].cells.RemoveAt(cell_index);
+                num_deleted++;
+            }
+        }
+        return num_deleted;
+    }
     void RebuildFrontierFor(int ri, int moatCells, HashSet<(int, int)> dst)
     {
         dst.Clear();
@@ -930,7 +963,7 @@ public partial class DungeonGenerator : MonoBehaviour
     )
     {
         int W = packMap.w, H = packMap.h;
-        int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(1, cfg.grow.wallMoat);
+        int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(0, cfg.grow.wallMoat);
         //bool grown = false;
 
         if (packMap.rooms == null || packMap.rooms.Count == 0) yield break;
@@ -1224,7 +1257,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         int W = cfg.mapWidth, H = cfg.mapHeight;
         //int W = packMap.w, H = packMap.h;
-        int moat = Mathf.Max(1, cfg.grow.wallMoat);
+        int moat = Mathf.Max(0, cfg.grow.wallMoat);
         int spacing = Mathf.Max(2, cfg.RoomSeeding.spacing);     // min spacing between seeds along corridors
         int jitter = Mathf.Clamp(cfg.RoomSeeding.jitter, 0, spacing - 1);
         float altProb = Mathf.Clamp01(cfg.RoomSeeding.alternateSides); // probability to alternate sides L/R
@@ -1438,15 +1471,18 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         var r = new PackRoom { id = packMap.rooms.Count, cells = new List<PackCell>() };
         var c = packMap.g[x, y];
+        //var c = new PackCell { x = x, y = y };      // DEBUG TRY creating new cell.. no difference seen.
+        //packMap.g[x, y] = c;
+
         c.roomId = r.id;
         r.cells.Add(c);
         r.bounds = new RectInt(x, y, 1, 1);
         packMap.rooms.Add(r);
-
         // Also add to main room list for drawing
-        Room room = new Room { my_room_number = r.id, cells = new List<Cell> { new Cell(x, y) }, isCorridor = false };
+        Room room = new Room { my_room_number = r.id, cells = new List<Cell> { new Cell(x, y, 2) }, isCorridor = false };
         room.setColorFloor(highlight: true);
         rooms.Add(room);
+        Debug.Log($"Created Room {c.roomId} seed at {x},{y}");
     }
 
 
@@ -1603,7 +1639,8 @@ public partial class DungeonGenerator : MonoBehaviour
         return left ? new Vector2Int(-d.y, d.x) : new Vector2Int(d.y, -d.x);
     }
 
-    bool In(int x, int y) => (uint)x < (uint)cfg.mapWidth && (uint)y < (uint)cfg.mapHeight;
+    bool In(int x, int y) => (uint)x < (uint)cfg.mapWidth && (uint)y < (uint)cfg.mapHeight
+                            && x>=0 && y>=0;
 
     // If you want random edge starts instead of center:
     Vector2Int RandomEdgeStart(int w, int h)
@@ -1625,7 +1662,7 @@ public partial class DungeonGenerator : MonoBehaviour
         int min = -(int)Math.Floor((penWidth / 2f)); // makes the negative more to zero
         int max = min + penWidth - 1;
 
-        Debug.Log($"  CarveDisk at {c.x},{c.y} width={penWidth}");
+        // Debug.Log($"  CarveDisk at {c.x},{c.y} width={penWidth}");
         for (int dy = min; dy <= max; dy++)
             for (int dx = min; dx <= max; dx++)
             {
