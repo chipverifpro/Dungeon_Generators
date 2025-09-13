@@ -786,64 +786,27 @@ public partial class DungeonGenerator : MonoBehaviour
         yield return new WaitForSeconds(1f);
     }
     // ---- local helpers ----
-    /*       IEnumerable<(int x, int y)> FourNeighbors(int x, int y)
-            {
-                if (x > 0) yield return (x - 1, y);
-                if (x < packMap.w - 1) yield return (x + 1, y);
-                if (y > 0) yield return (x, y - 1);
-                if (y < packMap.h - 1) yield return (x, y + 1);
-            }
-    */
-    /*
-        bool CanClaim(int ri, int x, int y, int moatCells)
-        {
-            if ((uint)x >= (uint)packMap.w || (uint)y >= (uint)packMap.h) return false;
-            var c = packMap.g[x, y];
-            if (c.isCorridor) return false;
-            if (c.roomId >= 0) return false; // already owned
-            // Keep a moat around corridors & other rooms
-            for (int dy = -moatCells; dy <= moatCells; dy++)
-                for (int dx = -moatCells; dx <= moatCells; dx++)
-                {
-                    int nx = x + dx, ny = y + dy;
-                    if ((uint)nx >= (uint)packMap.w || (uint)ny >= (uint)packMap.h) continue;
-                    if (packMap.g[nx, ny].isCorridor) return false;
-                    int rid = packMap.g[nx, ny].roomId;
-                    if (rid >= 0 && rid != ri) return false;
-                }
-            return true;
-        }
-    */
-        (int x, int y) PickFrontier(HashSet<(int x, int y)> frontier, int ri)
-        {
-            int bestScore = int.MinValue;
-            (int x, int y) best = (-1, -1);
-            foreach (var p in frontier)
-            {
-                int s = 0;
-                // score by how many owned neighbors (smooth boundary) and how far from corridors
-                foreach (var nb in FourNeighbors(p.x, p.y))
-                {
-                    if ((uint)nb.x >= (uint)packMap.w || (uint)nb.y >= (uint)packMap.h) continue;
-                    if (packMap.g[nb.x, nb.y].roomId == ri) s += 2;
-                    if (packMap.g[nb.x, nb.y].isCorridor) s -= 3;
-                }
-                if (s > bestScore) { bestScore = s; best = p; }
-            }
-            // fallback if set somehow empty
-            if (best.x < 0 && frontier.Count > 0) foreach (var p in frontier) { best = p; break; }
-            return best;
-        }
 
-    /*
-    void ClaimCell(int ri, int x, int y)
+    (int x, int y) PickFrontier(HashSet<(int x, int y)> frontier, int ri)
     {
-        var c = packMap.g[x, y];
-        c.roomId = packMap.rooms[ri].id;
-        packMap.rooms[ri].cells.Add(c);
-        // bounds will be finalized later; optional: update a running RectInt here
+        int bestScore = int.MinValue;
+        (int x, int y) best = (-1, -1);
+        foreach (var p in frontier)
+        {
+            int s = 0;
+            // score by how many owned neighbors (smooth boundary) and how far from corridors
+            foreach (var nb in FourNeighbors(p.x, p.y))
+            {
+                if ((uint)nb.x >= (uint)packMap.w || (uint)nb.y >= (uint)packMap.h) continue;
+                if (packMap.g[nb.x, nb.y].roomId == ri) s += 2;
+                if (packMap.g[nb.x, nb.y].isCorridor) s -= 3;
+            }
+            if (s > bestScore) { bestScore = s; best = p; }
+        }
+        // fallback if set somehow empty
+        if (best.x < 0 && frontier.Count > 0) foreach (var p in frontier) { best = p; break; }
+        return best;
     }
-    */
 
     void SplitOversizedRooms(int moatCells, List<HashSet<(int, int)>> frontiers)
     {
@@ -928,16 +891,16 @@ public partial class DungeonGenerator : MonoBehaviour
             
         }
             
-        }
+    }
 
-        void RebuildFrontierFor(int ri, int moatCells, HashSet<(int, int)> dst)
-        {
-            dst.Clear();
-            foreach (var c in packMap.rooms[ri].cells)
-                foreach (var nb in FourNeighbors(c.x, c.y))
-                    if (CanClaim(ri, nb.x, nb.y, moatCells))
-                        dst.Add((nb.x, nb.y));
-        }
+    void RebuildFrontierFor(int ri, int moatCells, HashSet<(int, int)> dst)
+    {
+        dst.Clear();
+        foreach (var c in packMap.rooms[ri].cells)
+            foreach (var nb in FourNeighbors(c.x, c.y))
+                if (CanClaim(ri, nb.x, nb.y, moatCells))
+                    dst.Add((nb.x, nb.y));
+    }
 
     // ======================= Growth: Strip-then-Wavefront (Hybrid) =======================
     // Drop this inside your DungeonGenerator class.
@@ -1390,74 +1353,74 @@ public partial class DungeonGenerator : MonoBehaviour
         DrawMapByRooms(rooms, clearscreen: true);
         yield return null; // new WaitForSeconds(1f);
     }
-        // ---- local helpers ----
+    // ---- local helpers ----
 
-        int CountCorridorNeighbors(int x, int y)
+    int CountCorridorNeighbors(int x, int y)
+    {
+        int W=cfg.mapWidth, H=cfg.mapHeight;
+        int c = 0;
+        if (x > 0 && packMap.g[x - 1, y].isCorridor) c++;
+        if (x < W - 1 && packMap.g[x + 1, y].isCorridor) c++;
+        if (y > 0 && packMap.g[x, y - 1].isCorridor) c++;
+        if (y < H - 1 && packMap.g[x, y + 1].isCorridor) c++;
+        return c;
+    }
+
+    Vector2Int PickTangentDir(int x, int y)
+    {
+        int W=cfg.mapWidth, H=cfg.mapHeight;
+        // Favor a straight neighbor pair if present (→ a stable tangent)
+        bool L = x > 0 && packMap.g[x - 1, y].isCorridor;
+        bool R = x < W - 1 && packMap.g[x + 1, y].isCorridor;
+        bool D = y > 0 && packMap.g[x, y - 1].isCorridor;
+        bool U = y < H - 1 && packMap.g[x, y + 1].isCorridor;
+
+        if (L && R) return new Vector2Int(1, 0);
+        if (D && U) return new Vector2Int(0, 1);
+
+        // Corner or dead-end: pick whichever neighbor exists (prefer continuity)
+        if (R) return new Vector2Int(1, 0);
+        if (L) return new Vector2Int(-1, 0);
+        if (U) return new Vector2Int(0, 1);
+        if (D) return new Vector2Int(0, -1);
+
+        return Vector2Int.zero;
+    }
+
+    Vector2Int Perp(Vector2Int t, bool left)
+    {
+        // left: (x,y)->(-y,x) ; right: (x,y)->(y,-x)
+        return left ? new Vector2Int(-t.y, t.x) : new Vector2Int(t.y, -t.x);
+    }
+
+    void Shuffle(List<Vector2Int> list)
+    {
+        for (int i = list.Count - 1; i > 0; --i)
         {
-            int W=cfg.mapWidth, H=cfg.mapHeight;
-            int c = 0;
-            if (x > 0 && packMap.g[x - 1, y].isCorridor) c++;
-            if (x < W - 1 && packMap.g[x + 1, y].isCorridor) c++;
-            if (y > 0 && packMap.g[x, y - 1].isCorridor) c++;
-            if (y < H - 1 && packMap.g[x, y + 1].isCorridor) c++;
-            return c;
+            int j = rng.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
         }
+    }
 
-        Vector2Int PickTangentDir(int x, int y)
-        {
-            int W=cfg.mapWidth, H=cfg.mapHeight;
-            // Favor a straight neighbor pair if present (→ a stable tangent)
-            bool L = x > 0 && packMap.g[x - 1, y].isCorridor;
-            bool R = x < W - 1 && packMap.g[x + 1, y].isCorridor;
-            bool D = y > 0 && packMap.g[x, y - 1].isCorridor;
-            bool U = y < H - 1 && packMap.g[x, y + 1].isCorridor;
+    bool CanPlaceSeed(int x, int y, int moatCells)
+    {
+        if (!In(x, y)) return false;
+        var c = packMap.g[x, y];
+        if (c.isCorridor) return false;
+        if (c.roomId >= 0) return false;
 
-            if (L && R) return new Vector2Int(1, 0);
-            if (D && U) return new Vector2Int(0, 1);
-
-            // Corner or dead-end: pick whichever neighbor exists (prefer continuity)
-            if (R) return new Vector2Int(1, 0);
-            if (L) return new Vector2Int(-1, 0);
-            if (U) return new Vector2Int(0, 1);
-            if (D) return new Vector2Int(0, -1);
-
-            return Vector2Int.zero;
-        }
-
-        Vector2Int Perp(Vector2Int t, bool left)
-        {
-            // left: (x,y)->(-y,x) ; right: (x,y)->(y,-x)
-            return left ? new Vector2Int(-t.y, t.x) : new Vector2Int(t.y, -t.x);
-        }
-
-        void Shuffle(List<Vector2Int> list)
-        {
-            for (int i = list.Count - 1; i > 0; --i)
+        // Enforce a moat around corridors and other rooms
+        for (int dy = -moatCells; dy <= moatCells; dy++)
+            for (int dx = -moatCells; dx <= moatCells; dx++)
             {
-                int j = rng.Next(i + 1);
-                (list[i], list[j]) = (list[j], list[i]);
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) continue;
+                var n = packMap.g[nx, ny];
+                if (n.isCorridor) return false;
+                if (n.roomId >= 0) return false;
             }
-        }
-
-        bool CanPlaceSeed(int x, int y, int moatCells)
-        {
-            if (!In(x, y)) return false;
-            var c = packMap.g[x, y];
-            if (c.isCorridor) return false;
-            if (c.roomId >= 0) return false;
-
-            // Enforce a moat around corridors and other rooms
-            for (int dy = -moatCells; dy <= moatCells; dy++)
-                for (int dx = -moatCells; dx <= moatCells; dx++)
-                {
-                    int nx = x + dx, ny = y + dy;
-                    if (!In(nx, ny)) continue;
-                    var n = packMap.g[nx, ny];
-                    if (n.isCorridor) return false;
-                    if (n.roomId >= 0) return false;
-                }
-            return true;
-        }
+        return true;
+    }
 
     void CreateRoomSeedAt(int x, int y)
     {
