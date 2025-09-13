@@ -126,6 +126,7 @@ public class DungeonSettings : ScriptableObject
     // ---- Tunable parameters per stage (keep lean; add as you need) ----
     [Header("Packed Room Params")]
     public bool usePackedRooms = false;
+    public bool useRoundPen = false;    // for corridors only???
 
     [System.Serializable]
     public struct CorridorParams
