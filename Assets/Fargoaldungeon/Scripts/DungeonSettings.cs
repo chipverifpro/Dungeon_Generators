@@ -112,7 +112,7 @@ public class DungeonSettings : ScriptableObject
     // ---- Algorithm selectors per stage ----
     public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes, DrunkardsWalk }
     public enum RoomSeedAlgo { AlongCorridors, PoissonAlongCorridors, UniformGrid }
-    public enum RoomGrowAlgo { CreditWavefront, StripThenWavefront, PressureField, OrthogonalRays }
+    public enum RoomGrowAlgo { CreditWavefront, PressureField, OrthogonalRays }
     public enum ScrapAlgo    { VoronoiFill, ClosetsOnly, NearestRoom }
     public enum DoorAlgo     { EnsureConnectivity, SparseLoops, ManyLoops }
 

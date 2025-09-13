@@ -108,7 +108,7 @@ public partial class DungeonGenerator : MonoBehaviour
         switch (cfg.roomGrowAlgo)
         {
             case DungeonSettings.RoomGrowAlgo.CreditWavefront: return Grow_CreditWavefront();
-            case DungeonSettings.RoomGrowAlgo.StripThenWavefront: return Grow_StripThenWavefront();
+            //case DungeonSettings.RoomGrowAlgo.StripThenWavefront: return Grow_StripThenWavefront();
             case DungeonSettings.RoomGrowAlgo.PressureField: return Grow_PressureField();
             case DungeonSettings.RoomGrowAlgo.OrthogonalRays: return Grow_OrthogonalRays();
             default: return Grow_CreditWavefront();
