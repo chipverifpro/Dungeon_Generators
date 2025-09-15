@@ -46,6 +46,7 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
         // Fit your camera now, even before tiles are painted:
         FitOrthoCameraToBounds(cam, worldBounds);
         StartCoroutine(FlyToTopDown(worldBounds));
+        FlyRandomNow();
     }
 
     IEnumerator FlyToTopDown(Bounds worldBounds)
@@ -55,7 +56,8 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
         Vector3 extentsWorld;
         Bounds localBounds;
 
-        if (worldBounds.size != Vector3.zero) {
+        if (worldBounds.size != Vector3.zero)
+        {
             // Center of the tilemap area in world space
             centerWorld = worldBounds.center;
             localBounds = worldBounds; // Use the provided bounds directly
@@ -63,7 +65,9 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
             // Bounding sphere that encloses the rect at any tilt/yaw
             extentsWorld = worldBounds.extents;
             radius = Mathf.Max(0.001f, extentsWorld.magnitude);
-        } else { 
+        }
+        else
+        {
             //yield return new WaitForSeconds(0.3f); // allow scene to load
             // Get bounds of actual tiles
             tilemap.CompressBounds();
@@ -147,9 +151,137 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
     public static void FitOrthoCameraToBounds(Camera cam, Bounds b, float padding = 0.05f)
     {
         float aspect = cam.aspect;
-        float vSize  = (b.size.y * 0.5f) * (1f + padding);
-        float hSize  = (b.size.x * 0.5f) / aspect * (1f + padding);
+        float vSize = (b.size.y * 0.5f) * (1f + padding);
+        float hSize = (b.size.x * 0.5f) / aspect * (1f + padding);
         cam.orthographicSize = Mathf.Max(vSize, hSize);
         cam.transform.position = new Vector3(b.center.x, b.center.y, cam.transform.position.z);
+    }
+
+
+
+    // --- Add these settings next to your other [Header("Flight Settings")] ---
+    [Header("Random Flyover")]
+    public bool loopFlyover = true;
+    public int hops = 12;                 // how many random hops (ignored if loopFlyover=true)
+    public float hopDuration = 1.6f;      // seconds per hop
+    public float holdDuration = 0.5f;     // pause on each target
+    [Range(-10f, -90f)] public float pitchDeg = -45f;   // 45° off the plane
+    public float viewRadiusWorld = 20f;   // how much ground span to keep in view
+    public float edgeMargin = 2f;         // don't target right on the border
+
+    // Call this instead of FlyNow() if you want the random-hop camera
+    public void FlyRandomNow()
+    {
+        if (cam == null || tilemap == null)
+        {
+            Debug.LogWarning("Assign Camera and Tilemap.");
+            return;
+        }
+
+        // Use whole cfg map area
+        var origin = new Vector3Int(0, 0, 0);
+        var size = new Vector3Int(cfg.mapWidth, cfg.mapHeight, 1);
+        Bounds worldBounds = ComputeWorldBounds(tilemap, origin, size);
+
+        if (worldBounds.size == Vector3.zero)
+        {
+            Debug.LogWarning("Tilemap bounds are zero. Ensure tiles are painted.");
+            return;
+        }
+
+        StopAllCoroutines();
+        StartCoroutine(RandomFlyover(worldBounds));
+    }
+
+    IEnumerator RandomFlyover(Bounds bounds)
+    {
+        if (cam.orthographic)
+        {
+            Debug.Log("[Flyover] Switching to perspective for angled fly.");
+            cam.orthographic = false;
+        }
+
+        // Precompute once
+        float pitch = Mathf.Clamp(pitchDeg, -90f, 90f);
+        float pitchRad = pitch * Mathf.Deg2Rad;
+
+        // distance so that the *horizontal* ground projection is ~viewRadiusWorld
+        // For a ray pitched down by `pitch`, horizontal projection = distance * cos(pitch)
+        // => distance = viewRadiusWorld / cos(pitch)
+        float baseDistance = Mathf.Max(5f, viewRadiusWorld / Mathf.Cos(pitchRad));
+
+        // Start at a sensible place:
+        Vector3 target = RandomTarget(bounds, edgeMargin);
+        float yaw = RandomYaw();
+        Vector3 pos = CameraPosFor(target, pitch, yaw, baseDistance);
+
+        cam.transform.SetPositionAndRotation(
+            pos,
+            Quaternion.LookRotation((target - pos).normalized, Vector3.up)
+        );
+
+        int remaining = Mathf.Max(1, hops);
+        while (loopFlyover || remaining-- > 0)
+        {
+            Vector3 nextTarget = RandomTarget(bounds, edgeMargin);
+            float nextYaw = RandomYaw();
+
+            // Optionally keep distance mostly constant, but add a tiny jitter for life
+            float distance = baseDistance * Mathf.Lerp(0.95f, 1.05f, Random.value);
+
+            Vector3 startPos = cam.transform.position;
+            Quaternion startRot = cam.transform.rotation;
+
+            Vector3 endPos = CameraPosFor(nextTarget, pitch, nextYaw, distance);
+            Quaternion endRot = Quaternion.LookRotation((nextTarget - endPos).normalized, Vector3.up);
+
+            float t0 = Time.time;
+            while (true)
+            {
+                float t = Mathf.InverseLerp(0f, hopDuration, Time.time - t0);
+                if (t >= 1f) t = 1f;
+
+                // Smoothstep for a soft ease in/out
+                float s = t * t * (3f - 2f * t);
+
+                cam.transform.SetPositionAndRotation(
+                    Vector3.Lerp(startPos, endPos, s),
+                    Quaternion.Slerp(startRot, endRot, s)
+                );
+
+                if (t >= 1f) break;
+                yield return null;
+            }
+
+            if (holdDuration > 0f)
+                yield return new WaitForSeconds(holdDuration);
+
+            target = nextTarget;
+            yaw = nextYaw;
+        }
+    }
+
+    Vector3 RandomTarget(Bounds b, float margin)
+    {
+        float x = Random.Range(b.min.x + margin, b.max.x - margin);
+        float y = Random.Range(b.min.y + margin, b.max.y - margin);
+        // Tilemap is usually on Z=0 plane; keep Z on the bounds center’s Z
+        float z = Mathf.Lerp(b.min.z, b.max.z, 0.5f);
+        return new Vector3(x, y, z);
+    }
+
+    float RandomYaw()
+    {
+        // Any yaw around Y axis is fine; pick random 0..360
+        return Random.Range(0f, 360f);
+    }
+
+    Vector3 CameraPosFor(Vector3 target, float pitchDeg, float yawDeg, float distance)
+    {
+        // Build a forward vector from yaw/pitch (downward pitch = negative X-rotation)
+        Quaternion q = Quaternion.Euler(-pitchDeg, yawDeg, 0f);
+        Vector3 forward = q * Vector3.forward; // direction camera "looks"
+                                               // Position so that forward aims at the target from 'distance' away
+        return target - forward * distance;
     }
 }
