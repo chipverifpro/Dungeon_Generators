@@ -110,16 +110,16 @@ public class DungeonSettings : ScriptableObject
     public int next_floor_height = 10;
     
     // ---- Algorithm selectors per stage ----
-    public enum CorridorAlgo { WanderingMST, MedialAxis, GridMazes, DrunkardsWalk }
+    public enum CorridorAlgo { DrunkardsWalk, WanderingMST, MedialAxis, GridMazes }
     public enum RoomSeedAlgo { AlongCorridors, PoissonAlongCorridors, UniformGrid }
-    public enum RoomGrowAlgo { CreditWavefront, PressureField, OrthogonalRays }
-    public enum ScrapAlgo    { VoronoiFill, ClosetsOnly, NearestRoom }
+    public enum RoomGrowAlgo { CreditWavefrontStrips, PressureField, OrthogonalRays }
+    public enum ScrapAlgo    { VoronoiFill, SeedAndGrowUntilPacked, ClosetsOnly, NearestRoom }
     public enum DoorAlgo     { EnsureConnectivity, SparseLoops, ManyLoops }
 
     [Header("Pipeline Algorithms")]
     public CorridorAlgo corridorAlgo = CorridorAlgo.WanderingMST;
     public RoomSeedAlgo roomSeedAlgo = RoomSeedAlgo.AlongCorridors;
-    public RoomGrowAlgo roomGrowAlgo = RoomGrowAlgo.CreditWavefront;
+    public RoomGrowAlgo roomGrowAlgo = RoomGrowAlgo.CreditWavefrontStrips;
     public ScrapAlgo    scrapAlgo    = ScrapAlgo.VoronoiFill;
     public DoorAlgo     doorAlgo     = DoorAlgo.EnsureConnectivity;
 

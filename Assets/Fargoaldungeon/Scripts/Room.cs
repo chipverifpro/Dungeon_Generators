@@ -318,7 +318,7 @@ public class Room
     {
         if (cell_dictionary_room.Count == 0) // then build cache
         {
-            Debug.Log($"Building cell_dictionary_room.");
+            //Debug.Log($"Building cell_dictionary_room.");
             // Build dictionary once and keep it.
             //   Auto-regenerates if "cells" list length changes.
             //   Note that you must manually call ResetCellDictionary()

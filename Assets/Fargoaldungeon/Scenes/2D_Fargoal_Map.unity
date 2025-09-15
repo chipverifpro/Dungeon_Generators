@@ -5528,6 +5528,13 @@ MonoBehaviour:
   endTiltDeg: 90
   yawDeg: 0
   autoStart: 1
+  loopFlyover: 1
+  hops: 12
+  hopDuration: 1.6
+  holdDuration: 0.5
+  pitchDeg: -50
+  viewRadiusWorld: 20
+  edgeMargin: 2
 --- !u!1 &1835439494
 GameObject:
   m_ObjectHideFlags: 0

@@ -17,7 +17,7 @@ MonoBehaviour:
   showBuildProcess: 0
   stepDelay: 0.1
   randomizeSeed: 1
-  seed: 1362902678
+  seed: 303331004
   useThinWalls: 1
   mapWidth: 100
   mapHeight: 100
@@ -69,10 +69,10 @@ MonoBehaviour:
   cellar_floor_height: -10
   ground_floor_height: 0
   next_floor_height: 10
-  corridorAlgo: 3
+  corridorAlgo: 0
   roomSeedAlgo: 0
   roomGrowAlgo: 0
-  scrapAlgo: 0
+  scrapAlgo: 1
   doorAlgo: 0
   usePackedRooms: 1
   useRoundPen: 0
