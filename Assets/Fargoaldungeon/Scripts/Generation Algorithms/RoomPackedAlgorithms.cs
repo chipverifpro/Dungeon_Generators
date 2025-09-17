@@ -1,11 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using Mono.Cecil;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
-using UnityEngine.Tilemaps;
 using Random = System.Random;
 
 public partial class DungeonGenerator : MonoBehaviour
@@ -14,8 +10,31 @@ public partial class DungeonGenerator : MonoBehaviour
     //public DungeonSettings cfg;     // ← your ScriptableObject, named as you like
 
     // Minimal PackMap structs (adapt to your real ones)
-    public class PackCell { public int x, y, height; public bool isCorridor; public int roomId = -1; }
-    public class PackRoom { public int id; public List<PackCell> cells = new(); public RectInt bounds; }
+    public class PackCell
+    {
+        public int x, y, height;
+        public bool isCorridor;
+        public int roomId = -1;
+    }
+    public class PackRoom
+    {
+        public int id;
+        public List<PackCell> cells = new();
+        public Color color;
+        public RectInt static_bounds; // only use this if you know the cells haven't changed since the last get_bounds() call.
+        public RectInt getBounds()  // recalculates bounds and returns a rectangle.
+        {
+            if (cells == null || cells.Count == 0)
+            {
+                static_bounds = new RectInt(0, 0, 0, 0);
+                return static_bounds;
+            }
+            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
+            foreach (var c in cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
+            static_bounds = new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
+            return static_bounds;
+        }
+    }
     public class PackMap
     {
         public int w, h;
@@ -23,7 +42,8 @@ public partial class DungeonGenerator : MonoBehaviour
         public List<PackRoom> rooms = new();
         public HashSet<(int, int)> corridors = new();
         public PackMap(int w, int h) { this.w = w; this.h = h; g = new PackCell[w, h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) g[x, y] = new PackCell { x = x, y = y }; }
-        public bool In(int x, int y) => (uint)x < (uint)w && (uint)y < (uint)h;
+        // In(x,y) is now a separate function
+        //public bool In(int x, int y) => (uint)x < (uint)w && (uint)y < (uint)h && x>=0 && y>=0;
     }
 
     // Runtime
@@ -45,29 +65,41 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // 1) Corridors
         yield return StartCoroutine(RunCorridors());
+        // ClearMapBorders(rooms);   // DEBUG
+
+        RemoveDuplicateCellsFromAllRooms(rooms);
+        RemoveDuplicatePackCellsFromAllRooms(packMap.rooms);
         DrawMapByRooms(rooms);
         yield return new WaitForSeconds(1f);
 
         // 2) Room seeding
         yield return StartCoroutine(RunRoomSeeding());
+        //ClearMapBorders(rooms);   // DEBUG
+        RemoveDuplicateCellsFromAllRooms(rooms);
         DrawMapByRooms(rooms);
         Debug.Log("After room seeding, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 3) Room growth
         yield return StartCoroutine(RunRoomGrowth());
+        //ClearMapBorders(rooms);   // DEBUG
+        RemoveDuplicateCellsFromAllRooms(rooms);
         DrawMapByRooms(rooms);
         Debug.Log("After room growth, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 4) Scraps
         yield return StartCoroutine(RunScraps());
+        //ClearMapBorders(rooms);   // DEBUG
+        RemoveDuplicateCellsFromAllRooms(rooms);
         DrawMapByRooms(rooms);
         Debug.Log("After scraps, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
         // 5) Doors/connectivity
         yield return StartCoroutine(RunDoors());
+        //ClearMapBorders(rooms);   // DEBUG
+        RemoveDuplicateCellsFromAllRooms(rooms);
         DrawMapByRooms(rooms);
         Debug.Log("After doors, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
@@ -324,14 +356,14 @@ public partial class DungeonGenerator : MonoBehaviour
                         if (!In(np.x, np.y))
                         {
                             // fully stuck: pick a fresh random in-bounds location
-                            np = new Vector2Int(RInt(0, W), RInt(0, H));
+                            np = new Vector2Int(RInt(cfg.borderKeepout, W - cfg.borderKeepout), RInt(cfg.borderKeepout, H - cfg.borderKeepout));
                             dir = DirAwayFromEdge(np);
                         }
                     }
                     else
                     {
                         // restart from new random position
-                        np = new Vector2Int(RInt(0, W), RInt(0, H));
+                        np = new Vector2Int(RInt(cfg.borderKeepout, W - cfg.borderKeepout), RInt(cfg.borderKeepout, H - cfg.borderKeepout));
                         dir = DirAwayFromEdge(np);
                     }
                 }
@@ -344,6 +376,7 @@ public partial class DungeonGenerator : MonoBehaviour
             //var tmp_room = new Room { cells = new List<Cell>(corridorCells), isCorridor = true };
             tmp_room.my_room_number = rooms.Count; // a unique room number
             tmp_room.setColorFloor(highlight: false);
+
             tmp_room.isCorridor = true;
             foreach (var cell in tmp_room.cells)
             {
@@ -362,7 +395,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         Debug.Log("Drawing rooms = " + rooms.Count);
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return null; // new WaitForSeconds(1f);
+        yield return null; // new WaitForSeconds(0.1f);
 
         BottomBanner.Show($"Corridors: Drunkard's Walk done. Carved ~{carved} cells.");
 
@@ -372,10 +405,10 @@ public partial class DungeonGenerator : MonoBehaviour
     IEnumerator Corridors_WanderingMST()
     {
         BottomBanner.Show("Corridors: WanderingMST");
-        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
 
         // clamp params to reasonable ranges
-        int width = Mathf.Clamp(cfg.corridor.corridorWidth, 1, 2);
+        int width = Mathf.Clamp(cfg.corridor.corridorWidth, 0, 5);
         int spines = Mathf.Max(1, cfg.corridor.spineCount);
         float wander = Mathf.Clamp(cfg.corridor.wanderiness, 0f, 100f);
         float loopChance = Mathf.Clamp01(cfg.corridor.loopChance);
@@ -389,7 +422,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         Debug.Log("Corridors WanderingMST: Beginning Drawing rooms = " + rooms.Count);
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return null;  // new WaitForSeconds(1f);
+        yield return null;  // new WaitForSeconds(0.1f);
 
         var tmp_room = new Room { cells = new List<Cell>(), isCorridor = true };
         tmp_room.setColorFloor(highlight: false);
@@ -463,7 +496,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         rooms.Add(tmp_room);    // Add to master room list
             */
 
-            yield return null; // new WaitForSeconds(1f);
+            yield return null; // new WaitForSeconds(0.1f);
         }
 
         room_temp = ExtractRoomFromVectors(nodes);
@@ -472,7 +505,7 @@ public partial class DungeonGenerator : MonoBehaviour
         foreach (var cell in room_temp.cells) { cell.colorFloor = room_temp.colorFloor; }
         rooms_temp.Add(room_temp);
         DrawMapByRooms(rooms_temp);
-        yield return null; // new WaitForSeconds(1f);
+        yield return null; // new WaitForSeconds(0.1f);
 
         // ---- before computing MST: dedupe + thin + cap ----
         if (nodes.Count < 2) yield break;
@@ -507,7 +540,7 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.Log("nodes = " + nodes.Count + " after thinned ");
         rooms_temp.Add(room_temp);
         DrawMapByRooms(rooms_temp);
-        yield return null; // new WaitForSeconds(1f);
+        yield return null; // new WaitForSeconds(0.1f);
 
         // 2c) Build MST in a time-sliced way
         List<(Vector2Int a, Vector2Int b)> mstEdges = new List<(Vector2Int, Vector2Int)>(nodes.Count - 1);
@@ -544,7 +577,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
 
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return new WaitForSeconds(.1f);
+        yield return new WaitForSeconds(.05f);
 
         // Helpers...
 
@@ -609,7 +642,7 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         BottomBanner.Show("Seeding: AlongCorridors");
 
-        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
         //int W = packMap.w, H = packMap.h;
         int moat = Mathf.Max(0, cfg.grow.wallMoat);
         int spacing = Mathf.Max(2, cfg.RoomSeeding.spacing);     // min spacing between seeds along corridors
@@ -693,7 +726,7 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 int j = rng.Next(-jitter, jitter + 1);
                 var pj = p + tangent * j;
-                if ((uint)pj.x < (uint)W && (uint)pj.y < (uint)H && packMap.g[pj.x, pj.y].isCorridor)
+                if (In(pj.x, pj.y) && packMap.g[pj.x, pj.y].isCorridor)
                     anchors.Add(pj);
                 else
                     anchors.Add(p);
@@ -771,18 +804,18 @@ public partial class DungeonGenerator : MonoBehaviour
         BottomBanner.Show($"  Seeded {created} room(s) from {anchors.Count} corridor anchors.");
 
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return null; // new WaitForSeconds(1f);
+        yield return null; // new WaitForSeconds(0.1f);
     }
 
     // ======================= Growth: CreditWavefront =======================
-    IEnumerator Grow_CreditWavefrontStrips()
+    IEnumerator Grow_CreditWavefrontStrips(List<int> allowedRoomIds = null)
     {
         BottomBanner.Show("Growth: CreditWavefrontStrips");
         // PRECONDITIONS:
         // - PackMap.rooms contains Room objects
         // - Each Room has at least one seed Cell in PackMap.g[,] with cell.roomId = room.id
         // - Corridors already painted (cell.isCorridor = true)
-        // - We will preserve a 1-cell wall moat (= cfg.grow.wallMoat) around rooms & corridors
+        // - We will preserve an N-cell wall moat (= cfg.grow.wallMoat) around rooms & corridors
 
         int moat = Mathf.Max(0, cfg.grow.wallMoat);
         int nRooms = packMap.rooms.Count;
@@ -790,6 +823,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // credit per room
         var credits = new int[nRooms];
+
         for (int i = 0; i < nRooms; i++)
             credits[i] = rng.Next(cfg.grow.areaCreditMin, cfg.grow.areaCreditMax + 1);
 
@@ -835,43 +869,46 @@ public partial class DungeonGenerator : MonoBehaviour
             BottomBanner.Show($"Growth: Strip rounds (x{stripRounds}) + Wavefront");
             for (round = 0; round < stripRounds * 2; round++) // double the rounds because we randomly skip rooms
             {
-                //bool anyGrewThisRound = false;
+                bool anyGrewThisRound = false;
 
                 for (int ri = 0; ri < packMap.rooms.Count; ri++)
                 {
+                    if (allowedRoomIds != null)         // allow list exists and room is not on it, then skip room.
+                        if (!allowedRoomIds.Contains(ri)) continue;
+
                     if (rng.Next(0, 100) < 50) continue; // randomly skip a room.
                     var room = packMap.rooms[ri];
                     if (room.cells.Count == 0) continue;
 
-                    // Experiment with growing a new room seed in an adjacent cell instead of growing a strip.
-                    if (rng.Next(0, 100) < 0)   // DISABLED
-                    {
-                        Vector2Int seedPos = LookForOpenNeighborCell(ri, moat);
-                        if (seedPos.x != -1 && seedPos.y != -1)
-                        {
-                            CreateRoomSeedAt(seedPos.x, seedPos.y);
-                            nRooms++;
-                            aabbs.Add(ComputeAabb(packMap.rooms[nRooms - 1]));
-                            cooldown[nRooms - 1] = new int[4];
+                    /*                    // Experiment with growing a new room seed in an adjacent cell instead of growing a strip.
+                                        if (rng.Next(0, 100) < 0)   // DISABLED
+                                        {
+                                            Vector2Int seedPos = LookForOpenNeighborCell(ri, moat);
+                                            if (seedPos.x != -1 && seedPos.y != -1)
+                                            {
+                                                CreateRoomSeedAt(seedPos.x, seedPos.y);
+                                                nRooms++;
+                                                aabbs.Add(ComputeAabb(packMap.rooms[nRooms - 1]));
+                                                cooldown[nRooms - 1] = new int[4];
 
-                            // Precompute a room frontier set
-                            frontiers = new List<HashSet<(int x, int y)>>(nRooms);
-                            for (int i = 0; i < nRooms; i++)
-                                frontiers.Add(new HashSet<(int, int)>());
+                                                // Precompute a room frontier set
+                                                frontiers = new List<HashSet<(int x, int y)>>(nRooms);
+                                                for (int i = 0; i < nRooms; i++)
+                                                    frontiers.Add(new HashSet<(int, int)>());
 
-                            // Initialize frontier = perimeter of current room seeds
-                            for (var rri = 0; rri < nRooms; rri++)
-                            {
-                                foreach (var c in packMap.rooms[rri].cells)
-                                    foreach (var nb in FourNeighbors(c.x, c.y))
-                                        if (CanClaim(rri, nb.x, nb.y, moat))
-                                            frontiers[rri].Add((nb.x, nb.y));
-                            }
+                                                // Initialize frontier = perimeter of current room seeds
+                                                for (var rri = 0; rri < nRooms; rri++)
+                                                {
+                                                    foreach (var c in packMap.rooms[rri].cells)
+                                                        foreach (var nb in FourNeighbors(c.x, c.y))
+                                                            if (CanClaim(rri, nb.x, nb.y, moat))
+                                                                frontiers[rri].Add((nb.x, nb.y));
+                                                }
 
-                            continue;
-                        }
-                    }
-
+                                                continue;
+                                            }
+                                        }
+                    */
                     var bb = aabbs[ri];
                     int width = Mathf.Max(1, bb.width);
                     int height = Mathf.Max(1, bb.height);
@@ -891,7 +928,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             // success: update AABB & cooldown bookkeeping
                             aabbs[ri] = bb;
                             //grown = true;
-                            //anyGrewThisRound = true;
+                            anyGrewThisRound = true;
 
                             // Small guard: if aspect exploded, roll back by cooling the long axis next time
                             width = Mathf.Max(1, bb.width); height = Mathf.Max(1, bb.height);
@@ -927,6 +964,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     // Initialize frontier = perimeter of current room seeds
                     for (int rf = 0; rf < nRooms; rf++)
                     {
+                        frontiers[rf].Clear();
                         foreach (var c in packMap.rooms[rf].cells)
                             foreach (var nb in FourNeighbors(c.x, c.y))
                                 if (CanClaim(rf, nb.x, nb.y, moat))
@@ -941,107 +979,58 @@ public partial class DungeonGenerator : MonoBehaviour
                         cooldown[nRooms + j] = new int[4];
                     }
                     nRooms += num_splits;
-                }
-                // Early exit if nothing grew
-                //if (!anyGrewThisRound) break;
-                // DEBUG: Delete all non-corridor Room Cells (only contains seeds, which would be duplicated):
-        foreach (Room room in rooms)
-        {
-            if (room.isCorridor == false) room.cells.Clear();
-        }
-        
-        // foreach (Room r in rooms) r.cells.Clear();  // Debug: eliminate everything
-        for (int x = 0; x < packMap.w; x++)
-        {
-            for (int y = 0; y < packMap.h; y++)
-            {
-                var c = packMap.g[x, y];
-                if (c.roomId < 0) continue;
-                // find room by id and add cell to that room
-                foreach (var r in rooms)
-                {
-                    if (r.my_room_number == c.roomId)
-                    {
-                        r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
-                        break;
-                    }
-                }
-            }
-            yield return null;
-        }
 
-                DrawMapByRooms(rooms, clearscreen: true);
-
-                yield return new WaitForSeconds(0.1f); // should use show-build config option
-            }
-        }
-        // ======= Wavefront rounds (irregular growth) =======
-
-/*
-        if (wavefrontRounds > 0)
-        {
-            credits = new int[nRooms];
-            for (int i = 0; i < nRooms; i++)
-                credits[i] = rng.Next(cfg.grow.areaCreditMin, cfg.grow.areaCreditMax + 1);
-
-            BottomBanner.Show($"Growth: Wavefront rounds (up to {wavefrontRounds})");
-            while (activeRooms > 0 && safety-- > 0)
-            {
-                bool anyClaimed = false;
-
-                for (int ri = 0; ri < nRooms; ri++)
-                {
-                    if (credits[ri] <= 0) continue;
-                    if (frontiers[ri].Count == 0) continue;
-
-                    // Pick a frontier cell (simple heuristic: prefer most neighbors of same room to smooth shapes)
-                    var claim = PickFrontier(frontiers[ri], ri);
-
-                    if (claim.x >= 0)
-                    {
-                        ClaimCell(ri, claim.x, claim.y);
-                        credits[ri]--;
-                        anyClaimed = true;
-
-                        // Update frontier around the new claim
-                        foreach (var nb in FourNeighbors(claim.x, claim.y))
-                        {
-                            if (CanClaim(ri, nb.x, nb.y, moat))
-                                frontiers[ri].Add((nb.x, nb.y));
-                        }
-                        // Remove the claimed cell from all frontiers
-                        frontiers[ri].Remove((claim.x, claim.y));
-                        for (int rj = 0; rj < nRooms; rj++)
-                            if (rj != ri) frontiers[rj].Remove((claim.x, claim.y));
-                    }
-
-                    // yield cooperatively
-                    if (((ri + round) & 63) == 0) yield return null;
-                }
-
-                // Clean up exhausted rooms
-                activeRooms = 0;
-                for (int ri = 0; ri < nRooms; ri++)
-                    if (credits[ri] > 0 && frontiers[ri].Count > 0) activeRooms++;
-
-                // Optionally split oversized rooms every few rounds
-                if ((round++ % 20) == 0)
-                {
                     // Initialize frontier = perimeter of current room seeds
                     for (int rf = 0; rf < nRooms; rf++)
                     {
+                        frontiers[rf].Clear();
                         foreach (var c in packMap.rooms[rf].cells)
                             foreach (var nb in FourNeighbors(c.x, c.y))
                                 if (CanClaim(rf, nb.x, nb.y, moat))
                                     frontiers[rf].Add((nb.x, nb.y));
                     }
-                    SplitOversizedRooms(moat, frontiers);
                 }
+                // Early exit if nothing grew
+                //if (!anyGrewThisRound) break;
+                // DEBUG: Delete all non-corridor Room Cells (only contains seeds, which would be duplicated):
+                //foreach (Room room in rooms)
+                //{
+                //    if (room.isCorridor == false) room.cells.Clear();
+                //}
 
-                if (!anyClaimed) break; // no more expansion possible
+                // foreach (Room r in rooms) r.cells.Clear();  // Debug: eliminate everything
+                /*   for (int x = 0; x < packMap.w; x++)
+                   {
+                       for (int y = 0; y < packMap.h; y++)
+                       {
+                           var c = packMap.g[x, y];
+                           if (c.roomId < 0) continue;
+                           // find room by id and add cell to that room
+                           foreach (var r in rooms)
+                           {
+                               if (r.my_room_number == c.roomId)
+                               {
+                                   r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
+                                   break;
+                               }
+                           }
+                       }
+                       yield return null;
+                   }
+                   */
+                if (anyGrewThisRound)
+                {
+                    DrawMapByRooms(rooms, clearscreen: true);
+                    yield return null;
+                    //yield return new WaitForSeconds(0.025f); // should use show-build config option
+                }
+                else
+                {
+                    yield return null;
+                }
             }
         }
-*/
+
         // TODO: convert claimed PackCells into Room.cells lists
         //for (int ri = 0; ri < nRooms; ri++)
         //{
@@ -1054,8 +1043,7 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             if (room.isCorridor == false) room.cells.Clear();
         }
-        
-        // foreach (Room r in rooms) r.cells.Clear();  // Debug: eliminate everything
+
         for (int x = 0; x < packMap.w; x++)
         {
             for (int y = 0; y < packMap.h; y++)
@@ -1067,6 +1055,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 {
                     if (r.my_room_number == c.roomId)
                     {
+                        // SHOULD NOT ALLOW DUPLICATES TODO
                         r.cells.Add(new Cell(x, y) { colorFloor = r.colorFloor });
                         break;
                     }
@@ -1074,88 +1063,89 @@ public partial class DungeonGenerator : MonoBehaviour
             }
             yield return null;
         }
-        
+
         DrawMapByRooms(rooms, clearscreen: true);
-        yield return new WaitForSeconds(0.1f);
+        yield return null;   // new WaitForSeconds(0.1f);
     }
 
-    IEnumerator Grow_CreditWavefront_Filtered(List<int> allowedRoomIds, int moat, int yieldEvery = 1024)
-    {
-        if (allowedRoomIds == null || allowedRoomIds.Count == 0) yield break;
-
-        int W = packMap.w, H = packMap.h;
-        // Prepare a fast membership set
-        var allowed = new HashSet<int>(allowedRoomIds);
-
-        int nRooms = packMap.rooms.Count;
-        var credits = new int[nRooms];
-        var frontiers = new List<HashSet<(int x, int y)>>(nRooms);
-        for (int i = 0; i < nRooms; i++) frontiers.Add(new HashSet<(int, int)>());
-
-        // Give credits only to allowed rooms, using cfg range
-        for (int ri = 0; ri < nRooms; ri++)
+    /*
+        IEnumerator Grow_CreditWavefront_Filtered(List<int> allowedRoomIds, int moat, int yieldEvery = 1024)
         {
-            if (allowed.Contains(ri))
+            if (allowedRoomIds == null || allowedRoomIds.Count == 0) yield break;
+
+            int W = packMap.w, H = packMap.h;
+            // Prepare a fast membership set
+            var allowed = new HashSet<int>(allowedRoomIds);
+
+            int nRooms = packMap.rooms.Count;
+            var credits = new int[nRooms];
+            var frontiers = new List<HashSet<(int x, int y)>>(nRooms);
+            for (int i = 0; i < nRooms; i++) frontiers.Add(new HashSet<(int, int)>());
+
+            // Give credits only to allowed rooms, using cfg range
+            for (int ri = 0; ri < nRooms; ri++)
             {
-                credits[ri] = UnityEngine.Random.Range(cfg.grow.areaCreditMin, cfg.grow.areaCreditMax + 1);
-                // Init frontier from existing cells
-                foreach (var c in packMap.rooms[ri].cells)
-                    foreach (var nb in FourNeighbors(c.x, c.y))
-                        if (CanClaim(ri, nb.x, nb.y, moat))
-                            frontiers[ri].Add((nb.x, nb.y));
-            }
-        }
-
-        int touched = 0;
-        bool progress = true;
-        while (progress)
-        {
-            progress = false;
-
-            foreach (int ri in allowed)
-            {
-                if (credits[ri] <= 0) continue;
-                var f = frontiers[ri];
-                if (f.Count == 0) continue;
-
-                // Make a few claims per sweep to keep things moving
-                int claimsPerSweep = 8;
-                int claims = 0;
-
-                while (claims < claimsPerSweep && credits[ri] > 0 && f.Count > 0)
+                if (allowed.Contains(ri))
                 {
-                    var pick = PickFrontier_CompactBias(f, ri);
-                    if (pick.x < 0) break;
+                    credits[ri] = UnityEngine.Random.Range(cfg.grow.areaCreditMin, cfg.grow.areaCreditMax + 1);
+                    // Init frontier from existing cells
+                    foreach (var c in packMap.rooms[ri].cells)
+                        foreach (var nb in FourNeighbors(c.x, c.y))
+                            if (CanClaim(ri, nb.x, nb.y, moat))
+                                frontiers[ri].Add((nb.x, nb.y));
+                }
+            }
 
-                    // Claim
-                    var c = packMap.g[pick.x, pick.y];
-                    c.roomId = ri;
-                    packMap.rooms[ri].cells.Add(c);
+            int touched = 0;
+            bool progress = true;
+            while (progress)
+            {
+                progress = false;
 
-                    // Add the "real" version for drawing
-                    Cell real_cell = new(pick.x, pick.y);
-                    rooms[ri].cells.Add(real_cell); // is ri the correct index?
+                foreach (int ri in allowed)
+                {
+                    if (credits[ri] <= 0) continue;
+                    var f = frontiers[ri];
+                    if (f.Count == 0) continue;
 
-                    credits[ri]--;
-                    progress = true;
+                    // Make a few claims per sweep to keep things moving
+                    int claimsPerSweep = 8;
+                    int claims = 0;
 
-                    // Update frontier
-                    foreach (var nb in FourNeighbors(pick.x, pick.y))
-                        if (CanClaim(ri, nb.x, nb.y, moat))
-                            f.Add((nb.x, nb.y));
+                    while (claims < claimsPerSweep && credits[ri] > 0 && f.Count > 0)
+                    {
+                        var pick = PickFrontier_CompactBias(f, ri);
+                        if (pick.x < 0) break;
 
-                    // Remove from all frontiers
-                    f.Remove((pick.x, pick.y));
-                    for (int rj = 0; rj < frontiers.Count; rj++)
-                        if (rj != ri) frontiers[rj].Remove((pick.x, pick.y));
+                        // Claim
+                        var c = packMap.g[pick.x, pick.y];
+                        c.roomId = ri;
+                        packMap.rooms[ri].cells.Add(c);
 
-                    if ((++touched % yieldEvery) == 0) yield return null;
-                    claims++;
+                        // Add the "real" version for drawing
+                        Cell real_cell = new(pick.x, pick.y);
+                        rooms[ri].cells.Add(real_cell); // is ri the correct index?
+
+                        credits[ri]--;
+                        progress = true;
+
+                        // Update frontier
+                        foreach (var nb in FourNeighbors(pick.x, pick.y))
+                            if (CanClaim(ri, nb.x, nb.y, moat))
+                                f.Add((nb.x, nb.y));
+
+                        // Remove from all frontiers
+                        f.Remove((pick.x, pick.y));
+                        for (int rj = 0; rj < frontiers.Count; rj++)
+                            if (rj != ri) frontiers[rj].Remove((pick.x, pick.y));
+
+                        if ((++touched % yieldEvery) == 0) yield return null;
+                        claims++;
+                    }
                 }
             }
         }
-    }
-
+    */
     // ======================= Scraps: VoronoiFill (with 1-cell peel) =======================
     // Usage:
     //   yield return StartCoroutine(Scraps_VoronoiFill(
@@ -1165,7 +1155,7 @@ public partial class DungeonGenerator : MonoBehaviour
     //       yieldEvery: 2048));
     IEnumerator Scraps_VoronoiFill(int moatOverride = -1, bool useCentroids = true, int peelIterations = 1, int yieldEvery = 2048)
     {
-        int W = packMap.w, H = packMap.h;
+        int W = cfg.mapWidth, H = cfg.mapHeight;
         int moat = (moatOverride >= 0) ? moatOverride : Mathf.Max(0, cfg.grow.wallMoat);
         peelIterations = Mathf.Clamp(peelIterations, 1, 4);
 
@@ -1220,6 +1210,7 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             for (int x = 0; x < W; x++)
             {
+                if (In(x, y)) continue;  // skip off map and borders.
                 if (label[x, y] != -1) continue; // skip non-scraps
 
                 // Keep at least 'moat' cells away from existing rooms & corridors
@@ -1293,10 +1284,13 @@ public partial class DungeonGenerator : MonoBehaviour
         for (int ri = 0; ri < packMap.rooms.Count; ri++)
         {
             var r = packMap.rooms[ri];
-            if (r.cells == null || r.cells.Count == 0) { r.bounds = new RectInt(0,0,0,0); continue; }
+            r.static_bounds = r.getBounds();
+            /*
+            if (r.cells == null || r.cells.Count == 0) { r.bounds = new RectInt(0, 0, 0, 0); continue; }
             int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
             foreach (var c in r.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
             r.bounds = new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
+            */
             if ((ri & 31) == 0) yield return null;
         }
 
@@ -1324,12 +1318,12 @@ public partial class DungeonGenerator : MonoBehaviour
         DrawMapByRooms(rooms, clearscreen: true);
 
         yield return new WaitForSeconds(0.1f); // should use show-build config option
-    
+
 
 
         yield break;
     }
-        
+
     // ======================= Scraps: Seed & Grow Until Packed =======================
     // Usage example:
     //   yield return StartCoroutine(Scraps_SeedAndGrowUntilPacked(
@@ -1391,7 +1385,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         cells.Add(p);
                         foreach (var nb in FourNeighbors(p.x, p.y))
                         {
-                            if ((uint)nb.x >= (uint)W || (uint)nb.y >= (uint)H) continue;
+                            if (!In(nb.x, nb.y)) continue;
                             if (!scrap[nb.x, nb.y] || seen[nb.x, nb.y]) continue;
                             seen[nb.x, nb.y] = true;
                             q.Enqueue(nb);
@@ -1468,7 +1462,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (c.roomId >= 0 || c.isCorridor) continue; // safety
                     c.roomId = id;
                     room.cells.Add(c);
-                    room.bounds = new RectInt(s.x, s.y, 1, 1);
+                    room.static_bounds = new RectInt(s.x, s.y, 1, 1);
                     packMap.rooms.Add(room);
                     newRoomIds.Add(id);
                     createdSeeds++;
@@ -1478,7 +1472,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     real_room.my_room_number = id;
                     real_room.setColorFloor(highlight: true);
 
-                    Cell real_cell = new(s.x, s.y, 50 * (round + 1)); // DEBUG: new cells get higher on further rounds.
+                    Cell real_cell = new(s.x, s.y, 50 * (round + 1)); // DEBUG: new cells get placed higher vertically on further rounds.
                     real_cell.colorFloor = real_room.colorFloor;
                     real_cell.room_number = real_room.my_room_number;
 
@@ -1486,18 +1480,20 @@ public partial class DungeonGenerator : MonoBehaviour
                     rooms.Add(real_room);               // the seeded room (with 1 cell)
                 }
 
-                DrawMapByRooms(rooms, clearscreen: true);
-                yield return new WaitForSeconds(0.1f);
-
-                if (createdSeeds % 64 == 0) yield return null;
+                if (createdSeeds % 64 == 0) yield return null;   // breathe
             }
 
             // If nothing seeded this round, bail to avoid infinite loop
             if (createdSeeds == 0) yield break;
 
+            if (cfg.showBuildProcess)       // draw the seeds
+            {
+                DrawMapByRooms(rooms, clearscreen: true);
+                yield return new WaitForSeconds(0.025f);
+            }
             // 4) Grow *only* the newly created rooms with a filtered credit wavefront
-            yield return StartCoroutine(Grow_CreditWavefront_Filtered(newRoomIds, moat, yieldEvery));
-
+            //yield return StartCoroutine(Grow_CreditWavefront_Filtered(newRoomIds, moat, yieldEvery));
+            yield return StartCoroutine(Grow_CreditWavefrontStrips(newRoomIds));
             // 5) Loop and see if more scraps remain next round
         }
         yield break;
@@ -1507,26 +1503,25 @@ public partial class DungeonGenerator : MonoBehaviour
 
     bool CanPlaceReSeed(int x, int y, int moatCells)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
-        if ((uint)x >= (uint)W || (uint)y >= (uint)H) return false;
+        if (!In(x, y)) return false;
         var c = packMap.g[x, y];
         if (c.isCorridor) return false;
         if (c.roomId >= 0) return false;
 
         // keep distance from corridors & existing rooms (moat)
         for (int dy = -moatCells; dy <= moatCells; dy++)
-        for (int dx = -moatCells; dx <= moatCells; dx++)
-        {
-            int nx = x + dx, ny = y + dy;
-            if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) continue;
-            var n = packMap.g[nx, ny];
-            if (n.isCorridor) return false;
-            if (n.roomId >= 0) return false;
-        }
+            for (int dx = -moatCells; dx <= moatCells; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) continue;
+                var n = packMap.g[nx, ny];
+                if (n.isCorridor) return false;
+                if (n.roomId >= 0) return false;
+            }
         return true;
     }
 
-    int Manhattan((int x,int y) a, (int x,int y) b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
+    int Manhattan((int x, int y) a, (int x, int y) b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
 
 
     // =========================================================
@@ -1538,12 +1533,12 @@ public partial class DungeonGenerator : MonoBehaviour
     bool IsNearCorridor(int x, int y, int moatCells)
     {
         for (int dy = -moatCells; dy <= moatCells; dy++)
-        for (int dx = -moatCells; dx <= moatCells; dx++)
-        {
-            int nx = x + dx, ny = y + dy;
-            if (!In(nx, ny)) continue;
-            if (packMap.g[nx, ny].isCorridor) return true;
-        }
+            for (int dx = -moatCells; dx <= moatCells; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) continue;
+                if (packMap.g[nx, ny].isCorridor) return true;
+            }
         return false;
     }
 
@@ -1551,29 +1546,29 @@ public partial class DungeonGenerator : MonoBehaviour
     bool ClearOfForeign(int x, int y, int moatCells)
     {
         for (int dy = -moatCells; dy <= moatCells; dy++)
-        for (int dx = -moatCells; dx <= moatCells; dx++)
-        {
-            int nx = x + dx, ny = y + dy;
-            if (!In(nx, ny)) continue;
-            var n = packMap.g[nx, ny];
-            if (n.isCorridor) return false;
-            if (n.roomId >= 0) return false; // keep clearance from *current* rooms
-        }
+            for (int dx = -moatCells; dx <= moatCells; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) continue;
+                var n = packMap.g[nx, ny];
+                if (n.isCorridor) return false;
+                if (n.roomId >= 0) return false; // keep clearance from *current* rooms
+            }
         return true;
     }
 
     bool TouchesDifferentOrCorridor(int[,] lab, int x, int y, int my, int moatCells)
     {
         for (int dy = -moatCells; dy <= moatCells; dy++)
-        for (int dx = -moatCells; dx <= moatCells; dx++)
-        {
-            int nx = x + dx, ny = y + dy;
-            if (!In(nx, ny)) continue;
+            for (int dx = -moatCells; dx <= moatCells; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) continue;
 
-            if (packMap.g[nx, ny].isCorridor) return true;
-            int l = lab[nx, ny];
-            if (l >= 0 && l != my) return true;
-        }
+                if (packMap.g[nx, ny].isCorridor) return true;
+                int l = lab[nx, ny];
+                if (l >= 0 && l != my) return true;
+            }
         return false;
     }
 
@@ -1598,15 +1593,15 @@ public partial class DungeonGenerator : MonoBehaviour
         WW = new Vector2Int(box.x - moat - 1, starter.y);
         EE = new Vector2Int(starter.x, box.y - moat - 1);
 
-        if(In(NN.x,NN.y)) N = packMap.g[NN.x, NN.y];
-        if(In(SS.x,SS.y)) S = packMap.g[SS.x, SS.y];
-        if(In(WW.x,WW.y)) W = packMap.g[WW.x, WW.y];
-        if(In(EE.x,EE.y)) E = packMap.g[EE.x, EE.y];
+        if (In(NN.x, NN.y)) N = packMap.g[NN.x, NN.y];
+        if (In(SS.x, SS.y)) S = packMap.g[SS.x, SS.y];
+        if (In(WW.x, WW.y)) W = packMap.g[WW.x, WW.y];
+        if (In(EE.x, EE.y)) E = packMap.g[EE.x, EE.y];
 
-        if (In(NN.x,NN.y) && N.isCorridor == false && N.roomId > 0) return NN;
-        if (In(SS.x,SS.y) && S.isCorridor == false && S.roomId > 0) return SS;
-        if (In(WW.x,WW.y) && W.isCorridor == false && W.roomId > 0) return WW;
-        if (In(EE.x,EE.y) && E.isCorridor == false && E.roomId > 0) return EE;
+        if (In(NN.x, NN.y) && N.isCorridor == false && N.roomId > 0) return NN;
+        if (In(SS.x, SS.y) && S.isCorridor == false && S.roomId > 0) return SS;
+        if (In(WW.x, WW.y) && W.isCorridor == false && W.roomId > 0) return WW;
+        if (In(EE.x, EE.y) && E.isCorridor == false && E.roomId > 0) return EE;
         return new Vector2Int(-1, -1);
     }
 
@@ -1620,7 +1615,7 @@ public partial class DungeonGenerator : MonoBehaviour
             // score by how many owned neighbors (smooth boundary) and how far from corridors
             foreach (var nb in FourNeighbors(p.x, p.y))
             {
-                if ((uint)nb.x >= (uint)packMap.w || (uint)nb.y >= (uint)packMap.h) continue;
+                if (!In(nb.x, nb.y)) continue;
                 if (packMap.g[nb.x, nb.y].roomId == ri) s += 2;
                 if (packMap.g[nb.x, nb.y].isCorridor) s -= 3;
             }
@@ -1639,14 +1634,13 @@ public partial class DungeonGenerator : MonoBehaviour
             var r = packMap.rooms[i];
             int area = r.cells.Count;
             if (area <= cfg.grow.splitArea) continue; // Don't cut room
-
+            RectInt old_bounding_box = r.getBounds();
             // Compute room AABB and aspect ratio
-            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-            foreach (var c in r.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-            r.bounds = new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
+            RectInt bounds = r.getBounds();
+            int minx = bounds.x, miny = bounds.y, maxx = bounds.xMax, maxy = bounds.yMax;
 
-            int w = Mathf.Max(1, maxx - minx + 1);
-            int h = Mathf.Max(1, maxy - miny + 1);
+            int w = Mathf.Max(1, bounds.width); //maxx - minx + 1);
+            int h = Mathf.Max(1, bounds.height); //maxy - miny + 1);
             float aspect = (float)Mathf.Max(w, h) / Mathf.Max(1, Mathf.Min(w, h));
             if (aspect < cfg.grow.splitAspect) continue; // Don't cut room
 
@@ -1663,10 +1657,12 @@ public partial class DungeonGenerator : MonoBehaviour
             new_real_room.my_room_number = rooms.Count;
             // Reassign cells and carve a 1-cell wall along cut line
             var keep = new List<PackCell>();
-            foreach (var c in r.cells)
+            //foreach (var c in r.cells)
+            for (int old_cell_num = r.cells.Count - 1; old_cell_num >= 0; old_cell_num--) // count backwards because we will be deleting cells.
             {
                 bool leftSide;
                 bool onCut;
+                PackCell c = r.cells[old_cell_num];
                 if (cfg.useThinWalls)
                 {
                     leftSide = splitVert ? (c.x < cut) : (c.y < cut);
@@ -1683,6 +1679,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     // leave as wall: unassign
                     int old_room_id = c.roomId;
                     c.roomId = -1;
+                    //packMap.rooms[old_room_id].cells.RemoveAt(old_cell_num);
                     // remove from the Room.Cells list. // DEBUG: Does this work????
                     //DeleteAllCellsAtPos(new Vector2Int(c.x, c.y));
                     //Cell cell;
@@ -1692,11 +1689,11 @@ public partial class DungeonGenerator : MonoBehaviour
 
                     // clear the tile on the screen
                     tilemap.SetTile(new Vector3Int(c.x, c.y, 0), null);
+
                     continue;
                 }
-                if (leftSide) // keep in original room
+                else if (leftSide) // keep in original room
                 {
-                    int old_room_id = c.roomId;
                     keep.Add(c);
 
                 }
@@ -1705,9 +1702,11 @@ public partial class DungeonGenerator : MonoBehaviour
                     int old_room_id = c.roomId;
                     int new_room_id = newRoom.id;
                     c.roomId = newRoom.id;
-                    newRoom.cells.Add(c);
 
-                    packMap.g[c.x, c.y] = c;
+                    newRoom.cells.Add(c);
+                    //r.cells.RemoveAt(old_cell_num); // automatically overwritten at end?
+
+                    packMap.g[c.x, c.y] = c;    // unchanged, we are already modifying the cell
                     // add a cell to a new room
                     Cell new_real_cell = new(c.x, c.y, 100);    // DEBUG: Set z to float new room above others
                     new_real_cell.colorFloor = new_real_room.colorFloor;
@@ -1723,29 +1722,44 @@ public partial class DungeonGenerator : MonoBehaviour
                 }
             }
             r.cells = keep;
+
+            // DEBUG: Look for duplicates.... not finding any????
+            RemoveDuplicatePackCells(r.cells);
+            RemoveDuplicatePackCells(newRoom.cells);
+            List<PackCell> combined = r.cells;
+            combined.AddRange(newRoom.cells);
+            RemoveDuplicatePackCells(combined);
+
             if (newRoom.cells.Count > 0)
             {
-                Debug.Log($"adding nnew_real_room #{rooms.Count} with {new_real_room.cells.Count} cells");
+                Debug.Log($"adding new_real_room #{rooms.Count} with {new_real_room.cells.Count} cells");
                 packMap.rooms.Add(newRoom);
                 rooms.Add(new_real_room);
             }
+            RemoveDuplicateCells(new_real_room.cells);
+
             cuts_made++;
+
+            RectInt new_box_a = r.getBounds();  // recalculate bounding box.
+            RectInt new_box_b = newRoom.getBounds();    // recalculate bounding box.
+
             Debug.Log($"Splitting room {i} into newroom {newRoom.id}; splitvert {splitVert}; cutline = {cut} ({splitPercent}%)");
+            Debug.Log($"original_box = {old_bounding_box.x},{old_bounding_box.y},{old_bounding_box.xMax},{old_bounding_box.yMax}");
+            Debug.Log($"new_box_a    = {new_box_a.x},{new_box_a.y},{new_box_a.xMax},{new_box_a.yMax}");
+            Debug.Log($"new_box_b    = {new_box_b.x},{new_box_b.y},{new_box_b.xMax},{new_box_b.yMax}");
+
             // refresh frontiers roughly (cheap approach: recompute perimeter for both rooms)
             // NOTE: frontiers list size must match rooms; expand if we added a new room
-            while (frontiers.Count < packMap.rooms.Count) frontiers.Add(new HashSet<(int, int)>());
-            //for(int fi=0;fi<frontiers.Count;fi++)
-            //    RebuildFrontierFor(fi, moatCells, frontiers[fi]);
+
             //RebuildFrontierFor(newRoom.id, moatCells, frontiers[newRoom.id]);
         }
 
-        foreach (PackRoom r in packMap.rooms)
-        {
-            // Re-compute room bounds after cuttings made
-            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-            foreach (var c in r.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-            r.bounds = new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
-        }
+        // Re-compute room bounds after cuttings made
+        foreach (PackRoom r in packMap.rooms) r.getBounds();
+        // Rebuild frontiers also.
+        while (frontiers.Count < packMap.rooms.Count) frontiers.Add(new HashSet<(int, int)>());
+        for (int fi = 0; fi < frontiers.Count; fi++)
+            RebuildFrontierFor(fi, moatCells, frontiers[fi]);
 
         return cuts_made;
     }
@@ -1811,7 +1825,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // compactness bias: push short axis first
         if (preferShortAxis) { sN += 10; sS += 10; }
-        else                 { sE += 10; sW += 10; }
+        else { sE += 10; sW += 10; }
 
         list.Add((0, sE)); list.Add((1, sW)); list.Add((2, sN)); list.Add((3, sS));
         list.Sort((a, b) => b.score.CompareTo(a.score));
@@ -1823,7 +1837,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // side: 0=E (x=max+1), 1=W (x=min-1), 2=N (y=max+1), 3=S (y=min-1)
     bool TryGrowFullStrip(int ri, ref RectInt bb, int side, int moatCells)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int W = cfg.mapWidth, H = cfg.mapHeight;    // DEBUG: was -1 for both
         int minx = bb.xMin, maxx = bb.xMax - 1;
         int miny = bb.yMin, maxy = bb.yMax - 1;
 
@@ -1874,16 +1888,16 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // Wavefront helpers (compactness-biased pick)
-    (int x,int y) PickFrontier_CompactBias(HashSet<(int x,int y)> frontier, int ri)
+    (int x, int y) PickFrontier_CompactBias(HashSet<(int x, int y)> frontier, int ri)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
-        int bestScore = int.MinValue; (int x,int y) best = (-1,-1);
+        int W = cfg.mapWidth, H = cfg.mapHeight;    // Debug was -1
+        int bestScore = int.MinValue; (int x, int y) best = (-1, -1);
         foreach (var p in frontier)
         {
             int s = 0;
             foreach (var nb in FourNeighbors(p.x, p.y))
             {
-                if ((uint)nb.x >= (uint)W || (uint)nb.y >= (uint)H) continue;
+                if (!In(nb.x, nb.y)) continue;
                 if (packMap.g[nb.x, nb.y].roomId == ri) s += 2;               // prefer filling along our boundary
                 if (packMap.g[nb.x, nb.y].isCorridor) s -= 3;                  // keep distance to corridors
             }
@@ -1893,35 +1907,34 @@ public partial class DungeonGenerator : MonoBehaviour
         return best;
     }
 
-    IEnumerable<(int x,int y)> FourNeighbors(int x, int y)
+    IEnumerable<(int x, int y)> FourNeighbors(int x, int y)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
-        if (x > 0)       yield return (x - 1, y);
-        if (x < W - 1)   yield return (x + 1, y);
-        if (y > 0)       yield return (x, y - 1);
-        if (y < H - 1)   yield return (x, y + 1);
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
+        if (x > 0) yield return (x - 1, y);
+        if (x < W - 1) yield return (x + 1, y);
+        if (y > 0) yield return (x, y - 1);
+        if (y < H - 1) yield return (x, y + 1);
     }
 
     bool CanClaim(int ri, int x, int y, int moatCells)
     {
-       // if (cfg.useThinWalls) moatCells = 0;  // already set elsewhere
+        // if (cfg.useThinWalls) moatCells = 0;  // already set elsewhere
 
-        int W = cfg.mapWidth, H = cfg.mapHeight;
-        if ((uint)x >= (uint)W || (uint)y >= (uint)H) return false;
+        if (!In(x, y)) return false;
         var c = packMap.g[x, y];
         if (c.isCorridor) return false;
         if (c.roomId >= 0 && c.roomId != ri) return false;
 
         // keep a moat around corridors and other rooms
         for (int dy = -moatCells; dy <= moatCells; dy++)
-        for (int dx = -moatCells; dx <= moatCells; dx++)
-        {
-            int nx = x + dx, ny = y + dy;
-            if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) continue;
-            var n = packMap.g[nx, ny];
-            if (n.isCorridor) return false;
-            if (n.roomId >= 0 && n.roomId != ri) return false;
-        }
+            for (int dx = -moatCells; dx <= moatCells; dx++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!In(nx, ny)) return false;
+                var n = packMap.g[nx, ny];
+                if (n.isCorridor) return false;
+                if (n.roomId >= 0 && n.roomId != ri) return false;
+            }
         return true;
     }
 
@@ -1939,10 +1952,200 @@ public partial class DungeonGenerator : MonoBehaviour
 
     // ---- local helpers ----
 
+    bool tryAddRoom(List<Room> rooms, Room room)
+    {
+        foreach (Room r in rooms)
+        {
+            // TODO: check contents instead ?????
+            if (r == room) return false;
+        }
+        rooms.Add(room);
+        return true;
+    }
+
+    bool tryAddCell(List<Cell> cells, Cell cell)
+    {
+        foreach (Cell c in cells)
+        {
+            if (c == cell) return false;
+        }
+        cells.Add(cell);
+        return true;
+    }
+
+    bool tryAddPackRoom(List<PackRoom> rooms, PackRoom room)
+    {
+        foreach (PackRoom r in rooms)
+        {
+            // TODO: check contents instead ?????
+            if (r == room) return false;
+        }
+        rooms.Add(room);
+        return true;
+    }
+
+    bool tryAddPackCell(List<PackCell> cells, PackCell cell)
+    {
+        foreach (PackCell c in cells)
+        {
+            if (c == cell) return false;
+        }
+        cells.Add(cell);
+        return true;
+    }
+
+    public static int RemoveDuplicateCells(List<Cell> cells)
+    {
+        if (cells == null || cells.Count == 0) return 0;
+
+        int originalCount = cells.Count;
+
+        // Seen coordinates
+        var seen = new HashSet<(int, int, int)>();
+        // New list preserving order
+        var unique = new List<Cell>(cells.Count);
+
+        foreach (var c in cells)
+        {
+            var key = (c.x, c.y, c.z);
+            if (!seen.Contains(key))
+            {
+                seen.Add(key);
+                unique.Add(c);   // preserve first occurrence order
+            }
+        }
+
+        // Replace original contents
+        cells.Clear();
+        cells.AddRange(unique);
+
+        int num_removed = originalCount - cells.Count;
+        if (num_removed > 0) Debug.Log($"RemoveDuplicateCells removed {num_removed}");
+        return num_removed; // number removed
+    }
+
+    public static int RemoveDuplicatePackCells(List<PackCell> cells)
+    {
+        if (cells == null || cells.Count == 0) return 0;
+
+        int originalCount = cells.Count;
+
+        // Seen coordinates
+        var seen = new HashSet<(int, int)>();
+        // New list preserving order
+        var unique = new List<PackCell>(cells.Count);
+
+        foreach (var c in cells)
+        {
+            var key = (c.x, c.y);
+            if (!seen.Contains(key))
+            {
+                seen.Add(key);
+                unique.Add(c);   // preserve first occurrence order
+            }
+        }
+
+        // Replace original contents
+        cells.Clear();
+        cells.AddRange(unique);
+
+        int num_removed = originalCount - cells.Count;
+        if (num_removed > 0) Debug.Log($"RemoveDuplicatePackCells removed {num_removed}");
+        return num_removed; // number removed
+    }
+
+    public static int RemoveDuplicateCellsFromAllRooms(List<Room> rooms)
+    {
+        int originalCount = 0;
+        int afterCount = 0;
+
+        // Seen coordinates
+        var seen = new HashSet<(int, int, int)>();
+        // New list preserving order
+        var unique = new List<Cell>(1024);
+
+        foreach (Room room in rooms)
+        {
+            List<Cell> cells = room.cells;
+
+            if (cells == null || cells.Count == 0) return 0;
+
+            originalCount += cells.Count;
+
+            // Seen coordinates
+            //var seen = new HashSet<(int, int, int)>();
+            // New list preserving order
+            //var unique = new List<Cell>(cells.Count);
+
+            foreach (var c in cells)
+            {
+                var key = (c.x, c.y, c.z);
+                if (!seen.Contains(key))
+                {
+                    seen.Add(key);
+                    unique.Add(c);   // preserve first occurrence order
+                }
+            }
+
+            // Replace original contents
+            cells.Clear();
+            cells.AddRange(unique);
+            afterCount += cells.Count;
+        }
+        int num_removed = originalCount - afterCount;
+        if (num_removed > 0) Debug.Log($"RemoveDuplicateCellsFromAllRooms removed {num_removed}");
+        return num_removed; // number removed
+    }
+
+    public static int RemoveDuplicatePackCellsFromAllRooms(List<PackRoom> rooms)
+    {
+        int originalCount = 0;
+        int afterCount = 0;
+
+        // Seen coordinates
+        var seen = new HashSet<(int, int)>();
+        // New list preserving order
+        var unique = new List<PackCell>(1024);
+
+        foreach (PackRoom room in rooms)
+        {
+            List<PackCell> cells = room.cells;
+
+            if (cells == null || cells.Count == 0) return 0;
+
+            originalCount += cells.Count;
+
+            // Seen coordinates
+            //var seen = new HashSet<(int, int)>();
+            // New list preserving order
+            //var unique = new List<PackCell>(cells.Count);
+
+            foreach (var c in cells)
+            {
+                var key = (c.x, c.y);
+                if (!seen.Contains(key))
+                {
+                    seen.Add(key);
+                    unique.Add(c);   // preserve first occurrence order
+                }
+            }
+
+            // Replace original contents
+            cells.Clear();
+            cells.AddRange(unique);
+            afterCount += cells.Count;
+        }
+        int num_removed = originalCount - afterCount;
+        if (num_removed > 0) Debug.Log($"RemoveDuplicatePackCellsFromAllRooms removed {num_removed}");
+        return num_removed; // number removed
+    }
+
+
+
     int CountCorridorNeighbors(int x, int y)
     {
         int minStraight = cfg.corridor.corridorWidth;
-        int scanLen = minStraight+1;
+        int scanLen = minStraight + 1;
         int c = 0;
         int L = CountRun(x, y, -1, 0, scanLen);
         int R = CountRun(x, y, 1, 0, scanLen);
@@ -1957,7 +2160,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     int CountCorridorNeighbors_old(int x, int y)
     {
-        int W=cfg.mapWidth, H=cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
         int c = 0;
         if (x > 0 && packMap.g[x - 1, y].isCorridor) c++;
         if (x < W - 1 && packMap.g[x + 1, y].isCorridor) c++;
@@ -1969,7 +2172,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // PickTangentDir() works for corridors 1 or 2 cells wide, not for 3 or more.
     Vector2Int PickTangentDir_old(int x, int y)
     {
-        int W=cfg.mapWidth, H=cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
         // Favor a straight neighbor pair if present (→ a stable tangent)
         bool L = x > 0 && packMap.g[x - 1, y].isCorridor;
         bool R = x < W - 1 && packMap.g[x + 1, y].isCorridor;
@@ -1994,7 +2197,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // (0,1) for vertical, or Vector2Int.zero if nothing usable is found.
     Vector2Int PickTangentDir(int x, int y, int scanLen = 12, int minStraight = 2)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
 
         int L = CountRun(x, y, -1, 0, scanLen);
         int R = CountRun(x, y, 1, 0, scanLen);
@@ -2028,13 +2231,11 @@ public partial class DungeonGenerator : MonoBehaviour
 
     int CountRun(int sx, int sy, int dx, int dy, int maxSteps)
     {
-        int W = cfg.mapWidth, H = cfg.mapHeight;
-
         int c = 0;
         for (int i = 1; i <= maxSteps; i++)
         {
             int nx = sx + dx * i, ny = sy + dy * i;
-            if ((uint)nx >= (uint)W || (uint)ny >= (uint)H) break;
+            if (!In(nx, ny)) break;
 
             // Fast path using your grid flag:
             if (!packMap.g[nx, ny].isCorridor) break;
@@ -2050,6 +2251,7 @@ public partial class DungeonGenerator : MonoBehaviour
         return left ? new Vector2Int(-t.y, t.x) : new Vector2Int(t.y, -t.x);
     }
 
+    // In-place shuffle of a list of Vector2Int
     void Shuffle(List<Vector2Int> list)
     {
         for (int i = list.Count - 1; i > 0; --i)
@@ -2089,7 +2291,7 @@ public partial class DungeonGenerator : MonoBehaviour
         c.roomId = r.id;
         r.cells.Add(c);
         packMap.g[x, y] = c;
-        r.bounds = new RectInt(x, y, 1, 1);
+        r.static_bounds = new RectInt(x, y, 1, 1);
         packMap.rooms.Add(r);
         // Also add to main room list for drawing
         Room room = new Room { my_room_number = r.id, cells = new List<Cell> { new Cell(x, y, 2) }, isCorridor = false };
@@ -2100,86 +2302,83 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.Log($"Created Room {c.roomId} seed at {x},{y}");
     }
 
-
-
-
     // ======================= Convert PackMap to usable format =======================
-/*
-    public List<Room> ExtractRoomsFromPackedRooms(PackMap packMap)
-    {
-        Color color;
-        Debug.Log($"Extracting {packMap.rooms.Count} rooms and {packMap.corridors.Count} corridors from PackMap...");
-
-        var result = new List<Room>(packMap.rooms.Count);
-        //HashSet<(int, int)> corridorHash = new();
-        // Convert corridors
-        foreach (var pr in packMap.corridors)
+    /*
+        public List<Room> ExtractRoomsFromPackedRooms(PackMap packMap)
         {
-            List<Cell> cells = new();
+            Color color;
+            Debug.Log($"Extracting {packMap.rooms.Count} rooms and {packMap.corridors.Count} corridors from PackMap...");
 
-            //if (pr.cells.Count == 0) continue;
-            // Finalize room bounds
-            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-
-            // Create this Room's cell list (x,y) only
-            foreach (var c in packMap.g)
+            var result = new List<Room>(packMap.rooms.Count);
+            //HashSet<(int, int)> corridorHash = new();
+            // Convert corridors
+            foreach (var pr in packMap.corridors)
             {
-                cells.Add(new Cell(c.x, c.y));
-                { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-            }
-            Debug.Log($" Corridor has {cells.Count} cells, bounds {minx},{miny} to {maxx},{maxy}");
+                List<Cell> cells = new();
 
-            // Create Room object
-            var r = new Room
-            {
-                my_room_number = 1,
-                area = cells.Count,
-                bounds = new RectInt(minx, miny, Mathf.Max(1, maxx - minx + 1), Mathf.Max(1, maxy - miny + 1)),
-                cells = cells,
-                isCorridor = true,
-            };
-            r.setColorFloor(highlight: false);
-            color = r.colorFloor;
-            foreach (Cell cell in r.cells) cell.colorFloor = color;
-            result.Add(r);
-        }
+                //if (pr.cells.Count == 0) continue;
+                // Finalize room bounds
+                int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
 
+                // Create this Room's cell list (x,y) only
+                foreach (var c in packMap.g)
+                {
+                    cells.Add(new Cell(c.x, c.y));
+                    { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
+                }
+                Debug.Log($" Corridor has {cells.Count} cells, bounds {minx},{miny} to {maxx},{maxy}");
 
-        // Repeat for rooms
-        foreach (var pr in packMap.rooms)
-        {
-            List<Cell> cells = new();
-
-            if (pr.cells.Count == 0) continue;
-            // Finalize room bounds
-            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-            foreach (var c in pr.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-            pr.bounds = new RectInt(minx, miny, Mathf.Max(1, maxx - minx + 1), Mathf.Max(1, maxy - miny + 1));
-
-            // Create this Room's cell list (x,y) only
-
-            foreach (var c in pr.cells)
-            {
-                cells.Add(new Cell(c.x, c.y));
+                // Create Room object
+                var r = new Room
+                {
+                    my_room_number = 1,
+                    area = cells.Count,
+                    bounds = new RectInt(minx, miny, Mathf.Max(1, maxx - minx + 1), Mathf.Max(1, maxy - miny + 1)),
+                    cells = cells,
+                    isCorridor = true,
+                };
+                r.setColorFloor(highlight: false);
+                color = r.colorFloor;
+                foreach (Cell cell in r.cells) cell.colorFloor = color;
+                result.Add(r);
             }
 
-            // Create Room object
-            var r = new Room
+
+            // Repeat for rooms
+            foreach (var pr in packMap.rooms)
             {
-                my_room_number = pr.id,
-                area = pr.cells.Count,
-                bounds = pr.bounds,
-                cells = cells,
-                isCorridor = false,
-            };
-            r.setColorFloor(highlight: true);
-            color = r.colorFloor;
-            foreach (Cell cell in r.cells) cell.colorFloor = color;
-            result.Add(r);
+                List<Cell> cells = new();
+
+                if (pr.cells.Count == 0) continue;
+                // Finalize room bounds
+                int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
+                foreach (var c in pr.cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
+                pr.bounds = new RectInt(minx, miny, Mathf.Max(1, maxx - minx + 1), Mathf.Max(1, maxy - miny + 1));
+
+                // Create this Room's cell list (x,y) only
+
+                foreach (var c in pr.cells)
+                {
+                    cells.Add(new Cell(c.x, c.y));
+                }
+
+                // Create Room object
+                var r = new Room
+                {
+                    my_room_number = pr.id,
+                    area = pr.cells.Count,
+                    bounds = pr.bounds,
+                    cells = cells,
+                    isCorridor = false,
+                };
+                r.setColorFloor(highlight: true);
+                color = r.colorFloor;
+                foreach (Cell cell in r.cells) cell.colorFloor = color;
+                result.Add(r);
+            }
+            return result;
         }
-        return result;
-    }
-*/
+    */
     public Room ExtractRoomFromVectors(List<Vector2Int> vect)
     {
         Color color;
@@ -2240,11 +2439,11 @@ public partial class DungeonGenerator : MonoBehaviour
     Vector2Int DirAwayFromEdge(Vector2Int pos)
     {
         int border = 10;    // distance to edge that is considered too close
-        int W = cfg.mapWidth, H = cfg.mapHeight;
+        int W = cfg.mapWidth - 1, H = cfg.mapHeight - 1;
         if ((W - pos.x) < border) return new Vector2Int(-1, 0);
-        if ((pos.x) < border)     return new Vector2Int(1, 0);
+        if ((pos.x) < border) return new Vector2Int(1, 0);
         if ((H - pos.y) < border) return new Vector2Int(0, -1);
-        if ((pos.y) < border)     return new Vector2Int(0, 1);
+        if ((pos.y) < border) return new Vector2Int(0, 1);
         return RandomCardinal();  // not near any edge
     }
 
@@ -2254,19 +2453,23 @@ public partial class DungeonGenerator : MonoBehaviour
         return left ? new Vector2Int(-d.y, d.x) : new Vector2Int(d.y, -d.x);
     }
 
-    bool In(int x, int y) => (uint)x < (uint)cfg.mapWidth && (uint)y < (uint)cfg.mapHeight
-                            && x>=0 && y>=0;
+    // checks if the location is inside map bounds (with keepout)
+    bool In(int x, int y) => (x < (cfg.mapWidth - cfg.borderKeepout))
+                          && (y < (cfg.mapHeight - cfg.borderKeepout))
+                          && (x >= cfg.borderKeepout)
+                          && (y >= cfg.borderKeepout);
 
     // If you want random edge starts instead of center:
     Vector2Int RandomEdgeStart(int w, int h)
     {
+        int ko = cfg.borderKeepout;
         int edge = rng.Next(0, 4);
         return edge switch
         {
-            0 => new Vector2Int(rng.Next(0, w), 0),
-            1 => new Vector2Int(rng.Next(0, w), h - 1),
-            2 => new Vector2Int(0, rng.Next(0, h)),
-            _ => new Vector2Int(w - 1, rng.Next(0, h)),
+            0 => new Vector2Int(rng.Next(ko, w - ko - 1), ko),
+            1 => new Vector2Int(rng.Next(ko, w - ko - 1), h - ko - 1),
+            2 => new Vector2Int(ko, rng.Next(ko, h - ko - 1)),
+            _ => new Vector2Int(w - ko - 1, rng.Next(ko, h - ko - 1)),
         };
     }
 
@@ -2274,7 +2477,7 @@ public partial class DungeonGenerator : MonoBehaviour
     void CarveDisk(Room tmp_room, Vector2Int c, int penWidth)
     {
         int W = cfg.mapWidth, H = cfg.mapHeight;
-        int min = -(int)Math.Floor((penWidth / 2f)); // makes the negative more to zero
+        int min = -(int)Math.Floor(penWidth / 2f); // makes the negative more to zero
         int max = min + penWidth - 1;
 
         // Debug.Log($"  CarveDisk at {c.x},{c.y} width={penWidth}");
@@ -2282,7 +2485,7 @@ public partial class DungeonGenerator : MonoBehaviour
             for (int dx = min; dx <= max; dx++)
             {
                 int x = c.x + dx, y = c.y + dy;
-                if ((uint)x >= (uint)W || (uint)y >= (uint)H) continue;
+                if (!In(x, y)) continue;
                 // use square pen or trim corners of round one?
                 if (cfg.useRoundPen && (dx * dx + dy * dy > (penWidth / 2f) * (penWidth / 2f))) continue; // disk; swap to diamond if you prefer
 
@@ -2296,7 +2499,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 packCell.x = x;
                 packCell.y = y;
                 packCell.isCorridor = true;
-                packMap.corridors.Add((x,y));
+                packMap.corridors.Add((x, y));
                 packMap.g[x, y] = packCell;
             }
     }
@@ -2304,12 +2507,12 @@ public partial class DungeonGenerator : MonoBehaviour
     Vector2Int MaybeTurn(Vector2Int d, Random r, float wander)
     {
         // with some prob, keep going; else turn 90° left/right
-        if (r.NextDouble() < (wander/1000f)) return d; //(0.65f - 0.4f * wander)) return d;
+        if (r.NextDouble() < (wander / 1000f)) return d;
         return (r.Next(2) == 0) ? TurnLeft(d, true) : TurnLeft(d, false);
     }
 
     int Manhattan(Vector2Int a, Vector2Int b) => Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
-    
+
     // RasterizeLineSafe() looks to be a Bresenham line algorithm for any point to point lines
     IEnumerable<Vector2Int> RasterizeLineSafe(Vector2Int a, Vector2Int b)
     {
@@ -2341,6 +2544,22 @@ public partial class DungeonGenerator : MonoBehaviour
         }
         // If we ever fall out by hitting maxSteps, just stop
         yield break;
+    }
+
+    void ClearMapBorders(List<Room> rooms)  // in case the routines here spill out into border like they aren't supposed to, clear them out.
+    {                                       // NOTE: Problem seems to be in wall add routine at last x and last y.
+        int r_num, c_num;
+        int removed = 0;
+        for (r_num = rooms.Count - 1; r_num >= 0; r_num--)
+        {
+            for (c_num = rooms[r_num].cells.Count - 1; c_num >= 0; c_num--) // must count cells backwards because we are deleting as we go.
+            {
+                if (!In(rooms[r_num].cells[c_num].x, rooms[r_num].cells[c_num].y))
+                    rooms[r_num].cells.RemoveAt(c_num);
+                removed++;
+            }
+        }
+        Debug.Log($"ClearMapBorders cleared {removed} cells.");  // BUG: WOW big numbers even when the preceeding function did nothing.  What's wrong?
     }
 
 }

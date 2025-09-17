@@ -97,7 +97,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public IEnumerator Build3DFromOneRoom(int room_number, TimeTask tm = null)
     {
         bool local_tm = false;
-        if (tm == null) { tm = TimeManager.Instance.BeginTask("Build3DFromRooms"); local_tm = true; }
+        if (tm == null) { tm = TimeManager.Instance.BeginTask("Build3DFromOneRoom"); local_tm = true; }
         try
         {
             //Debug.Log($"Build3DFromOneRoom room_number={room_number}");
@@ -228,19 +228,22 @@ public partial class DungeonGenerator : MonoBehaviour
                     Vector2Int d = Dir4[i];
                     int nx = x + d.x;
                     int nz = z + d.y;
-                    //if (nx < 0 || nz < 0 || nx >= w || nz >= hi) continue; // off-map
+                    bool nIsWall = false;
 
+                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+
+                    if (nx < 0 || nz < 0 || nx >= cfg.mapWidth || nz >= cfg.mapHeight)
+                    {
+                        nIsWall = true;
+                    }
                     //bool nIsFloor = IsTileInNeighborhood(room_number, rooms[room_number].neighbors, new Vector2Int(nx, nz));
                     //bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
                     //bool nIsWall = !nIsFloor;
 
-                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
-
-                    bool nIsWall = false;
-                    if (d.x == 0 && d.y == 1)  nIsWall = mywalls.HasFlag(DirFlags.N);
-                    if (d.x == 1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.E);
-                    if (d.x == 0 && d.y == -1)  nIsWall = mywalls.HasFlag(DirFlags.S);
-                    if (d.x == -1 && d.y == 0)  nIsWall = mywalls.HasFlag(DirFlags.W);
+                    if (d.x == 0 && d.y == 1) nIsWall = mywalls.HasFlag(DirFlags.N);
+                    if (d.x == 1 && d.y == 0) nIsWall = mywalls.HasFlag(DirFlags.E);
+                    if (d.x == 0 && d.y == -1) nIsWall = mywalls.HasFlag(DirFlags.S);
+                    if (d.x == -1 && d.y == 0) nIsWall = mywalls.HasFlag(DirFlags.W);
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
@@ -296,7 +299,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         // Ramp spans from lower to higher tile
                         bool up = diff > 0;
                         if (up) continue; // don't create two ramps, one from each side, instead pick 'down'
-                                          // Place ramp slightly biased toward lower side so the top aligns cleanly
+                                            // Place ramp slightly biased toward lower side so the top aligns cleanly
                         int lower = up ? ySteps : nySteps;
                         float midheight = (ySteps + nySteps) / 2f;
                         int upper = up ? nySteps : ySteps;
@@ -304,23 +307,23 @@ public partial class DungeonGenerator : MonoBehaviour
                         var ramp = Instantiate(rampPrefab, nWorld + new Vector3(0, (upper) * cfg.unitHeight /*- .35f*/, 0), rot, root);
                         ramp.name = $"Ramp({Math.Abs(diff)})";
                         ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * cfg.unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
-                        //includes_ramp = true;
+                                                                                                                            //includes_ramp = true;
                     }
-/*
-                    if (cliffPrefab != null)
-                    {
-                        bool up = diff > 0;
-                        if (up) continue; // don't create two walls, one from each side, instead pick 'down'
-                                          // Vertical face for a bigger step; center vertically between heights
-                        int minStep = Mathf.Min(ySteps, nySteps);
-                        float heightWorld = Mathf.Abs(diff) * unitHeight;
-                        var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
-                        //face.name = $"Cliff({room_name})";
-                        // Scale so its Y matches the height difference; X/Z to cell dimensions
-                        face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
-                    }
-                    */
-                } // end for i
+                    /*
+                                        if (cliffPrefab != null)
+                                        {
+                                            bool up = diff > 0;
+                                            if (up) continue; // don't create two walls, one from each side, instead pick 'down'
+                                                                // Vertical face for a bigger step; center vertically between heights
+                                            int minStep = Mathf.Min(ySteps, nySteps);
+                                            float heightWorld = Mathf.Abs(diff) * unitHeight;
+                                            var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
+                                            //face.name = $"Cliff({room_name})";
+                                            // Scale so its Y matches the height difference; X/Z to cell dimensions
+                                            face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
+                                        }
+                                        */
+                    } // end for i
                 
                 // Place floor at its height (Y is up)
                 if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)

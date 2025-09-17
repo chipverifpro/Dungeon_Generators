@@ -23,9 +23,10 @@ public class DungeonSettings : ScriptableObject
     [Header("World Map Settings")]
     public int mapWidth = 150;
     public int mapHeight = 150;
+    public int borderKeepout = 1;   // should be at least 1 or edge artifacts show up (known bug).
     public bool roundWorld = false; // sometimes not having square map edges is nice.
     public int maxElevation = 100;
-    public float unitHeight = 0.1f;  // World units (meters) per height unit in the height map.
+    public float unitHeight = 0.1f;  // World units per height unit in the height map. (eg. size of one X tile = 1/unitHeight Z)
 
     [Header("Room Floor Bumpiness Settings")]
     public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.

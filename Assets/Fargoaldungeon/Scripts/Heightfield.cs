@@ -105,10 +105,10 @@ public partial class DungeonGenerator : MonoBehaviour
                     Array.Clear(c.segRoomCounts, 0, c.segRoomCounts.Length);
                 }
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool InBounds(int x, int y, int w, int h)
-            => (uint)x < (uint)w && (uint)y < (uint)h && x>=0 && y>=0;
+            => (uint)x < (uint)w && (uint)y < (uint)h && x >= 0 && y >= 0;
 
         /// <summary>
         /// Insert a single cell (x,y,z,roomId).
@@ -425,7 +425,11 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             var hf = new Heightfield(width, height);
             foreach (var c in cells)
+            {
+                //if (!In(c.x, c.y)) continue; // next line is equivalent.
+                if (c.x < 0 || c.y < 0 || c.x >= hf.Width || c.y >= hf.Height) continue;
                 hf.Insert(c.x, c.y, c.z, c.roomId);
+            }
             hf.FinalizeColumns(minRoomHeight);
             return hf;
         }
@@ -462,18 +466,18 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
-// Put alongside your Heightfield code (same namespace if you like).
+    // Put alongside your Heightfield code (same namespace if you like).
 
     [Flags]
-/*   public enum DirFlags
-    {
-        None  = 0,
-        North = 1 << 0, // y+1
-        South = 1 << 1, // y-1
-        West  = 1 << 2, // x-1
-        East  = 1 << 3, // x+1
-    }
-*/
+    /*   public enum DirFlags
+        {
+            None  = 0,
+            North = 1 << 0, // y+1
+            South = 1 << 1, // y-1
+            West  = 1 << 2, // x-1
+            East  = 1 << 3, // x+1
+        }
+    */
     // Configure how to treat neighbors
     public enum NeighborPolicy
     {
@@ -538,10 +542,15 @@ public partial class DungeonGenerator : MonoBehaviour
                 int ny = y + d.dy;
 
                 // Out of bounds?
+                //int border = cfg.borderKeepout;
                 if (nx < 0 || ny < 0 || nx >= hf.Width || ny >= hf.Height)
                 {
-                    if (treatBoundsAsWalls) flags |= d.bit;
-                    continue;
+                    if (treatBoundsAsWalls)
+                    {
+                        flags |= d.bit;
+                        //Debug.Log($"GetExposedDirs: treatBoundsAsWalls x,y={x},{y} nx,ny={nx},{ny}");
+                        //continue;
+                    }
                 }
 
                 // Is there a neighbor floor near z at (nx,ny)?
@@ -591,38 +600,40 @@ public partial class DungeonGenerator : MonoBehaviour
                 return -2;
             return m.isSegment ? m.segmentIndex : -1;
         }
-    }
 
+
+
+    }
     // --------------------------
-    // Adapters to YOUR data
-    // --------------------------
-    //
-    // 1) If your heights are float, choose a scale (e.g., 100) and round: zInt = Mathf.RoundToInt(zFloat * scale).
-    // 2) If your world is big, build per-chunk Heightfield instances (e.g., 64x64) and query only active chunks.
-    //
-    // Example usage in your pipeline:
-    //
-    //   // Prepare cells from your rooms:
-    //   var tmp = new List<RoomCell>(totalCellCount);
-    //   foreach (var room in rooms)
-    //       foreach (var cell in room.tiles3D) // (x,y,height)
-    //           tmp.Add(new RoomCell(cell.x, cell.y, HeightToInt(cell.height), room.id));
-    //
-    //   // Build
-    //   var hf = Heightfield.BuildFromCells(tmp, worldWidth, worldHeight, cfg.minRoomHeight);
-    //
-    //   // During wall placement for a floor cell (x,y,zInt):
-    //   NeighborMatch m;
-    //   bool hasNeighbor = hf.HasAdjacentWithinThreshold(x, y, zInt, cfg.minRoomHeight, out m);
-    //   if (!hasNeighbor) {
-    //       // exposed side -> place wall
-    //   } else {
-    //       // Optional: decide based on room ids or m.isSegment (e.g., railing for stairwell)
-    //   }
-    //
-    // Helper for float heights:
-    // static int HeightToInt(float z) => Mathf.RoundToInt(z * 100f); // choose a scale that matches your thresholds
-}
+        // Adapters to YOUR data
+        // --------------------------
+        //
+        // 1) If your heights are float, choose a scale (e.g., 100) and round: zInt = Mathf.RoundToInt(zFloat * scale).
+        // 2) If your world is big, build per-chunk Heightfield instances (e.g., 64x64) and query only active chunks.
+        //
+        // Example usage in your pipeline:
+        //
+        //   // Prepare cells from your rooms:
+        //   var tmp = new List<RoomCell>(totalCellCount);
+        //   foreach (var room in rooms)
+        //       foreach (var cell in room.tiles3D) // (x,y,height)
+        //           tmp.Add(new RoomCell(cell.x, cell.y, HeightToInt(cell.height), room.id));
+        //
+        //   // Build
+        //   var hf = Heightfield.BuildFromCells(tmp, worldWidth, worldHeight, cfg.minRoomHeight);
+        //
+        //   // During wall placement for a floor cell (x,y,zInt):
+        //   NeighborMatch m;
+        //   bool hasNeighbor = hf.HasAdjacentWithinThreshold(x, y, zInt, cfg.minRoomHeight, out m);
+        //   if (!hasNeighbor) {
+        //       // exposed side -> place wall
+        //   } else {
+        //       // Optional: decide based on room ids or m.isSegment (e.g., railing for stairwell)
+        //   }
+        //
+        // Helper for float heights:
+        // static int HeightToInt(float z) => Mathf.RoundToInt(z * 100f); // choose a scale that matches your thresholds
+    }
 
 
 /* This structure was created by ChatGPT based on the following prompt:

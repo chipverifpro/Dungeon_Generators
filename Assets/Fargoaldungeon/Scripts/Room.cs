@@ -633,7 +633,8 @@ public partial class DungeonGenerator : MonoBehaviour
         }
 
         // Build the global array hf
-        hf = Heightfield.BuildFromCells(tmp, worldWidth, worldHeight, cfg.minRoomHeight);
+        //hf = Heightfield.BuildFromCells(tmp, worldWidth, worldHeight, cfg.minRoomHeight);
+        hf = Heightfield.BuildFromCells(tmp, cfg.mapWidth, cfg.mapHeight, cfg.minRoomHeight);
         hf_valid = true;
     }
 
