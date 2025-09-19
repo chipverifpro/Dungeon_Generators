@@ -173,7 +173,7 @@ public class Cell       // one cell in a Room
     public Color colorFloor = new(1f, 0.4f, 0.7f, 0.5f); // default semi-transparent pink
     public Quaternion tiltFloor = Quaternion.identity; // optional tilt of the floor tile
     public float travel_cost = 1f;  // examples: 1 = open floor, 2 = rough terrain, 0.75 = road
-
+    public bool isCorridor = false; // added for PackCell equivalence.  Should use room's value instead.
     // Delegates for behaviors (see notes below)
     public Action<Cell> OnView;     // function triggered when viewed
     public Action<Cell> OnStep;     // function triggered when stepped on
@@ -370,8 +370,9 @@ public class Room
             if (cell.y < minY) minY = cell.y;
             if (cell.y > maxY) maxY = cell.y;
         }
-
-        return new RectInt(minX, minY, (maxX - minX + 1), (maxY - minY + 1));
+        // cache the value and then return it.
+        bounds = new RectInt(minX, minY, (maxX - minX + 1), (maxY - minY + 1));
+        return bounds;
     }
 
     // ==================== Color Helper functions...

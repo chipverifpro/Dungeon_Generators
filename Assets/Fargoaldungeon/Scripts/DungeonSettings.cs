@@ -158,15 +158,18 @@ public class DungeonSettings : ScriptableObject
     [System.Serializable]
     public struct GrowParams
     {
+        public int stripRounds; // number of growth passes.
         public int areaCreditMin;
         public int areaCreditMax;
-        public int wallMoat;           // reserved wall thickness (usually 1)
+        public int wallMoat;           // reserved wall thickness (zero or 1 usually)
         public int splitArea;          // split rooms larger than this
         public float splitAspect;      // split if aspect > this (e.g., 3)
-        
+        public int passesBeforeSplit; // checks for splitrooms after this many rounds
+        public int targetAspect;   // tune: try to keep rooms from going too skinny
+        public int percentSkipGrowth; // more means more varied room sizes.  50% = half of rooms will be skipped each round     
     }
     [Header("Room Growth Params")]
-    public GrowParams grow = new GrowParams { areaCreditMin=40, areaCreditMax=140, wallMoat=1, splitArea=300, splitAspect=3f };
+    public GrowParams grow = new GrowParams { stripRounds = 40, areaCreditMin=40, areaCreditMax=140, wallMoat=1, splitArea=300, splitAspect=3f, passesBeforeSplit=20, targetAspect=2, percentSkipGrowth=50 };
 
     [System.Serializable]
     public struct ScrapParams
