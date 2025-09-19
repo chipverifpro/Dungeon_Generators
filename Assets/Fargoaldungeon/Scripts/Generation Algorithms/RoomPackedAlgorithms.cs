@@ -8,51 +8,6 @@ using UnityEngine.Tilemaps;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-    //[Header("Config")]
-    //public DungeonSettings cfg;     // ← your ScriptableObject, named as you like
-
-    // Minimal PackMap structs (adapt to your real ones)
-    public class PackCell_REMOVE
-    {
-        public int x, y, height;
-        public bool isCorridor;
-        public int roomId = -1;
-    }
-    public class PackRoom_REMOVE
-    {
-        public int id;
-        public List<PackCell_REMOVE> cells = new();
-        public Color color;
-        public RectInt static_bounds; // only use this if you know the cells haven't changed since the last get_bounds() call.
-        public RectInt getBounds()  // recalculates bounds and returns a rectangle.
-        {
-            if (cells == null || cells.Count == 0)
-            {
-                static_bounds = new RectInt(0, 0, 0, 0);
-                return static_bounds;
-            }
-            int minx = int.MaxValue, miny = int.MaxValue, maxx = int.MinValue, maxy = int.MinValue;
-            foreach (var c in cells) { if (c.x < minx) minx = c.x; if (c.x > maxx) maxx = c.x; if (c.y < miny) miny = c.y; if (c.y > maxy) maxy = c.y; }
-            static_bounds = new RectInt(minx, miny, maxx - minx + 1, maxy - miny + 1);
-            return static_bounds;
-        }
-    }
-    public class PackMap_REMOVE
-    {
-        public int w, h;
-        public PackCell_REMOVE[,] g;
-        public List<PackRoom_REMOVE> rooms = new();
-        public HashSet<(int, int)> corridors = new();
-        public PackMap_REMOVE(int w, int h) { this.w = w; this.h = h; g = new PackCell_REMOVE [w, h]; for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) g[x, y] = new PackCell_REMOVE { x = x, y = y }; }
-        // In(x,y) is now a separate function
-        //public bool In(int x, int y) => (uint)x < (uint)w && (uint)y < (uint)h && x>=0 && y>=0;
-    }
-
-    // Runtime
-    //ublic PackMap packMap;
-    //Random rng;
-    //Action<string> logger;
-
     // This is all that is left from PackMap:
     public Cell[,] cellGrid;    // was cellGrid
     public HashSet<(int, int)> corridors = new();
@@ -169,7 +124,7 @@ public partial class DungeonGenerator : MonoBehaviour
     {
         switch (cfg.doorAlgo)
         {
-            case DungeonSettings.DoorAlgo.EnsureConnectivity: return Doors_EnsureConnectivity();
+            case DungeonSettings.DoorAlgo.EnsureConnectivity: return PlaceDoors();
             case DungeonSettings.DoorAlgo.SparseLoops: return Doors_SparseLoops();
             case DungeonSettings.DoorAlgo.ManyLoops: return Doors_ManyLoops();
             default: return Doors_EnsureConnectivity();
@@ -332,12 +287,6 @@ public partial class DungeonGenerator : MonoBehaviour
             for (int step = 0; step < stepsPerWalker; step++)
             {
                 // Carve corridor at p
-                //Cell cell_tmp;
-                //cell_tmp = new Cell(p.x, p.y); // { x = p.x, y = p.y };
-                //tmp_real_cell = new Cell(p);
-                //tmp_room.cells.Add(tmp_real_cell); // This Add is done in CarveDisk
-                //corridors.Add((p.x, p.y)); // needed for next stage. // also done in CarveDisk
-                //cellGrid[p.x, p.y].isCorridor = true; //.isCorridor = true; // done in CarveDisk
                 CarveDisk(ref tmp_room, p, corridorWidth); // paint corridor cell(s)
                 carved++;
 
@@ -384,19 +333,6 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Periodic yield to keep Editor responsive
                 if ((carved % yieldEvery) == 0) yield return null;
             }
-            //var tmp_room = new Room { cells = new List<Cell>(corridorCells), isCorridor = true };
-            /*
-                tmp_room.my_room_number = rooms.Count; // a unique room number
-                tmp_room.setColorFloor(highlight: false);
-
-                tmp_room.isCorridor = true;
-                foreach (var cell in tmp_room.cells)
-                {
-                    cell.room_number = tmp_room.my_room_number;
-                    cell.colorFloor = tmp_room.colorFloor;
-                    cell.isCorridor = true;
-                }
-            */
             // to make this one room per walker, add it here...
             if (!allCorridorsAreOneRoom)
             {
@@ -672,40 +608,6 @@ public partial class DungeonGenerator : MonoBehaviour
         int jitter = Mathf.Clamp(cfg.RoomSeeding.jitter, 0, spacing - 1);
         float altProb = Mathf.Clamp01(cfg.RoomSeeding.alternateSides); // probability to alternate sides L/R
 
-        
-
-        /*
-        // make a list of all corridor cell locations from rooms list
-        // only if it doesn't exist already.
-        if (corridors == null || corridors.Count == 0)
-        {
-            corridors = new();
-            bool found_corridor = false;
-
-            foreach (Room r in rooms)
-            {
-                if (r.isCorridor)
-                {
-                    foreach (Cell c in r.cells)
-                    {
-                        cellGrid[c.x, c.y].isCorridor = true;  // build array for fast lookup
-                        if (corridors == null)
-                            corridors = new HashSet<(int, int)>();
-                        if (!corridors.Contains((c.x, c.y)))
-                        {
-                            corridors.Add((c.x, c.y));
-                            found_corridor = true;
-                        }
-                    }
-                }
-            }
-            if (!found_corridor)
-            {
-                BottomBanner.Show("  (No corridors found; seeding skipped)");
-                //yield break;
-            }
-        }
-        */
         // 1) Collect candidate corridor cells that are "good" for hanging rooms:
         //    Prefer straight or gently curved segments (2 corridor neighbors).
         var shuffledCorridorList = new List<Vector2Int>(corridors.Count);

@@ -137,32 +137,35 @@ public partial class DungeonGenerator : MonoBehaviour
                 // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
                 // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
 
+                DirFlags mydoors = rooms[room_number].cells[cell_number].doors;
+                bool ND = mydoors.HasFlag(DirFlags.N);
+                bool ED = mydoors.HasFlag(DirFlags.E);
+                bool SD = mydoors.HasFlag(DirFlags.S);
+                bool WD = mydoors.HasFlag(DirFlags.W);
+                
+                int num_doors = (ND ? 1 : 0) + (SD ? 1 : 0) + (ED ? 1 : 0) + (WD ? 1 : 0);
+                // prevent diagonal walls if there are doors in this cell.
+
                 // -------- diagonal corner smoothing (before orthogonal perimeter faces) --------
                 bool suppressN = false, suppressE = false, suppressS = false, suppressW = false;
 
-                if (cfg.useDiagonalCorners && isFloor && diagonalWallPrefab != null)
+                if (num_doors==0 && cfg.useDiagonalCorners && isFloor && diagonalWallPrefab != null)
                 {
                     // include neighborhood, which is immediately connected rooms
                     // this allows for proper finding of walls at intersection.
-                    //bool N = IsWallInNeighborhood(room_number, pos + Dir4[0]);
-                    //bool E = IsWallInNeighborhood(room_number, pos + Dir4[1]);
-                    //bool S = IsWallInNeighborhood(room_number, pos + Dir4[2]);
-                    //bool W = IsWallInNeighborhood(room_number, pos + Dir4[3]);
-
-                    //if (dir.HasFlag(DirFlags.N))
+                    
                     DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
                     bool N = mywalls.HasFlag(DirFlags.N);
                     bool E = mywalls.HasFlag(DirFlags.E);
                     bool S = mywalls.HasFlag(DirFlags.S);
                     bool W = mywalls.HasFlag(DirFlags.W);
-                    //bool N = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[0]);
-                    //bool E = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[1]);
-                    //bool S = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[2]);
-                    //bool W = !IsTileInNeighborhood(room_number, rooms[room_number].neighbors, pos + Dir4[3]);
+
+
+
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
                     int num_walls = (N ? 1 : 0) + (S ? 1 : 0) + (E ? 1 : 0) + (W ? 1 : 0);
-
+                    
                     if (num_walls == 2)  // must have exactly two walls to use diagonal wall
                     {
                         float floorY = ySteps * cfg.unitHeight;
@@ -229,8 +232,10 @@ public partial class DungeonGenerator : MonoBehaviour
                     int nx = x + d.x;
                     int nz = z + d.y;
                     bool nIsWall = false;
+                    bool nIsDoor = false;
 
                     DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+                    mydoors = rooms[room_number].cells[cell_number].doors;
 
                     if (nx < 0 || nz < 0 || nx >= cfg.mapWidth || nz >= cfg.mapHeight)
                     {
@@ -245,14 +250,19 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (d.x == 0 && d.y == -1) nIsWall = mywalls.HasFlag(DirFlags.S);
                     if (d.x == -1 && d.y == 0) nIsWall = mywalls.HasFlag(DirFlags.W);
 
+                    if (d.x == 0 && d.y == 1) nIsDoor = ND;
+                    if (d.x == 1 && d.y == 0) nIsDoor = ED;
+                    if (d.x == 0 && d.y == -1) nIsDoor = SD;
+                    if (d.x == -1 && d.y == 0) nIsDoor = WD;
+
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
                     if (isFloor && nIsWall && cliffPrefab != null)
                     {
                         // Respect suppress flags for the matching direction
-                        if ((d.x == 0 && d.y == 1 && /*N*/ suppressN) ||
-                            (d.x == 1 && d.y == 0 && /*E*/ suppressE) ||
-                            (d.x == 0 && d.y == -1 && /*S*/ suppressS) ||
-                            (d.x == -1 && d.y == 0 && /*W*/ suppressW))
+                        if ((d.x == 0 && d.y == 1 && suppressN) ||
+                            (d.x == 1 && d.y == 0 && suppressE) ||
+                            (d.x == 0 && d.y == -1 && suppressS) ||
+                            (d.x == -1 && d.y == 0 && suppressW))
                         {
                             // skip orthogonal face; diagonal already placed
                         }
@@ -276,6 +286,9 @@ public partial class DungeonGenerator : MonoBehaviour
                             //face.name = $"Wall({room_name})";
                             face.transform.localScale = new Vector3(cell.x, ht, cell.y * 0.1f);
 
+                            // make the wall red to indicate a simple door...
+                            var rend = face.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
+                            if (nIsDoor && rend != null) rend.material.color = Color.red;
                         }
                     }
 
@@ -309,21 +322,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         ramp.transform.localScale = new Vector3(cell.x, Math.Abs(diff) * cfg.unitHeight * 1.2f, cell.y); // length matches cell, height equals one step
                                                                                                                             //includes_ramp = true;
                     }
-                    /*
-                                        if (cliffPrefab != null)
-                                        {
-                                            bool up = diff > 0;
-                                            if (up) continue; // don't create two walls, one from each side, instead pick 'down'
-                                                                // Vertical face for a bigger step; center vertically between heights
-                                            int minStep = Mathf.Min(ySteps, nySteps);
-                                            float heightWorld = Mathf.Abs(diff) * unitHeight;
-                                            var face = Instantiate(cliffPrefab, mid + new Vector3(0, (minStep * unitHeight) + heightWorld * 0.5f, 0), RotFromDir(d), root);
-                                            //face.name = $"Cliff({room_name})";
-                                            // Scale so its Y matches the height difference; X/Z to cell dimensions
-                                            face.transform.localScale = new Vector3(cell.x, heightWorld, cell.y * 0.1f); // thin face; adjust thickness
-                                        }
-                                        */
-                    } // end for i
+                } // end for i
                 
                 // Place floor at its height (Y is up)
                 if (/*!includes_ramp &&*/ isFloor && floorPrefab != null && triangleFloorPrefab != null)
