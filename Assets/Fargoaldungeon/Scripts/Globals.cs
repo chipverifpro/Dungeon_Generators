@@ -7,7 +7,9 @@ public partial class DungeonGenerator : MonoBehaviour
     public System.Random rng;
 
     // 2D assets defined in Unity
-    public Tilemap tilemap;
+    public Tilemap tilemap; // floors
+    public Tilemap tilemap_walls;
+    public Tilemap tilemap_doors;
     public TileBase floorTile;
     public TileBase wallTile;
     public TileBase doorClosedTile;

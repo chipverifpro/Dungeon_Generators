@@ -4,19 +4,6 @@ using UnityEngine;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-    // KNOBS you’ll actually tweak from cfg (or pass inline)
-    [System.Serializable]
-    public class DoorConfig
-    {
-        [Range(0f,1f)] public float loopiness = 0.25f;   // extra loops beyond minimal connectivity
-        public int minDoorSpacing = 3;                   // Manhattan spacing between doors on same room edge
-        public int maxDoorsPerRoom = 6;                  // soft cap (not strict)
-        public int deadEndReach = 6;                     // how far to look from dead-end corridors
-        public int yieldEvery = 3000;                    // editor responsiveness
-    }
-
-    DoorConfig dc; // config parameters above eventually move into cfg.
-
     // Direction flags you already use (adjust names if needed)
     //[System.Flags]
     //public enum DirFlags { None=0, N=1<<0, E=1<<1, S=1<<2, W=1<<3 }
@@ -24,21 +11,25 @@ public partial class DungeonGenerator : MonoBehaviour
     // === MAIN ENTRY ===
     public IEnumerator PlaceDoors()
     {
+        int doorsYieldEvery = 300;
         int W = cellGrid.GetLength(0), H = cellGrid.GetLength(1);
         int moat = cfg.useThinWalls ? 0 : Mathf.Max(0, cfg.wallThickness);
 
         // 1) Collect candidate door sites (room-edge touching room/corridor within ≤ moat cells in a straight line)
-        var candidates = CollectDoorCandidates(W, H, moat, dc.minDoorSpacing, dc.yieldEvery);
+        var candidates = CollectDoorCandidates(W, H, moat, cfg.doors.minDoorSpacing, doorsYieldEvery);
 
         // 2) ConnectLooseEnds first (fix ugly dead-end corridors)
-        yield return StartCoroutine(ConnectLooseEnds(candidates, dc.deadEndReach, moat, dc.yieldEvery));
+        yield return StartCoroutine(ConnectLooseEnds(candidates, cfg.doors.deadEndReach, moat, doorsYieldEvery));
 
         // 3) EnsureConnectivity with minimal doors (Kruskal-like: pick cheapest that bridges components)
-        yield return StartCoroutine(EnsureConnectivity(candidates, moat, dc.maxDoorsPerRoom, dc.yieldEvery));
+        yield return StartCoroutine(EnsureConnectivity(candidates, moat, cfg.doors.maxDoorsPerRoom, doorsYieldEvery));
 
         // 4) Add extra loop doors for interest
-        int extraTarget = Mathf.RoundToInt(candidates.Count * dc.loopiness * 0.25f);
-        yield return StartCoroutine(AddLoopDoors(candidates, extraTarget, moat, dc.minDoorSpacing, dc.maxDoorsPerRoom, dc.yieldEvery));
+        int extraTarget = 0;// Mathf.RoundToInt(candidates.Count * dc.loopiness * 0.25f);
+        yield return StartCoroutine(AddLoopDoors(candidates, extraTarget, moat, cfg.doors.minDoorSpacing, cfg.doors.maxDoorsPerRoom, doorsYieldEvery));
+
+        DrawMapByRooms(rooms);
+        yield return null;
     }
 
     // ============================= CANDIDATES =============================
@@ -118,7 +109,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         // if same room, ignore (internal edge)
                         break;
                     }
-                    if (blocked) Debug.Log("Blocked");  // just added to get rid of warning that the variable was assigned but never used.
+                    //if (blocked) Debug.Log("Blocked");  // just added to get rid of warning that the variable was assigned but never used.
                     if ((++touched % yieldEvery) == 0) { /* cooperative yield point */ }
                 }
             }

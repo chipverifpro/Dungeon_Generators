@@ -182,10 +182,12 @@ public class DungeonSettings : ScriptableObject
     [System.Serializable]
     public struct DoorParams
     {
-        public int maxRoomToRoomDoors; // budget for extra loops
-        public float loopBias;         // prefer far connections
+        [Range(0f, 1f)] public float loopiness;  // extra loops beyond minimal connectivity
+        public int minDoorSpacing;               // Manhattan spacing between doors on same room edge
+        public int maxDoorsPerRoom;              // soft cap (not strict)
+        public int deadEndReach;                 // how far to look from dead-end corridors
     }
     [Header("Door Params")]
-    public DoorParams doors = new DoorParams { maxRoomToRoomDoors=20, loopBias=0.75f };
+    public DoorParams doors = new DoorParams { loopiness=0.25f, minDoorSpacing=3, maxDoorsPerRoom=6, deadEndReach=6 };
 }
 

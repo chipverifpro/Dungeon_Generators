@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System;
-using System.Data;
 
 
 /* DONE list...
@@ -152,6 +151,8 @@ public partial class DungeonGenerator : MonoBehaviour
 
             // ===== Step 1. Initialize the dungeon
             tilemap.ClearAllTiles();
+            tilemap_walls.ClearAllTiles();
+            tilemap_doors.ClearAllTiles();
             rooms.Clear();
             map = new byte[cfg.mapWidth, cfg.mapHeight];
             FillVoidToWalls(map);
@@ -393,32 +394,205 @@ public partial class DungeonGenerator : MonoBehaviour
     // NEW
     public void DrawMapByRooms(List<Room> rooms, bool clearscreen = true)
     {
-        //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
-        if (clearscreen) tilemap.ClearAllTiles();
+        Vector3Int center_pos;
 
+        Vector3Int floor_pos;                   // position one tile away in the direction of the wall/door
+        Vector3 floor_offset;             // offset to side of tile closest to wall/door
+        Vector3 floor_rotation;  // determined by tile rotation: rotate vertical to lay flat.
+        Vector3 floor_scale;  
+
+        Vector3Int wall_pos;                   // position one tile away in the direction of the wall/door
+        Vector3 wall_offset;             // offset to side of tile closest to wall/door
+        Vector3 wall_rotation;  // determined by tile rotation: rotate vertical to lay flat.
+        Vector3 wall_scale;  
+
+        Vector3Int door_pos;                   // position one tile away in the direction of the wall/door
+        Vector3 door_offset;             // offset to side of tile closest to wall/door
+        Vector3 door_rotation;  // determined by tile rotation: rotate vertical to lay flat.
+        Vector3 door_scale;  
+
+        //Debug.Log("Drawing Map by " + rooms.Count + " rooms...");
+        if (clearscreen)
+        {
+            tilemap.ClearAllTiles();    // floors
+            tilemap_doors.ClearAllTiles();
+            tilemap_walls.ClearAllTiles();
+        }
         if (map == null) map = new byte[cfg.mapWidth, cfg.mapHeight];
         if (mapHeights == null) mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
 
         foreach (var room in rooms)
         {
+            //bool printonce = true;
             // CELL_VERSION
-            //Debug.Log("DrawMapByRooms: Drawing size: " + room.cells.Count);
+            Debug.Log("DrawMapByRooms: room " + room.my_room_number + " size: " + room.cells.Count);
+            
             foreach (var cell in room.cells)
             {
-                Vector3Int pos3 = cell.pos3d;
-                pos3.z = 0; // need (x,y,0) for SetTile
-                if (!clearscreen) tilemap.SetTile(pos3, null); // clear old tile
-                tilemap.SetTile(pos3, floorTile);
-                tilemap.SetTileFlags(pos3, TileFlags.None); // Allow color changes
-                tilemap.SetColor(pos3, cell.colorFloor); // Set room color
-                                                         //
+                Debug.Log($"x,y = {cell.x},{cell.y} : cell.walls = {cell.walls}, cell.doors = {cell.doors}");
+
+                Vector3Int pos3 = new(cell.x,cell.y,0);
+                Vector3Int center_pos3 = new();
+                Vector3Int d = new();
+
+                // update the maps
                 map[cell.x, cell.y] = FLOOR;
                 mapHeights[cell.x, cell.y] = cell.height;
+
+                // --------------- floors
+                    // calculate everything necessary to transform and draw the WALL
+                    floor_pos = new Vector3Int(pos3.x, pos3.y, 0);                 // position one tile away in the direction of the wall/door
+                    floor_offset = new Vector3(0,0,0);             // offset to side of tile closest to wall/door
+                    floor_rotation = new Vector3(90f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                    floor_scale = new Vector3(1f,1f,1f);              // scale to half x,y size
+    
+                    SetTilemapWithTransforms(tilemap: tilemap,
+                                             pos: floor_pos,
+                                             offset: floor_offset,
+                                             rotation: floor_rotation,
+                                             scale: floor_scale,
+                                             tile: floorTile,
+                                             color: room.colorFloor);
+
+                // test out non-transform
+                //tilemap.SetTile(floor_pos, floorTile);
+                //tilemap.SetTileFlags(floor_pos, TileFlags.None); // Allow color/transform changes
+                //tilemap.SetColor(floor_pos, cell.colorFloor); // Set room color
+                
+                /*
+                                floor_pos3 = new Vector3Int(pos3.x, pos3.y, 0);   // floor is bottom most layer
+                                floor_shift_v = new Vector3(0f, 0f, 0f);
+                                Vector3 floor_scale_v = new Vector3(1f, 1f, 1f);      
+                                Vector3 floor_rotation_v = new(0f, 0f, 0f);   // rotation of tile to lay flat on the ground
+                                floor_shift_m = Matrix4x4.TRS(
+                                    floor_shift_v,                     // offset
+                                    Quaternion.Euler(floor_rotation_v),     // rotation of tile to lay flat on the ground
+                                    floor_scale_v                           // scale 100% XY
+                                    );
+                                tilemap.SetTile(floor_pos3, floorTile);
+                                tilemap.SetTileFlags(floor_pos3, TileFlags.None); // Allow color/transform changes
+                                tilemap.SetColor(floor_pos3, cell.colorFloor); // Set room color
+                                tilemap.SetTransformMatrix(floor_pos3, floor_shift_m);   // nudges the sprite within its cell
+                */
+                // --------------- walls
+                // tileMap_walls is scaled down by 3 each direction.  To match floors, multiply by 3.
+                // center_pos3 is the middle cell corresponding to the larger floor cell.
+                // We then add 1 to the appropriate direction to get the edge cells closest to the wall/door.
+                center_pos = new Vector3Int(cell.x * 3 + 1, cell.y * 3 + 1, 0);
+
+                for (int i = 0; i < 4; i++) // do all 4 directions
+                {
+                    switch (i)
+                    {
+                        case 0:
+                            if (cell.walls.HasFlag(DirFlags.N)) d = Vector3Int.up;
+                            else continue;
+                            break;
+                        case 1:
+                            if (cell.walls.HasFlag(DirFlags.S)) d = Vector3Int.down;
+                            else continue;
+                            break;
+                        case 2:
+                            if (cell.walls.HasFlag(DirFlags.W)) d = Vector3Int.left;
+                            else continue;
+                            break;
+                        case 3:
+                            if (cell.walls.HasFlag(DirFlags.E)) d = Vector3Int.right;
+                            else continue;
+                            break;
+                        default:    // should never happen
+                            continue;
+                    }
+                    // calculate everything necessary to transform and draw the WALL
+                    wall_pos = center_pos + d;                 // position one tile away in the direction of the wall/door
+                    wall_offset = (Vector3)d / 2f;             // offset to side of tile closest to wall/door
+                    wall_rotation = new Vector3(0f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                    wall_scale = new Vector3(.5f, 0.5f, 0.5f);              // scale to half x,y size
+                      wall_scale.z = 1;                        // leave z scale 1
+
+                    SetTilemapWithTransforms(tilemap: tilemap_walls,
+                                             pos: wall_pos,
+                                             offset: wall_offset,
+                                             rotation: wall_rotation,
+                                             scale: wall_scale,
+                                             tile: wallTile,
+                                             color: Color.black);
+ 
+                }
+
+                // --------------- doors
+                // tileMap_doors is scaled down by 3 each direction.  To match floors, multiply by 3.
+                // center_pos3 is the middle cell corresponding to the larger floor cell.
+                // We then add 1 to the appropriate direction to get the edge cells closest to the wall/door.
+                center_pos3 = new Vector3Int(pos3.x * 3 + 1, pos3.y * 3 + 1, 0);
+
+                for (int dir_index = 0; dir_index < 4; dir_index++)
+                {
+                    switch (dir_index)
+                    {
+                        case 0:
+                            if (cell.doors.HasFlag(DirFlags.N)) d = Vector3Int.up;
+                            else continue;
+                            break;
+                        case 1:
+                            if (cell.doors.HasFlag(DirFlags.S)) d = Vector3Int.down;
+                            else continue;
+                            break;
+                        case 2:
+                            if (cell.doors.HasFlag(DirFlags.W)) d = Vector3Int.left;
+                            else continue;
+                            break;
+                        case 3:
+                            if (cell.doors.HasFlag(DirFlags.E)) d = Vector3Int.right;
+                            else continue;
+                            break;
+                        default:    // should never happen
+                            continue;
+                    }
+                    // calculate everything necessary to transform and draw the DOOR
+                    door_pos = center_pos + d;                 // position one tile away in the direction of the wall/door
+                    door_offset = (Vector3)d / 2f;             // offset to side of tile closest to wall/door
+                    door_offset = new Vector3(0f, 0f, 0f); //DEBUG
+                    door_rotation = new Vector3(90f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                    door_scale = (Vector3)d / 2f;              // scale to half x,y size
+                      door_scale.z = 1;                        // leave z scale 1
+                    door_scale = new Vector3(1f, 1f, 1f); //DEBUG
+                    SetTilemapWithTransforms(tilemap: tilemap_doors,
+                                             pos: door_pos,
+                                             offset: door_offset,
+                                             rotation: door_rotation,
+                                             scale: door_scale,
+                                             tile: wallTile,
+                                             color: Color.red);
+ 
+                }
             }
         }
     }
 
     // NEW    
+    public void SetTilemapWithTransforms(Tilemap tilemap, Vector3Int pos, Vector3 offset, Vector3 rotation, Vector3 scale, TileBase tile, Color color)
+    {
+
+        Matrix4x4 transform_m = Matrix4x4.TRS(                   // combine the last 3 to one transformation operation
+            offset,                  // offset
+            Quaternion.Euler(rotation),   // rotation of tile to lie flat on ground
+            scale           // scale
+            );
+
+        tilemap.SetTile(pos, tile);
+        tilemap.SetTileFlags(pos, TileFlags.None); // Allow color changes
+        tilemap.SetColor(pos, color); // Set room color
+        tilemap.SetTransformMatrix(pos, transform_m);  // nudges the sprite within its cell
+
+        Debug.Log("SetTilemapWithTransforms");
+        Debug.Log($"pos     ={pos.ToString()}");
+        Debug.Log($"scale   ={scale.ToString()}");
+        Debug.Log($"offset  ={offset.ToString()}");
+        Debug.Log($"rotation={rotation.ToString()}");
+    }
+
+    // New
     public Room DrawCorridorSloped(Vector2Int start, Vector2Int end, int start_height, int end_height, int start_room, int end_room)
     {
         List<Vector2Int> path;
