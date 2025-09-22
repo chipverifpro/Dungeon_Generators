@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System;
+using UnityEngine.UIElements;
 
 
 /* DONE list...
@@ -86,11 +87,14 @@ public partial class DungeonGenerator : MonoBehaviour
         if (tm == null) { tm = TimeManager.Instance.BeginTask("RegenerateDungeon"); local_tm = true; }
         try
         {
+            yield return null;  // give time for all allocations to complete
             room_rects = new List<RectInt>(); // Clear the list of room rectangles
+            map = new byte[cfg.mapWidth, cfg.mapHeight];
             mapHeights = new int[cfg.mapWidth, cfg.mapHeight];
             Destroy3D();
             hf = null; // clear heightfield
             if (tm.IfYield()) yield return null;     // cooperative yield decision
+
             BottomBanner.Show("Generating dungeon...");
 
             // Step 0: Select settings
@@ -259,7 +263,12 @@ public partial class DungeonGenerator : MonoBehaviour
 
             BottomBanner.Show("Building Wall Lists...");
             yield return null;
+            DrawMapByRooms(rooms);  // update the 2D map before finishing.
+            DrawWalls();
+
             yield return StartCoroutine(BuildWallsAroundFloorsInRooms(tm: null));
+            DrawMapByRooms(rooms);  // update the 2D map before finishing.
+            DrawWalls();
 
             // Optionally tilt individual floor tiles
             if (cfg.enableTiltedTiles && cfg.tiltFloorTilesMaxAngle != 0)  // If > 0, tilt individual floor tiles by up to this angle in degrees.
@@ -274,8 +283,13 @@ public partial class DungeonGenerator : MonoBehaviour
             BottomBanner.Show("Height Map Build...");
             yield return null;
             // FillVoidToWalls(map);
+            DrawMapByRooms(rooms);  // update the 2D map before finishing.
+            DrawWalls();
             yield return StartCoroutine(Build3DFromRooms(tm: null));
             // If Build should be static, change its definition to 'public static void Build(...)' in HeightMap3DBuilder.
+
+            DrawMapByRooms(rooms);  // update the 2D map before finishing.
+            DrawWalls();
 
             yield return tm.YieldOrDelay(cfg.stepDelay);
 
@@ -425,11 +439,11 @@ public partial class DungeonGenerator : MonoBehaviour
         {
             //bool printonce = true;
             // CELL_VERSION
-            Debug.Log("DrawMapByRooms: room " + room.my_room_number + " size: " + room.cells.Count);
+            //Debug.Log("DrawMapByRooms: room " + room.my_room_number + " size: " + room.cells.Count);
             
             foreach (var cell in room.cells)
             {
-                Debug.Log($"x,y = {cell.x},{cell.y} : cell.walls = {cell.walls}, cell.doors = {cell.doors}");
+                //Debug.Log($"x,y = {cell.x},{cell.y} : cell.walls = {cell.walls}, cell.doors = {cell.doors}");
 
                 Vector3Int pos3 = new(cell.x,cell.y,0);
                 Vector3Int center_pos3 = new();
@@ -440,64 +454,60 @@ public partial class DungeonGenerator : MonoBehaviour
                 mapHeights[cell.x, cell.y] = cell.height;
 
                 // --------------- floors
-                    // calculate everything necessary to transform and draw the WALL
-                    floor_pos = new Vector3Int(pos3.x, pos3.y, 0);                 // position one tile away in the direction of the wall/door
-                    floor_offset = new Vector3(0,0,0);             // offset to side of tile closest to wall/door
-                    floor_rotation = new Vector3(90f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
-                    floor_scale = new Vector3(1f,1f,1f);              // scale to half x,y size
-    
-                    SetTilemapWithTransforms(tilemap: tilemap,
-                                             pos: floor_pos,
-                                             offset: floor_offset,
-                                             rotation: floor_rotation,
-                                             scale: floor_scale,
-                                             tile: floorTile,
-                                             color: room.colorFloor);
+                // calculate everything necessary to transform and draw the WALL
+                floor_pos = new Vector3Int(pos3.x, pos3.y, 0);                 // position one tile away in the direction of the wall/door
+                floor_offset = new Vector3(0,0,0);             // offset to side of tile closest to wall/door
+                floor_rotation = new Vector3(90f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                floor_scale = new Vector3(1f,1f,1f);              // scale to half x,y size
 
-                // test out non-transform
-                //tilemap.SetTile(floor_pos, floorTile);
-                //tilemap.SetTileFlags(floor_pos, TileFlags.None); // Allow color/transform changes
-                //tilemap.SetColor(floor_pos, cell.colorFloor); // Set room color
-                
-                /*
-                                floor_pos3 = new Vector3Int(pos3.x, pos3.y, 0);   // floor is bottom most layer
-                                floor_shift_v = new Vector3(0f, 0f, 0f);
-                                Vector3 floor_scale_v = new Vector3(1f, 1f, 1f);      
-                                Vector3 floor_rotation_v = new(0f, 0f, 0f);   // rotation of tile to lay flat on the ground
-                                floor_shift_m = Matrix4x4.TRS(
-                                    floor_shift_v,                     // offset
-                                    Quaternion.Euler(floor_rotation_v),     // rotation of tile to lay flat on the ground
-                                    floor_scale_v                           // scale 100% XY
-                                    );
-                                tilemap.SetTile(floor_pos3, floorTile);
-                                tilemap.SetTileFlags(floor_pos3, TileFlags.None); // Allow color/transform changes
-                                tilemap.SetColor(floor_pos3, cell.colorFloor); // Set room color
-                                tilemap.SetTransformMatrix(floor_pos3, floor_shift_m);   // nudges the sprite within its cell
-                */
+                SetTilemapWithTransforms(tilemap: tilemap,
+                                            pos: floor_pos,
+                                            offset: floor_offset,
+                                            rotation: floor_rotation,
+                                            scale: floor_scale,
+                                            tile: floorTile,
+                                            color: room.colorFloor);
+
                 // --------------- walls
                 // tileMap_walls is scaled down by 3 each direction.  To match floors, multiply by 3.
                 // center_pos3 is the middle cell corresponding to the larger floor cell.
                 // We then add 1 to the appropriate direction to get the edge cells closest to the wall/door.
                 center_pos = new Vector3Int(cell.x * 3 + 1, cell.y * 3 + 1, 0);
-
+                int rotate = 0;
                 for (int i = 0; i < 4; i++) // do all 4 directions
                 {
                     switch (i)
                     {
                         case 0:
-                            if (cell.walls.HasFlag(DirFlags.N)) d = Vector3Int.up;
+                            if (cell.walls.HasFlag(DirFlags.N))
+                            {
+                                d = Vector3Int.up;
+                                rotate = 0;
+                            }
                             else continue;
                             break;
                         case 1:
-                            if (cell.walls.HasFlag(DirFlags.S)) d = Vector3Int.down;
+                            if (cell.walls.HasFlag(DirFlags.S))
+                            {
+                                d = Vector3Int.down;
+                                rotate = 0;
+                            }
                             else continue;
                             break;
                         case 2:
-                            if (cell.walls.HasFlag(DirFlags.W)) d = Vector3Int.left;
+                            if (cell.walls.HasFlag(DirFlags.W))
+                            {
+                                d = Vector3Int.left;
+                                rotate = 90;
+                            }
                             else continue;
                             break;
                         case 3:
-                            if (cell.walls.HasFlag(DirFlags.E)) d = Vector3Int.right;
+                            if (cell.walls.HasFlag(DirFlags.E))
+                            {
+                                d = Vector3Int.right;
+                                rotate = 90;
+                            }
                             else continue;
                             break;
                         default:    // should never happen
@@ -505,10 +515,11 @@ public partial class DungeonGenerator : MonoBehaviour
                     }
                     // calculate everything necessary to transform and draw the WALL
                     wall_pos = center_pos + d;                 // position one tile away in the direction of the wall/door
-                    wall_offset = (Vector3)d / 2f;             // offset to side of tile closest to wall/door
-                    wall_rotation = new Vector3(0f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
-                    wall_scale = new Vector3(.5f, 0.5f, 0.5f);              // scale to half x,y size
-                      wall_scale.z = 1;                        // leave z scale 1
+                    wall_offset = (Vector3)d;// / 2f;             // offset to side of tile closest to wall/door
+                    //wall_offset = new Vector3(0f, 0f, 0f); //DEBUG
+                    wall_rotation = new Vector3(90f, rotate, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                    wall_scale = new Vector3(3f, 0.1f, 0f);  // scale to half x,y size
+                      //wall_scale.z = 1;                        // leave z scale 1
 
                     SetTilemapWithTransforms(tilemap: tilemap_walls,
                                              pos: wall_pos,
@@ -531,19 +542,35 @@ public partial class DungeonGenerator : MonoBehaviour
                     switch (dir_index)
                     {
                         case 0:
-                            if (cell.doors.HasFlag(DirFlags.N)) d = Vector3Int.up;
+                            if (cell.doors.HasFlag(DirFlags.N))
+                            {
+                                d = Vector3Int.up;
+                                rotate = 0;
+                            }
                             else continue;
                             break;
                         case 1:
-                            if (cell.doors.HasFlag(DirFlags.S)) d = Vector3Int.down;
+                            if (cell.doors.HasFlag(DirFlags.S))
+                            {
+                                d = Vector3Int.down;
+                                rotate = 0;
+                            }
                             else continue;
                             break;
                         case 2:
-                            if (cell.doors.HasFlag(DirFlags.W)) d = Vector3Int.left;
+                            if (cell.doors.HasFlag(DirFlags.W))
+                            {
+                                d = Vector3Int.left;
+                                rotate = 90;
+                            }
                             else continue;
                             break;
                         case 3:
-                            if (cell.doors.HasFlag(DirFlags.E)) d = Vector3Int.right;
+                            if (cell.doors.HasFlag(DirFlags.E))
+                            {
+                                d = Vector3Int.right;
+                                rotate = 90;
+                            }
                             else continue;
                             break;
                         default:    // should never happen
@@ -553,16 +580,16 @@ public partial class DungeonGenerator : MonoBehaviour
                     door_pos = center_pos + d;                 // position one tile away in the direction of the wall/door
                     door_offset = (Vector3)d / 2f;             // offset to side of tile closest to wall/door
                     door_offset = new Vector3(0f, 0f, 0f); //DEBUG
-                    door_rotation = new Vector3(90f, 0f, 0f);  // determined by tile rotation: rotate vertical to lay flat.
+                    door_rotation = new Vector3(90f, rotate, 0f);  // determined by tile rotation: rotate vertical to lay flat.
                     door_scale = (Vector3)d / 2f;              // scale to half x,y size
                       door_scale.z = 1;                        // leave z scale 1
-                    door_scale = new Vector3(1f, 1f, 1f); //DEBUG
+                    door_scale = new Vector3(1f, 1f, 0.01f); //DEBUG
                     SetTilemapWithTransforms(tilemap: tilemap_doors,
                                              pos: door_pos,
                                              offset: door_offset,
                                              rotation: door_rotation,
                                              scale: door_scale,
-                                             tile: wallTile,
+                                             tile: floorTile,
                                              color: Color.red);
  
                 }
@@ -585,11 +612,12 @@ public partial class DungeonGenerator : MonoBehaviour
         tilemap.SetColor(pos, color); // Set room color
         tilemap.SetTransformMatrix(pos, transform_m);  // nudges the sprite within its cell
 
-        Debug.Log("SetTilemapWithTransforms");
-        Debug.Log($"pos     ={pos.ToString()}");
-        Debug.Log($"scale   ={scale.ToString()}");
-        Debug.Log($"offset  ={offset.ToString()}");
-        Debug.Log($"rotation={rotation.ToString()}");
+        
+        //Debug.Log("SetTilemapWithTransforms");
+        //Debug.Log($"pos     ={pos.ToString()}");
+        //Debug.Log($"scale   ={scale.ToString()}");
+        //Debug.Log($"offset  ={offset.ToString()}");
+        //Debug.Log($"rotation={rotation.ToString()}");
     }
 
     // New
@@ -741,6 +769,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     public void DrawWalls()  // from tilemap, adds walls to the existing 2D tilemap
     {
+        return; // DEBUG: This isn't working quite right, remove for now...
         BoundsInt bounds = tilemap.cellBounds;
         //BottomBanner.Show("Drawing walls...");
         for (int x = bounds.xMin - 1; x <= bounds.xMax + 1; x++)

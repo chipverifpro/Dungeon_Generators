@@ -12,7 +12,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public IEnumerator PlaceDoors()
     {
         int doorsYieldEvery = 300;
-        int W = cellGrid.GetLength(0), H = cellGrid.GetLength(1);
+        int W = cfg.mapWidth, H = cfg.mapHeight;
         int moat = cfg.useThinWalls ? 0 : Mathf.Max(0, cfg.wallThickness);
 
         // 1) Collect candidate door sites (room-edge touching room/corridor within ≤ moat cells in a straight line)
@@ -25,11 +25,17 @@ public partial class DungeonGenerator : MonoBehaviour
         yield return StartCoroutine(EnsureConnectivity(candidates, moat, cfg.doors.maxDoorsPerRoom, doorsYieldEvery));
 
         // 4) Add extra loop doors for interest
-        int extraTarget = 0;// Mathf.RoundToInt(candidates.Count * dc.loopiness * 0.25f);
+        //int extraTarget = 0; //DEBUG
+        int extraTarget = Mathf.RoundToInt(candidates.Count * cfg.doors.loopiness * 0.25f);
         yield return StartCoroutine(AddLoopDoors(candidates, extraTarget, moat, cfg.doors.minDoorSpacing, cfg.doors.maxDoorsPerRoom, doorsYieldEvery));
 
         DrawMapByRooms(rooms);
-        yield return null;
+        yield return new WaitForSeconds(1f);
+        UpdateDoorsInRooms(candidates);
+        DrawMapByRooms(rooms);
+        yield return new WaitForSeconds(1f);
+
+        PrintCandidates(candidates);
     }
 
     // ============================= CANDIDATES =============================
@@ -42,6 +48,9 @@ public partial class DungeonGenerator : MonoBehaviour
         public int targetRoomId;    // if !toCorridor, room id on the far side
         public int roomId;          // source room id
         public int score;           // lower is better for connectivity
+        public bool placed;         // shows if this was successfully placed
+        public Cell cellA;
+        public Cell cellB;
     }
 
     List<DoorCandidate> CollectDoorCandidates(int W, int H, int moat, int minSpacing, int yieldEvery)
@@ -66,13 +75,13 @@ public partial class DungeonGenerator : MonoBehaviour
                     var dv = DirVec(d);
                     int nx = c.x + dv.x, ny = c.y + dv.y;
                     int span = 0;
-                    bool blocked = false;
+                    //bool blocked = false;
                     while (span <= moat)
                     {
-                        if (!In(nx, ny, W, H)) { blocked = true; break; }
+                        if (!In(nx, ny, W, H)) { /*blocked = true;*/ break; }
                         var n = cellGrid[nx, ny];
 
-                        if (n == null) { blocked = true; break; } // sanity
+                        if (n == null) { /*blocked = true*/; break; } // sanity
                         if (!n.isCorridor && n.room_number < 0)
                         {
                             // empty; keep drilling
@@ -88,10 +97,19 @@ public partial class DungeonGenerator : MonoBehaviour
                             int edgeKey = EdgeKey(ri, d, c.x, c.y);
                             if (TooClose(lastOnEdge, edgeKey, c, minSpacing)) break;
 
-                            list.Add(new DoorCandidate{
-                                x=c.x, y=c.y, dir=d, span=span, toCorridor=true, targetRoomId=-1, roomId=ri,
-                                score = span // prefer short punches
-                            });
+                            list.Add(new DoorCandidate
+                            {
+                                x = c.x,
+                                y = c.y,
+                                dir = d,
+                                span = span,
+                                toCorridor = true,
+                                targetRoomId = -1,
+                                roomId = ri,
+                                score = span,
+                                cellA = c,
+                                cellB = n
+                            }); // prefer short punches
                             // remember last door location along this edge
                             lastOnEdge[(ri, edgeKey)] = EdgeMeasure(d, c.x, c.y);
                         }
@@ -100,10 +118,21 @@ public partial class DungeonGenerator : MonoBehaviour
                             int edgeKey = EdgeKey(ri, d, c.x, c.y);
                             if (TooClose(lastOnEdge, edgeKey, c, minSpacing)) break;
 
-                            list.Add(new DoorCandidate{
-                                x=c.x, y=c.y, dir=d, span=span, toCorridor=false, targetRoomId=n.room_number, roomId=ri,
-                                score = span
+                            list.Add(new DoorCandidate
+                            {
+                                x = c.x,
+                                y = c.y,
+                                dir = d,
+                                span = span,
+                                toCorridor = false,
+                                targetRoomId = n.room_number,
+                                roomId = ri,
+                                score = span,
+                                placed = false,
+                                cellA = c,
+                                cellB = n
                             });
+
                             lastOnEdge[(ri, edgeKey)] = EdgeMeasure(d, c.x, c.y);
                         }
                         // if same room, ignore (internal edge)
@@ -127,6 +156,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
         foreach (var tip in CorridorDeadEnds(W, H))
         {
+            Cell c = cellGrid[tip.x, tip.y];
             // look outward in 4 dirs up to 'reach' cells for a room boundary we can punch to
             foreach (var d in AllDirs())
             {
@@ -140,12 +170,22 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (!n.isCorridor && n.room_number >= 0)
                     {
                         // Create door candidate into that room (door faces from room back toward corridor)
-                        var dcand = new DoorCandidate{
-                            x = nx, y = ny, dir = Opp(d), span = Mathf.Min(span, moat),
-                            toCorridor = true, targetRoomId = -1, roomId = n.room_number,
-                            score = 0
+                        var dcand = new DoorCandidate
+                        {
+                            x = nx,
+                            y = ny,
+                            dir = Opp(d),
+                            span = Mathf.Min(span, moat),
+                            toCorridor = true,
+                            targetRoomId = -1,
+                            roomId = n.room_number,
+                            score = 0,
+                            cellA = c,
+                            cellB = n
                         };
-                        TryPlaceDoor(dcand, moat);
+                        bool placed = TryPlaceDoor(dcand, moat);
+                        Debug.Log($"ConnectLooseEnds: Tried to place door at {dcand.x},{dcand.y} placed = {placed}");
+
                         break;
                     }
                     if (!n.isCorridor && n.room_number < 0)
@@ -180,6 +220,9 @@ public partial class DungeonGenerator : MonoBehaviour
                 // corridor acts like a hub; allow up to maxDoorsPerRoom into corridor
                 if (doorsUsedPerRoom[c.roomId] >= maxDoorsPerRoom) continue;
                 bool placed = TryPlaceDoor(c, moat);
+                c.placed = placed;
+                Debug.Log($"EnsureConnectivity1: Tried to place door at {c.x},{c.y} placed = {placed}");
+                
                 if (placed) { doorsUsedPerRoom[c.roomId]++; chosen++; }
             }
             else
@@ -190,6 +233,8 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (doorsUsedPerRoom[c.targetRoomId] >= maxDoorsPerRoom) continue;
 
                 bool placed = TryPlaceDoor(c, moat);
+                c.placed = placed;
+                Debug.Log($"EnsureConnectivity2: Tried to place door at {c.x},{c.y} placed = {placed}");
                 if (placed)
                 {
                     uf.Union(c.roomId, c.targetRoomId);
@@ -224,12 +269,14 @@ public partial class DungeonGenerator : MonoBehaviour
                 continue;
             if (c.toCorridor && perRoom[c.roomId] >= maxDoorsPerRoom)
                 continue;
-
-            if (TryPlaceDoor(c, moat))
+            bool placed;
+            if (placed=TryPlaceDoor(c, moat))
             {
+                Debug.Log($"AdddLoopDoors: Tried to place door at {c.x},{c.y} placed = {placed}");
                 if (c.toCorridor) perRoom[c.roomId]++; else { perRoom[c.roomId]++; perRoom[c.targetRoomId]++; }
                 added++;
             }
+            c.placed = placed;
             if (added % yieldEvery == 0) yield return null;
         }
     }
@@ -280,7 +327,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // 3) Set door flags on the two boundary cells that touch the tunnel
         // Near side door on 'a' in direction d.dir
         a.doors |= d.dir;
-        a.walls &= ~d.dir; // door replaces wall edge
+        //a.walls &= ~d.dir; // door replaces wall edge
 
         // The cell on the tunnel’s first corridor tile (if span>0) or the far-side cell if span==0
         int bx = d.span > 0 ? (d.x + dv.x) : cx;
@@ -290,13 +337,13 @@ public partial class DungeonGenerator : MonoBehaviour
 
         // Corridor cells can also carry door info for rendering; if you prefer, attach only to room sides.
         near.doors |= opp;
-        near.walls &= ~opp;
+        //near.walls &= ~opp;
 
         // If connecting room↔room with span==0 (thin walls), also set door on far room edge
         if (!d.toCorridor && d.span == 0)
         {
             b.doors |= Opp(d.dir);
-            b.walls &= ~Opp(d.dir);
+            //b.walls &= ~Opp(d.dir);
         }
 
         return true;
@@ -377,13 +424,58 @@ public partial class DungeonGenerator : MonoBehaviour
         }
     }
 
+    void PrintCandidates(List<DoorCandidate> candidates)
+    {
+        int num = 0;
+        int complete = 0;
+        foreach (DoorCandidate c in candidates)
+        {
+            Debug.Log($"Candidate {num}: @{c.x},{c.y} {c.dir} placed={c.placed} A={c.roomId} -> B={c.targetRoomId}");
+            //Debug.Log($"room {c.roomId} : doors = {rooms[c.roomId].doors.Count}");
+            Debug.Log($"{c.cellA.x},{c.cellA.y} doors={c.cellA.doors} -> {c.cellB.x},{c.cellB.y} doors={c.cellB.doors}");
+            num++;
+            if (c.placed) complete++;
+        }
+        Debug.Log($"Door Candidates = {num}, Doors Complete = {complete}");
+    }
+
+    void UpdateDoorsInRooms(List<DoorCandidate> candidates)
+    {
+        //int num = 0;
+        //int complete = 0;
+        int num_changes = 0;
+        foreach (DoorCandidate c in candidates)
+        {
+            //Debug.Log($"Candidate {num}: @{c.x},{c.y} {c.dir} placed={c.placed} A={c.roomId} -> B={c.targetRoomId}");
+            //Debug.Log($"room {c.roomId} : doors = {rooms[c.roomId].doors.Count}");
+            if (!c.placed)
+            {
+                DirFlags before_doors = c.cellA.doors;
+                DirFlags before_walls = c.cellA.walls;
+                c.cellA.doors &= ~c.dir;    // clear the door bit if not placed.
+                c.cellA.walls |= c.dir;     // set the wall bit if not placed.
+                if ((before_doors != c.cellA.doors) || (before_walls != c.cellA.walls))
+                {
+                    Debug.Log($"before_doors = {before_doors}, after_doors = {c.cellA.doors}");
+                    Debug.Log($"before_walls = {before_walls}, after_walls = {c.cellA.walls}");
+                    num_changes++;
+                }
+                //Debug.Log($"{c.cellA.x},{c.cellA.y} doors={c.cellA.doors} -> {c.cellB.x},{c.cellB.y} doors={c.cellB.doors}");
+                //num++;
+                //if (c.placed) complete++;
+            }
+            if (num_changes != 0) Debug.Log($"num_changes = {num_changes}");
+            //Debug.Log($"Door Candidates = {num}, Doors Complete = {complete}");
+        }
+    }
+
     class UnionFind
     {
         int[] p, r; int comps;
-        public UnionFind(int n){ p=new int[n]; r=new int[n]; comps=n; for(int i=0;i<n;i++) p[i]=i; }
-        int Find(int x){ return p[x]==x?x:(p[x]=Find(p[x])); }
-        public bool Connected(int a,int b)=> Find(a)==Find(b);
-        public void Union(int a,int b){ a=Find(a); b=Find(b); if(a==b) return; if(r[a]<r[b]) p[a]=b; else if(r[a]>r[b]) p[b]=a; else { p[b]=a; r[a]++; } comps--; }
+        public UnionFind(int n) { p = new int[n]; r = new int[n]; comps = n; for (int i = 0; i < n; i++) p[i] = i; }
+        int Find(int x) { return p[x] == x ? x : (p[x] = Find(p[x])); }
+        public bool Connected(int a, int b) => Find(a) == Find(b);
+        public void Union(int a, int b) { a = Find(a); b = Find(b); if (a == b) return; if (r[a] < r[b]) p[a] = b; else if (r[a] > r[b]) p[b] = a; else { p[b] = a; r[a]++; } comps--; }
         public int Components => comps;
     }
 }

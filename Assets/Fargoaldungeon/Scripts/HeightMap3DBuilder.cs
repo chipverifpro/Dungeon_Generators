@@ -108,6 +108,9 @@ public partial class DungeonGenerator : MonoBehaviour
             bool use_triangle_floor = false;
             int triangle_floor_dir = 0;
             //bool includes_ramp = false;
+            DirFlags mywalls = DirFlags.None;
+            DirFlags mydoors = DirFlags.None;
+            
             
             // Cache once:
             var floorMR = (floorPrefab != null) ? floorPrefab.GetComponent<MeshRenderer>() : null;
@@ -137,7 +140,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 // If your Grid's tile anchor isn't centered, you may want to offset by cell * 0.5f
                 // world += new Vector3(cell.x * 0.5f, 0, cell.y * 0.5f); // uncomment if needed
 
-                DirFlags mydoors = rooms[room_number].cells[cell_number].doors;
+                mydoors = rooms[room_number].cells[cell_number].doors;
                 bool ND = mydoors.HasFlag(DirFlags.N);
                 bool ED = mydoors.HasFlag(DirFlags.E);
                 bool SD = mydoors.HasFlag(DirFlags.S);
@@ -154,13 +157,11 @@ public partial class DungeonGenerator : MonoBehaviour
                     // include neighborhood, which is immediately connected rooms
                     // this allows for proper finding of walls at intersection.
                     
-                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+                    mywalls = rooms[room_number].cells[cell_number].walls;
                     bool N = mywalls.HasFlag(DirFlags.N);
                     bool E = mywalls.HasFlag(DirFlags.E);
                     bool S = mywalls.HasFlag(DirFlags.S);
                     bool W = mywalls.HasFlag(DirFlags.W);
-
-
 
                     // if zero or one sides are walls, then nothing will happen here, so skip extra calculations
                     // if three sides are walls, don't replace with diagonals and leave as three walls (yucky X arrangement)
@@ -234,12 +235,13 @@ public partial class DungeonGenerator : MonoBehaviour
                     bool nIsWall = false;
                     bool nIsDoor = false;
 
-                    DirFlags mywalls = rooms[room_number].cells[cell_number].walls;
+                    mywalls = rooms[room_number].cells[cell_number].walls;
                     mydoors = rooms[room_number].cells[cell_number].doors;
 
                     if (nx < 0 || nz < 0 || nx >= cfg.mapWidth || nz >= cfg.mapHeight)
-                    {
-                        nIsWall = true;
+                    {   
+                        nIsWall = true;     // off map
+                        nIsDoor = false;
                     }
                     //bool nIsFloor = IsTileInNeighborhood(room_number, rooms[room_number].neighbors, new Vector2Int(nx, nz));
                     //bool nIsWall = IsWallInNeighborhood(room_number, new Vector2Int(nx, nz));
@@ -250,13 +252,13 @@ public partial class DungeonGenerator : MonoBehaviour
                     if (d.x == 0 && d.y == -1) nIsWall = mywalls.HasFlag(DirFlags.S);
                     if (d.x == -1 && d.y == 0) nIsWall = mywalls.HasFlag(DirFlags.W);
 
-                    if (d.x == 0 && d.y == 1) nIsDoor = ND;
-                    if (d.x == 1 && d.y == 0) nIsDoor = ED;
-                    if (d.x == 0 && d.y == -1) nIsDoor = SD;
-                    if (d.x == -1 && d.y == 0) nIsDoor = WD;
+                    if (d.x == 0 && d.y == 1) nIsDoor = mydoors.HasFlag(DirFlags.N);
+                    if (d.x == 1 && d.y == 0) nIsDoor = mydoors.HasFlag(DirFlags.E);
+                    if (d.x == 0 && d.y == -1) nIsDoor = mydoors.HasFlag(DirFlags.S);
+                    if (d.x == -1 && d.y == 0) nIsDoor = mydoors.HasFlag(DirFlags.W);
 
                     // If current is FLOOR and neighbor is WALL => perimeter face (unless diagonal suppressed)
-                    if (isFloor && nIsWall && cliffPrefab != null)
+                    if (isFloor && (nIsWall || nIsDoor) && cliffPrefab != null)
                     {
                         // Respect suppress flags for the matching direction
                         if ((d.x == 0 && d.y == 1 && suppressN) ||
@@ -288,7 +290,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
                             // make the wall red to indicate a simple door...
                             var rend = face.GetComponent<MeshRenderer>(); // ok once per object, but avoid if not needed
-                            if (nIsDoor && rend != null) rend.material.color = Color.red;
+                            if (nIsDoor /*&& (rend != null)*/) rend.material.color = Color.red;
                         }
                     }
 

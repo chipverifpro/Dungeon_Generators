@@ -11,7 +11,7 @@ public partial class DungeonGenerator : MonoBehaviour  // Tilemap2D
 
     public byte[,] map; // each byte represents one of the below constants
     public int[,] mapHeights; // 2D array to store height information for each tile
-    public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
+    //public bool mapStale = true; // Flag to indicate if map needs to be regenerated from rooms
     [HideInInspector] public const byte WALL = 1;
     [HideInInspector] public const byte FLOOR = 2;
     [HideInInspector] public const byte RAMP = 3;

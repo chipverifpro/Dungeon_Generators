@@ -22,6 +22,7 @@ public partial class DungeonGenerator : MonoBehaviour
         //List<Room> rooms_temp = new(); // temporary Room list for compatibility with DrawMapByRooms
         rooms = new(); // reset this list also
         InitializeCellGrid();
+        //InitializeCellGridFromRooms(rooms);
         float t0 = Time.realtimeSinceStartup;
 
         // 1) Corridors
@@ -65,6 +66,13 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.Log("After doors, rooms = " + rooms.Count);
         yield return new WaitForSeconds(1f);
 
+        //UpdateCellGridFromRooms(rooms);
+        UpdateRoomsFromCellGrid();
+        DrawMapByRooms(rooms);
+        yield return new WaitForSeconds(1f);
+
+        CheckRoomsToGridConsistancy();
+        
         BottomBanner.Show($"Done seed={seed} in {(Time.realtimeSinceStartup - t0):F2}s");
     }
 
@@ -666,7 +674,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // 3) For each anchor, choose a side (left/right normal to corridor),
         //    find the edge of the corridor, offset off the corridor by moat+1,
         //    and plant a single seed cell there (unless it is a bad spot).
-    
+
         bool flip = false; // alternate sides deterministically, with randomness via altProb
         int created = 0; // count of created seeds
         bool found_seed_candidate = false; // assume it is bad until we find a space adjacent to corridor.
@@ -802,7 +810,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // // these are not config parameters...
         int cooldownOnFail = 3;             // tune: how long to cool a side that failed to grow
         int yieldEvery = 256;               // yields every this many passes (tracked by variable touched)
-        
+
         // sanity check
         percentSkipGrowth = Math.Max(10, percentSkipGrowth); // zero would give divide by zero error.  Low numbers will make for very long number of passes
 
@@ -820,7 +828,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         if (!allowedRoomIds.Contains(ri)) continue;
 
                     if (rooms[ri].cells.Count > credits[ri]) continue;  // room is out of credits
-                    
+
                     if (rng.Next(0, 100) < percentSkipGrowth) continue; // randomly skip a room.
                     Room room = rooms[ri]; // shortcut
                     if (room.cells.Count == 0) continue;    // no cells in this room
@@ -845,7 +853,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         {
                             // success: update bounds & cooldown bookkeeping
                             bounds = room.GetBounds();  // is this already done in TryGrowFullStrip?
-                            Debug.Log($"Successful TryGrowFullStrip room {ri}: bounds({before_growth_bounds.ToString()}) -> ({bounds.ToString()})");
+                            //Debug.Log($"Successful TryGrowFullStrip room {ri}: bounds({before_growth_bounds.ToString()}) -> ({bounds.ToString()})");
                             anyGrewThisRound = true;
 
                             // Small guard: if aspect exploded, roll back by cooling the long axis next time
@@ -1093,7 +1101,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 foreach (var r in rooms)
                 {
                     if (r.my_room_number == c.room_number)
-                    {                        
+                    {
                         c.colorFloor = r.colorFloor;
                         c.isCorridor = r.isCorridor;
                         r.cells.Add(c);
@@ -1302,6 +1310,53 @@ public partial class DungeonGenerator : MonoBehaviour
             }
     }
 
+    // take every cell in Rooms, and make the references in cellGrid point to the same cell for automatic cross updating.
+    void UpdateCellGridFromRooms(List<Room> rooms)
+    {
+        cellGrid = new Cell[cfg.mapWidth, cfg.mapHeight]; // allocate memory for this array
+        Cell cell;
+
+        foreach (Room room in rooms)
+        {
+            foreach (Cell rc in room.cells)
+            {
+                cellGrid[rc.pos.x, rc.pos.y] = rc;
+            }
+        }
+        // fill the array with allocated Cells
+        for (int y = 0; y < cfg.mapHeight; y++)
+        {
+            for (int x = 0; x < cfg.mapWidth; x++)
+            {
+                if (cellGrid[x, y] == null)
+                {
+                    // initialize a cell for unused parts of the map.
+                    cell = new Cell(x, y);
+                    cell.room_number = -1;
+                    cell.isCorridor = false;
+                    cell.colorFloor = colorDefault;
+                    // assign it
+                    cellGrid[x, y] = cell;
+                }
+            }
+        }
+    }
+
+    void UpdateRoomsFromCellGrid()
+    {
+        Room room;
+        Cell cell;
+        for (int num_r = 0; num_r < rooms.Count; num_r++)
+        {
+            room = rooms[num_r];
+            for (int num_c = 0; num_c < room.cells.Count; num_c++)
+            {
+                cell = room.cells[num_c];
+                rooms[num_r].cells[num_c] = cellGrid[cell.pos.x, cell.pos.y];
+            }
+        }
+    }
+
     // unused.  Obsolete. Use CanPlaceSeed() instead.
     bool CanPlaceReSeed(int x, int y, int moatCells)
     {
@@ -1485,7 +1540,7 @@ public partial class DungeonGenerator : MonoBehaviour
             // reset lists of cells for the old and new rooms after split.
             var keep = new List<Cell>();
             var newer = new List<Cell>();
-            
+
             // Reassign cells and carve a moat wall along the cut line
             for (int old_cell_num = 0; old_cell_num < r.cells.Count; old_cell_num++)
             {
@@ -1544,7 +1599,8 @@ public partial class DungeonGenerator : MonoBehaviour
             r.cells = keep;         // replace old list with left side half of cells
             newRoom.cells = newer;  // replace empty list with right side half of cells
 
-            foreach (Cell cell in newRoom.cells) {   // change moved cell contents to match new room
+            foreach (Cell cell in newRoom.cells)
+            {   // change moved cell contents to match new room
                 cell.room_number = newRoom.my_room_number;
                 cell.colorFloor = newRoom.colorFloor;
             }
@@ -1781,7 +1837,7 @@ public partial class DungeonGenerator : MonoBehaviour
     // Does not check previous owner except to determine if it already owns it.
     void ClaimCell(int ri, int x, int y)
     {
-        Debug.Log($"ClaimCell(ri:{ri}, x:{x}, y:{y})");
+        //Debug.Log($"ClaimCell(ri:{ri}, x:{x}, y:{y})");
         var c = cellGrid[x, y];
         //if (c.room_number == ri) return;  // already owned
         c.room_number = rooms[ri].my_room_number;
@@ -2246,4 +2302,152 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.Log($"ClearMapBorders cleared {removed} cells.");  // BUG: WOW big numbers even when the preceeding function did nothing.  What's wrong?
     }
 
+
+    bool CheckRoomsToGridConsistancy()
+    {
+        int mismatches = 0;
+        int W = cellGrid.GetLength(0);
+        int H = cellGrid.GetLength(1);
+
+        for (int ri = 0; ri < rooms.Count; ri++)
+        {
+            var room = rooms[ri];
+            if (room.my_room_number != ri)
+            {
+                Debug.LogWarning($"Room index mismatch: rooms[{ri}].my_room_number == {room.my_room_number}");
+                mismatches++;
+            }
+
+            foreach (var cell in room.cells)
+            {
+                int x = cell.pos.x, y = cell.pos.y;
+
+                // Bounds / null checks
+                if ((uint)x >= (uint)W || (uint)y >= (uint)H)
+                {
+                    Debug.LogWarning($"Room→Grid: cell {x},{y} out of bounds for grid {W}x{H} (room {ri}).");
+                    mismatches++;
+                    continue;
+                }
+                var gridCell = cellGrid[x, y];
+                if (gridCell == null)
+                {
+                    Debug.LogWarning($"Room→Grid: grid cell null at {x},{y} (room {ri}).");
+                    mismatches++;
+                    continue;
+                }
+
+                // Deep compare; count each differing field
+                mismatches += ReportCellDifferences(cell, gridCell, ri);
+            }
+        }
+
+        if (mismatches > 0)
+            Debug.LogWarning($"CheckRoomsToGridConsistancy: found {mismatches} mismatches.");
+
+        return mismatches == 0;
+    }
+
+    // Compares all properties with tolerance where appropriate.
+    // Returns the number of field-level differences found (0 = perfect match).
+    int ReportCellDifferences(Cell a, Cell b, int expectedRoom)
+    {
+        int diffs = 0;
+        const float EPS = 1e-4f;
+
+        // Identity / indexing
+        if (a.room_number != expectedRoom)
+        {
+            Debug.Log($"Cell {a.pos.x},{a.pos.y}: room_number {a.room_number} != expected {expectedRoom}");
+            diffs++;
+        }
+        if (b.room_number != expectedRoom)
+        {
+            Debug.Log($"Grid {b.pos.x},{b.pos.y}: room_number {b.room_number} != expected {expectedRoom}");
+            diffs++;
+        }
+
+        // Position & height
+        if (a.pos != b.pos)
+        {
+            Debug.Log($"Cell {a.pos} vs Grid {b.pos}: pos mismatch");
+            diffs++;
+        }
+        if (a.height != b.height)
+        {
+            Debug.Log($"Cell {a.pos}: height {a.height} vs Grid {b.height}");
+            diffs++;
+        }
+
+        // Type
+        if (a.type != b.type)
+        {
+            Debug.Log($"Cell {a.pos}: type {a.type} vs Grid {b.type}");
+            diffs++;
+        }
+
+        // Walls/Doors
+        if (a.walls != b.walls)
+        {
+            Debug.Log($"Cell {a.pos}: walls {a.walls} vs Grid {b.walls}");
+            diffs++;
+        }
+        if (a.doors != b.doors)
+        {
+            Debug.Log($"Cell {a.pos}: doors {a.doors} vs Grid {b.doors}");
+            diffs++;
+        }
+
+        // Color (tolerant)
+        if (!ColorApprox(a.colorFloor, b.colorFloor))
+        {
+            Debug.Log($"Cell {a.pos}: colorFloor {a.colorFloor} vs Grid {b.colorFloor}");
+            diffs++;
+        }
+
+        // Tilt (tolerant by angle)
+        if (!QuatApprox(a.tiltFloor, b.tiltFloor, 0.1f)) // ~0.1° tolerance
+        {
+            Debug.Log($"Cell {a.pos}: tiltFloor {a.tiltFloor.eulerAngles} vs Grid {b.tiltFloor.eulerAngles}");
+            diffs++;
+        }
+
+        // Travel cost
+        if (Mathf.Abs(a.travel_cost - b.travel_cost) > EPS)
+        {
+            Debug.Log($"Cell {a.pos}: travel_cost {a.travel_cost} vs Grid {b.travel_cost}");
+            diffs++;
+        }
+
+        // Corridor flag
+        if (a.isCorridor != b.isCorridor)
+        {
+            Debug.Log($"Cell {a.pos}: isCorridor {a.isCorridor} vs Grid {b.isCorridor}");
+            diffs++;
+        }
+
+        // Optional: warn if the two references are different (not required to be identical)
+        if (!ReferenceEquals(a, b))
+        {
+            // Uncomment if you want to track reference sharing issues:
+            // Debug.Log($"Cell {a.pos}: instance differs from cellGrid reference (values compared above).");
+            // (No diff increment; value equality is what matters.)
+        }
+
+        return diffs;
+    }
+
+    bool ColorApprox(Color a, Color b, float eps = 1e-3f)
+    {
+        return Mathf.Abs(a.r - b.r) <= eps &&
+            Mathf.Abs(a.g - b.g) <= eps &&
+            Mathf.Abs(a.b - b.b) <= eps &&
+            Mathf.Abs(a.a - b.a) <= eps;
+    }
+
+    bool QuatApprox(Quaternion a, Quaternion b, float maxAngleDeg)
+    {
+        // Handles double-cover and tiny numerical differences.
+        return Quaternion.Angle(a, b) <= maxAngleDeg;
+    }
 }
