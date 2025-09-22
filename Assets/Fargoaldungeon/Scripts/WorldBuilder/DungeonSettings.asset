@@ -17,7 +17,7 @@ MonoBehaviour:
   showBuildProcess: 0
   stepDelay: 0.1
   randomizeSeed: 1
-  seed: 41926078
+  seed: -1492585384
   useThinWalls: 1
   mapWidth: 100
   mapHeight: 100
@@ -47,7 +47,7 @@ MonoBehaviour:
   useCellularAutomata: 0
   cellularFillPercent: 45
   CellularGrowthSteps: 5
-  usePerlin: 1
+  usePerlin: 0
   perlinWavelength: 0.05
   perlin2Wavelength: 0.01
   perlin2Amplitude: 1
@@ -102,5 +102,7 @@ MonoBehaviour:
   scraps:
     closetMaxArea: 12
   doors:
-    maxRoomToRoomDoors: 20
-    loopBias: 0.75
+    loopiness: 0
+    minDoorSpacing: 20
+    maxDoorsPerRoom: 10
+    deadEndReach: 6
