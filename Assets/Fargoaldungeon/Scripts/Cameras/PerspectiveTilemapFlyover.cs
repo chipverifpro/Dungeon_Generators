@@ -189,8 +189,8 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
             return;
         }
 
-        StopAllCoroutines();
-        StartCoroutine(RandomFlyover(worldBounds));
+        //StopAllCoroutines();
+        //StartCoroutine(RandomFlyover(worldBounds));
     }
 
     IEnumerator RandomFlyover(Bounds bounds)
