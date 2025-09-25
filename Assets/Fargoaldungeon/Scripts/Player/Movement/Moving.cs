@@ -64,7 +64,7 @@ public partial class Player : MonoBehaviour
         if (faceMoveDirection && input.sqrMagnitude > 0.0001f)
         {
             float yawDeg = Mathf.Atan2(input.y, input.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(90f, 0f, yawDeg - 90f); // if your model faces +X in XY plane
+            transform.rotation = Quaternion.Euler(0f, yawDeg - 180f, 0f); // if your model faces +X in XY plane
         }
         BottomBanner.Show($"x = {posXY.x}, y = {posXY.y}");
     }
