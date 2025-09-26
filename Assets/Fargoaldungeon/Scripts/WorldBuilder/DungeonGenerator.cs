@@ -771,7 +771,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public void DrawWalls()  // from tilemap, adds walls to the existing 2D tilemap
     {
         return; // DEBUG: This isn't working quite right, remove for now...
-        BoundsInt bounds = tilemap.cellBounds;
+/*        BoundsInt bounds = tilemap.cellBounds;
         //BottomBanner.Show("Drawing walls...");
         for (int x = bounds.xMin - 1; x <= bounds.xMax + 1; x++)
         {
@@ -786,6 +786,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     tilemap.SetTile(pos, null);     // Remove wall if no floor neighbor
             }
         }
+*/
     }
 
     // UNUSED

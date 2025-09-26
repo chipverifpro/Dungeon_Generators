@@ -6,33 +6,45 @@ using UnityEngine.SceneManagement;
 public class MenuManager : MonoBehaviour
 {
     [Header("Panels")]
-    public GameObject splashPanel;
-    public GameObject menuPanel;
+    //public GameObject splashPanel;
+    //public GameObject menuPanel;
+    //public CanvasGroup menuCanvas;      // assign if you want fade; else leave null
+
 
     [Header("Bottom Banner")]
     public BottomBanner bottomBanner;  // assign your existing BottomBanner
 
     [Header("Splash Settings")]
-    public float splashDuration = 2f;   // seconds before showing menu
+    //public float splashDuration = 2f;   // seconds before showing menu
     public string menuMusic;            // optional background music clip name
+
+
+    void Awake()
+    {
+        // If not assigned, try to find by name under the Canvas
+        btnNewMap = btnNewMap ?? FindButton("Button NewMap");
+        btnEditMap = btnEditMap ?? FindButton("Button EditMap");
+        btnExplore = btnExplore ?? FindButton("Button Explore");
+        btnFlyover = btnFlyover ?? FindButton("Button Flyover");
+        btnSettings = btnSettings ?? FindButton("Button Settings");
+        btnQuit = btnQuit ?? FindButton("Button Quit");
+
+        // Clear any existing listeners and add ours
+        Hook(btnNewMap, OnNewMap);
+        Hook(btnEditMap, OnEditMap);
+        Hook(btnExplore, OnExplore);
+        Hook(btnFlyover, OnFlyover);
+        Hook(btnSettings, OnSettings);
+        Hook(btnQuit, OnQuit);
+
+        // Optional: auto-find common refs
+        if (!bottomBanner) bottomBanner = FindFirstObjectByType<BottomBanner>();
+        if (!generator) generator = FindFirstObjectByType<DungeonGenerator>();
+    }
 
     void Start()
     {
-        // Start with splash
-        splashPanel.SetActive(true);
-        menuPanel.SetActive(false);
-
-        StartCoroutine(ShowMenuAfterSplash());
-    }
-
-    IEnumerator ShowMenuAfterSplash()
-    {
-        BottomBanner.Show("🐾 Welcome, Pup! Sniffing out treasures...");
-        yield return new WaitForSeconds(splashDuration);
-
-        splashPanel.SetActive(false);
-        menuPanel.SetActive(true);
-        BottomBanner.Show("🐶 Ready to dig, fetch, or nap?");
+        // everything moved to Awake, just wait for button presses
     }
 
     // === BUTTON HOOKS ===
@@ -88,30 +100,7 @@ public class MenuManager : MonoBehaviour
     [Header("Optional game refs")]
     public DungeonGenerator generator;   // if New Map should generate immediately
 
-    void Awake()
-    {
-        // If not assigned, try to find by name under the Canvas
-        btnNewMap  = btnNewMap  ?? FindButton("Button NewMap");
-        btnEditMap = btnEditMap ?? FindButton("Button EditMap");
-        btnExplore = btnExplore ?? FindButton("Button Explore");
-        btnFlyover = btnFlyover ?? FindButton("Button Flyover");
-        btnSettings= btnSettings?? FindButton("Button Settings");
-        btnQuit    = btnQuit    ?? FindButton("Button Quit");
-
-        // Clear any existing listeners and add ours
-        Hook(btnNewMap,  OnNewMap);
-        Hook(btnEditMap, OnEditMap);
-        Hook(btnExplore, OnExplore);
-        Hook(btnFlyover, OnFlyover);
-        Hook(btnSettings,OnSettings);
-        Hook(btnQuit,    OnQuit);
-
-        // Optional: auto-find common refs
-        if (!bottomBanner) bottomBanner = FindFirstObjectByType<BottomBanner>();
-        if (!generator)    generator    = FindFirstObjectByType<DungeonGenerator>();
-    }
-
-
+    
     // ---------- Utilities ----------
     Button FindButton(string name)
     {
