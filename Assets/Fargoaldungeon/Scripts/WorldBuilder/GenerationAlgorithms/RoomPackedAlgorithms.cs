@@ -31,45 +31,60 @@ public partial class DungeonGenerator : MonoBehaviour
 
         //RemoveDuplicateCellsFromAllRooms(rooms);
         //RemoveDuplicatePackCellsFromAllRooms(packMap.rooms);
-        DrawMapByRooms(rooms);
-        yield return new WaitForSeconds(1f);
+        if (cfg.showBuildProcess)
+        {
+            DrawMapByRooms(rooms);
+            yield return new WaitForSeconds(1f);
+        }
 
         // 2) Room seeding
         yield return StartCoroutine(RunRoomSeeding());
         //ClearMapBorders(rooms);   // DEBUG
         //RemoveDuplicateCellsFromAllRooms(rooms);
-        DrawMapByRooms(rooms);
         Debug.Log("After room seeding, rooms = " + rooms.Count);
-        yield return new WaitForSeconds(1f);
+        if (cfg.showBuildProcess)
+        {
+            DrawMapByRooms(rooms);
+            yield return new WaitForSeconds(1f);
+        }
 
         // 3) Room growth
         yield return StartCoroutine(RunRoomGrowth());
         //ClearMapBorders(rooms);   // DEBUG
         //RemoveDuplicateCellsFromAllRooms(rooms);
-        DrawMapByRooms(rooms);
         Debug.Log("After room growth, rooms = " + rooms.Count);
-        yield return new WaitForSeconds(1f);
+        if (cfg.showBuildProcess)
+        {
+            DrawMapByRooms(rooms);
+            yield return new WaitForSeconds(1f);
+        }
 
         // 4) Scraps
         yield return StartCoroutine(RunScraps());
         //ClearMapBorders(rooms);   // DEBUG
         //RemoveDuplicateCellsFromAllRooms(rooms);
-        DrawMapByRooms(rooms);
         Debug.Log("After scraps, rooms = " + rooms.Count);
-        yield return new WaitForSeconds(1f);
+        if (cfg.showBuildProcess)
+        {
+            DrawMapByRooms(rooms);
+            yield return new WaitForSeconds(1f);
+        }
 
         // 5) Doors/connectivity
         yield return StartCoroutine(RunDoors());
         //ClearMapBorders(rooms);   // DEBUG
         //RemoveDuplicateCellsFromAllRooms(rooms);
-        DrawMapByRooms(rooms);
         Debug.Log("After doors, rooms = " + rooms.Count);
-        yield return new WaitForSeconds(1f);
+        if (cfg.showBuildProcess)
+        {
+            DrawMapByRooms(rooms);
+            yield return new WaitForSeconds(1f);
+        }
 
         //UpdateCellGridFromRooms(rooms);
         UpdateRoomsFromCellGrid();
         DrawMapByRooms(rooms);
-        yield return new WaitForSeconds(1f);
+        yield return null;
 
         CheckRoomsToGridConsistancy();
         
@@ -2195,10 +2210,10 @@ public partial class DungeonGenerator : MonoBehaviour
     }
 
     // checks if the location is inside map bounds (with keepout)
-    bool In(int x, int y) => (x < (cfg.mapWidth - cfg.borderKeepout))
-                          && (y < (cfg.mapHeight - cfg.borderKeepout))
-                          && (x >= cfg.borderKeepout)
-                          && (y >= cfg.borderKeepout);
+    public bool In(int x, int y) => (x < (cfg.mapWidth - cfg.borderKeepout))
+                                 && (y < (cfg.mapHeight - cfg.borderKeepout))
+                                 && (x >= cfg.borderKeepout)
+                                 && (y >= cfg.borderKeepout);
 
     // If you want random edge starts instead of center:
     Vector2Int RandomEdgeStart(int w, int h)

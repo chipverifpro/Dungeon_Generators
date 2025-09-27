@@ -30,10 +30,16 @@ public partial class Player : MonoBehaviour
         // 3) Commit position & rotation to Transform
         pos2 = p_new;
 
+        TransformPosition();
+    }
+
+    void TransformPosition()
+    {
         if (useXZPlane)
         {
             var t = transform.position;
             t.x = pos2.x - xCorrection; t.z = pos2.y - yCorrection; // note: pos2.y -> world Z
+            t.y = floorHeight + 1;
             transform.position = t;
             //transform.rotation = Quaternion.Euler(0f, yawDeg, 0f); // rotate around Y for 3D
         }
@@ -41,6 +47,7 @@ public partial class Player : MonoBehaviour
         {
             var t = transform.position;
             t.x = pos2.x - xCorrection; t.y = pos2.y - yCorrection; // XY floor
+            t.z = floorHeight + 1;
             transform.position = t;
             //transform.rotation = Quaternion.Euler(0f, 0f, yawDeg); // rotate around Z for XY
         }
@@ -102,7 +109,7 @@ public partial class Player : MonoBehaviour
 
             // debug display
             var c = gen.cellGrid[from_i, from_j];
-            Debug.Log($"pos={from_i},{from_j}  Walls={c.walls}, Doors={c.doors}");
+            //Debug.Log($"pos={from_i},{from_j}  Walls={c.walls}, Doors={c.doors}");
 
             // Apply edge block constraints for current from     // why is j-r the limit, not j+1-r
             if (EdgeBlocked(from_i, from_j, DirFlags.E)) cxmax = Mathf.Min(cxmax, from_i + 0f + r);
@@ -110,7 +117,7 @@ public partial class Player : MonoBehaviour
             if (EdgeBlocked(from_i, from_j, DirFlags.N)) cymax = Mathf.Min(cymax, from_j + 0f + r);
             if (EdgeBlocked(from_i, from_j, DirFlags.S)) cymin = Mathf.Max(cymin, from_j + 1f - r);
 
-            Debug.Log($"p={from_i},{from_j} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");
+            //Debug.Log($"p={from_i},{from_j} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");
 
             Vector2 on_the_way = new Vector2(        // move toward destination within clamps
                 Mathf.Clamp(to.x, cxmin, cxmax),
@@ -143,7 +150,7 @@ public partial class Player : MonoBehaviour
         bool hasDoor = (c.doors & dir) != 0;
         bool doorOpen = hasDoor && GetDoorOpenState(i, j, dir);
 
-        Debug.Log($"EdgeBlocked({i}, {j}, dir={dir} = {wall})");
+        //Debug.Log($"EdgeBlocked({i}, {j}, dir={dir} = {wall})");
         if (hasDoor) return !doorOpen; // door present → blocked if closed
         return wall;
     }

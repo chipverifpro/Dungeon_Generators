@@ -52,6 +52,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public BottomBanner bottomBanner;
     public TimeManager timeManager;
 
+    public bool buildComplete = false;
 
     // ------------------------------------- //
     // Start is called by Unity before the first frame update
@@ -82,6 +83,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     public IEnumerator RegenerateDungeon(TimeTask tm = null)
     {
+        buildComplete = false;
         bool local_tm = false;
         if (tm == null) { tm = TimeManager.Instance.BeginTask("RegenerateDungeon"); local_tm = true; }
         try
@@ -296,6 +298,7 @@ public partial class DungeonGenerator : MonoBehaviour
         }
         finally { if (local_tm) tm.End(); }
 
+        buildComplete = true;
         TimeManager.Instance.DumpStats();
     }
 

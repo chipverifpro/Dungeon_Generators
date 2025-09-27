@@ -14,6 +14,7 @@ public partial class Player : MonoBehaviour
     public float xCorrection = 0.5f;
     public float yCorrection = 0.5f;
     public float yawCorrection = 90f;
+    public float heightCorrection = 1f;
     //[Range(0.1f, 0.49f)] public float radius = 0.30f;
     //public int constraintIters = 3;
 
