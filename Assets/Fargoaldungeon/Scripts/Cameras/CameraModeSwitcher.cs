@@ -1,31 +1,71 @@
+using System.Collections;
 using Cinemachine;
 using UnityEngine;
 
 public class CameraModeSwitcher : MonoBehaviour
 {
-    public CinemachineVirtualCamera vcamFP, vcamTop;
+    public CinemachineBrain brain;
+    public CinemachineVirtualCamera vcamFP, vcamTop, vcamOverhead;
     public GameObject playerModel;
     public KeyCode toggleKey = KeyCode.Tab;
+    int current_camera;
+    public Transform player;
+    public float height = 20f;
 
     void Update()
     {
         if (Input.GetKeyDown(toggleKey))
         {
-            bool topActive = vcamTop.Priority > vcamFP.Priority;
-            vcamTop.Priority = topActive ? 0 : 10;
-            vcamFP.Priority = topActive ? 10 : 0;
+            current_camera = (current_camera + 1) % 3;
+            vcamTop.Priority = 0;
+            vcamFP.Priority = 0;
+            vcamOverhead.Priority = 0;
+            bool playerVisible = true;
 
-            // Hide/show player mesh depending on mode
-            if (playerModel != null)
+            switch (current_camera)
             {
-                // If switching into FP (topActive == true), hide the model
-                playerModel.SetActive(topActive ? false : true);
+                case 0:
+                    vcamTop.Priority = 10;
+                    break;
+                case 1:
+                    vcamFP.Priority = 10;
+                    playerVisible = false;   // hide player in first person mode
+                    break;
+                case 2:
+                    vcamOverhead.Priority = 10;
+                    break;
             }
 
+            if (!playerVisible)
+            {
+                // Wait for camera to arrive at first person before disabling player visibility
+                StartCoroutine(WaitForArrival(vcamFP, onArrived: onArrivedAtFP));
+            } else {
+                playerModel.SetActive(true);
+            }
         }
     }
-    public Transform player;
-    public float height = 20f;
+
+    IEnumerator WaitForArrival(ICinemachineCamera target, System.Action onArrived)
+    {
+        // let priorities propagate one frame
+        yield return null;
+
+        // Wait until the brain is not blending AND our target is actually live
+        while (brain.ActiveBlend != null || !CinemachineCore.Instance.IsLive(target))
+            yield return null;
+
+        onArrived?.Invoke();
+    }
+
+    void onArrivedAtFP()
+    {
+        playerModel.SetActive(false);
+        return;
+    }
+
+
+
 
     void LateUpdate()
     {

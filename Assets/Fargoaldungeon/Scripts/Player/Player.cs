@@ -34,12 +34,22 @@ public partial class Player : MonoBehaviour
         public float radius;
         public float baseSpeed;
     }
-    
+
 
     void Awake()
     {
-        if (!gen)
+        if (!gen)   // if DungeonGenerator is missing, find it.
             gen = FindAnyObjectByType<DungeonGenerator>();
+    }
+
+    void Start()
+    {
+        Input_Start();
+    }
+
+    void Update()
+    {
+        Input_Update();  // this is the update for inputs and resulting movement
     }
 
 }
