@@ -52,7 +52,8 @@ public class MenuManager : MonoBehaviour
     public void OnNewMap()
     {
         BottomBanner.Show("🐾 Digging a brand new hole...");
-        SceneManager.LoadScene("GameScene");  // your map gen scene
+        SceneManager.LoadScene("2D_Fargoal_Map");  // your map gen scene
+        //generator.Start();
         // You can also call generator.NewMap() if you keep it same-scene
     }
 
@@ -87,6 +88,12 @@ public class MenuManager : MonoBehaviour
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #endif
+    }
+
+    private IEnumerator SwitchScenes(string sceneName)
+    {
+        // Load new scene
+        yield return SceneManager.LoadSceneAsync(sceneName);
     }
 
     [Header("Optional direct refs (drag from Canvas)")]

@@ -17,7 +17,6 @@ public class SceneFader : MonoBehaviour
     [Header("Debug/UX")]
     public bool allowSkip = true;          // press any key / click to skip after min time
 
-    static bool first_run = true;
 
     void Awake()
     {
@@ -25,8 +24,6 @@ public class SceneFader : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
-            DontDestroyOnLoad(menuCanvasGroup);
-            DontDestroyOnLoad(splashCanvasGroup);
         }
         else
         {
@@ -34,44 +31,27 @@ public class SceneFader : MonoBehaviour
         }
     }
 
-    void OnDestroy()
-    {
-        first_run = true;   // put this back
-    }
-
     void Start()
     {
-        StartCoroutine (CrossFade());
+        StartCoroutine(CrossFade());
     }
 
     private IEnumerator CrossFade()
     {
         BottomBanner.Show("🐾 Welcome, Pup! Sniffing out treasures...");
 
-        //if (first_run)
-        //{
-            // Display just the splash screen.
-            splashCanvasGroup.alpha = 1;
-            menuCanvasGroup.alpha = 0;
+        // Display just the splash screen.
+        splashCanvasGroup.alpha = 1;
+        menuCanvasGroup.alpha = 0;
 
-            // display splash screen for a bit.  Press any key to skip.
-            yield return StartCoroutine(WaitAllowSkip(minSplashSeconds));
-            
-            // Fade out splash
-            StartCoroutine(Fade(splashCanvasGroup, 1f, 0f));
-            // Simultaneously fade in menu...
-            yield return StartCoroutine(Fade(menuCanvasGroup, 0f, 1f));
+        // display splash screen for a bit.  Press any key to skip.
+        yield return StartCoroutine(WaitAllowSkip(minSplashSeconds));
 
-            //first_run = false;
-        //}
-        //else // not first run
-        //{
-            // start with black screen, no splash screen.
-        //    splashCanvasGroup.alpha = 0f; // hide spash picture always.
-        //    menuCanvasGroup.alpha = 0f;   // hide menu picture initially.
-            // Just fade in menu...
-        //    yield return StartCoroutine(Fade(menuCanvasGroup, 0f, 1f));
-        //}
+        // Fade out splash
+        StartCoroutine(Fade(splashCanvasGroup, 1f, 0f));
+        // Simultaneously fade in menu...
+        yield return StartCoroutine(Fade(menuCanvasGroup, 0f, 1f));
+
     }
     public IEnumerator WaitAllowSkip(float minSplashSeconds)
     {
@@ -88,7 +68,7 @@ public class SceneFader : MonoBehaviour
         }
         yield return null;
     }
-    
+
     private IEnumerator Fade(CanvasGroup canvasGroup, float startAlpha, float targetAlpha)
     {
         canvasGroup.blocksRaycasts = true; // prevent clicks during fade

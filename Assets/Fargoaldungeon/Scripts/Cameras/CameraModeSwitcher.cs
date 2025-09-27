@@ -4,6 +4,7 @@ using UnityEngine;
 public class CameraModeSwitcher : MonoBehaviour
 {
     public CinemachineVirtualCamera vcamFP, vcamTop;
+    public GameObject playerModel;
     public KeyCode toggleKey = KeyCode.Tab;
 
     void Update()
@@ -13,6 +14,14 @@ public class CameraModeSwitcher : MonoBehaviour
             bool topActive = vcamTop.Priority > vcamFP.Priority;
             vcamTop.Priority = topActive ? 0 : 10;
             vcamFP.Priority = topActive ? 10 : 0;
+
+            // Hide/show player mesh depending on mode
+            if (playerModel != null)
+            {
+                // If switching into FP (topActive == true), hide the model
+                playerModel.SetActive(topActive ? false : true);
+            }
+
         }
     }
     public Transform player;

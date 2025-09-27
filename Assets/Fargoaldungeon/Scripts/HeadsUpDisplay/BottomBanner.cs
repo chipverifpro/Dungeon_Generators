@@ -15,7 +15,8 @@ public class BottomBanner : MonoBehaviour
     [SerializeField] float sidePadding = 24f;      // left/right padding
     [SerializeField] bool useSafeArea = true;      // respect phone notches, etc.
 
-    Canvas canvas;
+    public Canvas BottomBannerCanvas;              // Otional
+    GameObject panel;
     RectTransform panelRT;
     TextMeshProUGUI label;
     Coroutine hideRoutine;
@@ -32,28 +33,45 @@ public class BottomBanner : MonoBehaviour
     void BuildUIIfNeeded()
     {
         // Canvas (Screen Space - Overlay)
-        canvas = GetComponentInChildren<Canvas>();
-        if (canvas == null)
+        if (BottomBannerCanvas == null)
         {
             GameObject c = new GameObject("BottomBannerCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             c.transform.SetParent(transform, false);
-            canvas = c.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = c.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(800, 800);
+            BottomBannerCanvas = c.GetComponent<Canvas>();
+
+            //  BottomBannerCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            //  var scaler = c.GetComponent<CanvasScaler>();
+            //  scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            //  scaler.referenceResolution = new Vector2(800, 800);
         }
+        //else
+        //{
+        //canvas = go.GetComponent<Canvas>();
+        BottomBannerCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        BottomBannerCanvas.overrideSorting = true;
+        BottomBannerCanvas.sortingOrder = 5000;     // high so it sits on top
+
+        var scaler = BottomBannerCanvas.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(800, 800);
+        //}
 
         // Panel background
-        GameObject panel = new GameObject("BannerPanel", typeof(Image));
-        panel.transform.SetParent(canvas.transform, false);
+        panel = new GameObject("BannerPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        panel.transform.SetParent(BottomBannerCanvas.transform, false);
         var img = panel.GetComponent<Image>();
         img.color = backgroundColor;
         panelRT = panel.GetComponent<RectTransform>();
         panelRT.anchorMin = new Vector2(0, 0.05f);   // bottom stretch
         panelRT.anchorMax = new Vector2(1, 0.05f);
-        panelRT.pivot    = new Vector2(0.5f, 0f);
+        panelRT.pivot = new Vector2(0.5f, 0f);
         panelRT.sizeDelta = new Vector2(0, height);
+        // set panelRT into the safe area
+        var safe = Screen.safeArea;
+        // Position panel at the bottom; add bottom inset if safe area eats into it
+        float bottomInset = Mathf.Max(0, safe.y);
+        panelRT.offsetMin = new Vector2(0, bottomInset);   // left,bottom
+        panelRT.offsetMax = new Vector2(0, 0);             // right,top
 
         // Label (TMP)
         GameObject textGO = new GameObject("BannerText", typeof(TextMeshProUGUI));
@@ -71,16 +89,17 @@ public class BottomBanner : MonoBehaviour
         tRT.offsetMin = new Vector2(sidePadding, 0);
         tRT.offsetMax = new Vector2(-sidePadding, 0);
 
-        ApplySafeArea();
+        //if (useSafeArea) ApplySafeArea();
     }
 
     void OnRectTransformDimensionsChange()
     {
-        if (useSafeArea) ApplySafeArea();
+        if (useSafeArea && (panel != null)) ApplySafeArea();
     }
 
     void ApplySafeArea()
     {
+        panelRT = panel.GetComponent<RectTransform>();
 #if UNITY_EDITOR || UNITY_STANDALONE
         var safe = new Rect(0, 0, Screen.width, Screen.height);
 #else

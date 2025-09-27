@@ -3,15 +3,12 @@ using System;
 
 public partial class Player : MonoBehaviour
 {
-
-
-
-
+    /*
     public void StepFreeButGridConstrained(
-        ref Pose2 pose,
-        Vector2 desiredDirWorld,   // normalized or not
-        float dt,
-        AgentParams agent)
+    ref Pose2 pose,
+    Vector2 desiredDirWorld,   // normalized or not
+    float dt,
+    AgentParams agent)
     {
         if (desiredDirWorld.sqrMagnitude < 1e-6f) return;
 
@@ -28,18 +25,19 @@ public partial class Player : MonoBehaviour
         pose.p = p1;
         if (d.sqrMagnitude > 1e-6f) pose.yaw = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg; // optional: face motion
     }
-
-
-
+    */
 
     void Start()
     {
-        Vector3 p = transform.position;
-        posXY = new Vector2(p.x, p.y); // XY is the floor plane in your project
+        Input_Start();
+        //Vector3 p = transform.position;
+        //posXY = new Vector2(p.x, p.y); // XY is the floor plane in your project
     }
 
     void Update()
     {
+        Input_Update();
+        /*
         if (gen == null || gen.cellGrid == null) return;
 
         // 1) gather keyboard input -> desired world direction (XY)
@@ -60,21 +58,22 @@ public partial class Player : MonoBehaviour
         var t = transform.position;
         t.x = posXY.x; t.z = posXY.y;
         transform.position = t;
-
+        
         if (faceMoveDirection && input.sqrMagnitude > 0.0001f)
         {
             float yawDeg = Mathf.Atan2(input.y, input.x) * Mathf.Rad2Deg;
             transform.rotation = Quaternion.Euler(0f, yawDeg - 180f, 0f); // if your model faces +X in XY plane
         }
         BottomBanner.Show($"x = {posXY.x}, y = {posXY.y}");
+        */
     }
 
     // ---- Grid constraint solver against DirFlags walls/doors ----
     Vector2 ResolveGridConstraints(Vector2 from, Vector2 to, float r, int maxIters)
     {
         Vector2 p = to;
-        int W = gen.cellGrid.GetLength(0);
-        int H = gen.cellGrid.GetLength(1);
+        int W = gen.cfg.mapWidth;
+        int H = gen.cfg.mapHeight;
 
         for (int iter = 0; iter < maxIters; iter++)
         {
@@ -92,18 +91,24 @@ public partial class Player : MonoBehaviour
             j = Mathf.FloorToInt(p.y);
             if ((uint)i >= (uint)W || (uint)j >= (uint)H) break; // outside, nothing else to do
 
-            var c = gen.cellGrid[i, j];
-
             // Base contracted cell box
             float cxmin = i + r, cxmax = (i + 1) - r;
             float cymin = j + r, cymax = (j + 1) - r;
 
-            // Apply edge block constraints
-            if (EdgeBlocked(i, j, DirFlags.N)) cymax = Mathf.Min(cymax, j + 1 - r);
+            cxmin = i-1 + r; cxmax = i+2 - r;   // big enough to get into neighbor cell, but not through it without checking next iteration first.
+            cymin = j-1 + r; cymax = j+2 - r;
+
+            // debug display
+            var c = gen.cellGrid[i, j];
+            Debug.Log($"pos={i},{j}  Walls={c.walls}, Doors={c.doors}");
+
+            // Apply edge block constraints     // why is j-r the limit, not j+1-r
+            if (EdgeBlocked(i, j, DirFlags.N)) cymax = Mathf.Min(cymax, j + 0 - r);
             if (EdgeBlocked(i, j, DirFlags.S)) cymin = Mathf.Max(cymin, j + 0 + r);
-            if (EdgeBlocked(i, j, DirFlags.E)) cxmax = Mathf.Min(cxmax, i + 1 - r);
+            if (EdgeBlocked(i, j, DirFlags.E)) cxmax = Mathf.Min(cxmax, i + 0 - r);
             if (EdgeBlocked(i, j, DirFlags.W)) cxmin = Mathf.Max(cxmin, i + 0 + r);
 
+            Debug.Log($"p={p.x},{p.y} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");
             Vector2 corrected = new Vector2(
                 Mathf.Clamp(p.x, cxmin, cxmax),
                 Mathf.Clamp(p.y, cymin, cymax)
@@ -112,6 +117,7 @@ public partial class Player : MonoBehaviour
             if ((corrected - p).sqrMagnitude < 1e-10f)
                 break; // settled
             p = corrected;
+            
         }
 
         return p;
@@ -125,6 +131,7 @@ public partial class Player : MonoBehaviour
         bool hasDoor = (c.doors & dir) != 0;
         bool doorOpen = hasDoor && GetDoorOpenState(i, j, dir);
 
+        Debug.Log($"EdgeBlocked({i}, {j}, dir={dir} = {wall})");
         if (hasDoor) return !doorOpen; // door present → blocked if closed
         return wall;
     }
