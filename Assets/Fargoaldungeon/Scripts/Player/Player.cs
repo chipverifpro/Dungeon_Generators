@@ -28,7 +28,8 @@ public partial class Player : MonoBehaviour
     public float radius = 0.30f;         // collision radius inside a 1x1 cell
 
     [Header("Movement")]
-    public float snapToCardinalDegrees = 15f;
+    public float snapToCardinalDegrees = 10f;
+    public bool snapEightWay = true;            // if false, only snap to 4 cardinal directions
     public float slopeUphillFactor = 0.85f; // (stub) scale speed a bit uphill
     public float slopeDownhillFactor = 1.08f;
 

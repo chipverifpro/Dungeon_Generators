@@ -74,8 +74,8 @@ public partial class Player : MonoBehaviour
             //transform.rotation = Quaternion.Euler(0f, 0f, yawDeg); // rotate around Z for XY
         }
     }
+
     // ---- Grid constraint solver against DirFlags walls/doors ----
-    // TODO: handle condition where we are in a doorway, don't allow moving sideways out of cell
     Vector2 ResolveGridConstraints(Vector2 from, Vector2 to, float r, int maxIters)
     {
         //Vector2 p = from;
@@ -101,13 +101,7 @@ public partial class Player : MonoBehaviour
         // iterate if we cross into a new tile so we always use correct wall bounds.
         for (int iter = 0; iter < maxIters; iter++)
         {
-            //if (iter > 0) Debug.Log($"Iteration {iter}: from={from.x},{from.y} to={to.x},{to.y}");
-
-            // Done already outside loop: Clamp to map bounds first (contracted by radius)
-            //xmin = r, xmax = W - r;
-            //ymin = r, ymax = H - r;
-            //p.x = Mathf.Clamp(p.x, xmin, xmax);
-            //p.y = Mathf.Clamp(p.y, ymin, ymax);
+            //if (iter > 0) Debug.Log($"Iteration {iter}: from={from.x},{from.y} to={to.x},{to.y}");    // Debug
 
             // Recompute cell after bounds clamp
             from_i = Mathf.FloorToInt(from.x);
@@ -115,33 +109,25 @@ public partial class Player : MonoBehaviour
             to_i = Mathf.FloorToInt(to.x);
             to_j = Mathf.FloorToInt(to.y);
 
-            // already clamped....
-            //if ((uint)i >= (uint)W || (uint)j >= (uint)H) break; // outside, nothing else to do
+            // Define the maximum we allow movement in each direction.
+            float cxmin = Mathf.Max(from_i - 1f + r, 0 + r);  
+            float cxmax = Mathf.Min(from_i + 2f - r, W - r);  // big enough to get into neighbor cell, but not through it without checking next iteration first.
+            float cymin = Mathf.Max(from_j - 1f + r, 0 + r);  // also clamp at world bounds
+            float cymax = Mathf.Min(from_j + 2f - r, H - r);
 
-            // Base contracted cell box
-            float cxmin;// = i + r, 
-            float cxmax;// = (i + 1) - r;
-            float cymin;// = j + r, 
-            float cymax;// = (j + 1) - r;
+            // debug display:
+            //var c = gen.cellGrid[from_i, from_j];                                     // Debug
+            //Debug.Log($"pos={from_i},{from_j}  Walls={c.walls}, Doors={c.doors}");    // Debug
 
-            cxmin = Mathf.Max(from_i - 1f + r, 0 + r);  
-            cxmax = Mathf.Min(from_i + 2f - r, W - r);  // big enough to get into neighbor cell, but not through it without checking next iteration first.
-            cymin = Mathf.Max(from_j - 1f + r, 0 + r);  // also clamp at world bounds
-            cymax = Mathf.Min(from_j + 2f - r, H - r);
-
-            // debug display
-            var c = gen.cellGrid[from_i, from_j];
-            //Debug.Log($"pos={from_i},{from_j}  Walls={c.walls}, Doors={c.doors}");
-
-            // Apply edge block constraints for current from     // why is j-r the limit, not j+1-r
+            // Apply edge block constraints for current 'from'
             if (EdgeBlocked(from_i, from_j, DirFlags.E)) cxmax = Mathf.Min(cxmax, from_i + 1f - r);
-            if (EdgeBlocked(from_i, from_j, DirFlags.W)) cxmin = Mathf.Max(cxmin, from_i + 0f + r); //
-            if (EdgeBlocked(from_i, from_j, DirFlags.N)) cymax = Mathf.Min(cymax, from_j + 1f - r); //
+            if (EdgeBlocked(from_i, from_j, DirFlags.W)) cxmin = Mathf.Max(cxmin, from_i + 0f + r);
+            if (EdgeBlocked(from_i, from_j, DirFlags.N)) cymax = Mathf.Min(cymax, from_j + 1f - r);
             if (EdgeBlocked(from_i, from_j, DirFlags.S)) cymin = Mathf.Max(cymin, from_j + 0f + r);
 
-            //Debug.Log($"p={from_i},{from_j} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");
+            //Debug.Log($"p={from_i},{from_j} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");    // Debug
 
-            Vector2 on_the_way = new Vector2(        // move toward destination within clamps
+            Vector2 on_the_way = new Vector2(        // move toward destination (within clamps)
                 Mathf.Clamp(to.x, cxmin, cxmax),
                 Mathf.Clamp(to.y, cymin, cymax)
             );
@@ -157,62 +143,101 @@ public partial class Player : MonoBehaviour
                 final = on_the_way;
                 break;      // settled (no change this iteration)
             }
-            from = on_the_way; // Advance from to current position for next iteration
-            final = on_the_way; // in case we are at last iteration
+            from = on_the_way; // Advance 'from' to the current position for next iteration
+            final = on_the_way; // set final position in case we are at last iteration
         }
 
-        return final;    // from has been advanced towards 'to' within wall limits
+        return final;    // final is how far we were able to move 'to' within wall limits
     }
 
+    // Is walking in this direction blocked by anything? (walls, closed doors, and end-of-walls)
     bool EdgeBlocked(int i, int j, DirFlags dir)
     {
         var c = gen.cellGrid[i, j];
-        bool wall = (c.walls & dir) != 0;
+        bool hasWall = (c.walls & dir) != 0;
 
         bool hasDoor = (c.doors & dir) != 0;
         bool doorOpen = hasDoor && GetDoorOpenState(i, j, dir);
 
-        DirFlags doorblockers = InDoorwayBlockers(pos2, i, j);
-        bool blockedByDoorway = (doorblockers & dir) != 0;
+        DirFlags endWallBlockers = EndOfWallBlockers(pos2, i, j);
+        bool blockedByEndWall = (endWallBlockers & dir) != 0;
 
         //Debug.Log($"EdgeBlocked({i}, {j}, dir={dir} = {wall})");
         if (hasDoor) return !doorOpen; // door present → blocked if closed
-        return (wall || blockedByDoorway);
+        return (hasWall || blockedByEndWall);
     }
 
-    // If we are in a doorway close to edge of cell that has a door,
-    //    then return blockers to right and left of that
-    //    preventing exiting the door into the edge of a wall.
-    DirFlags InDoorwayBlockers(Vector2 pos2, int i, int j)
+    // Prevent walking into the end of a thin wall:
+    //   If we are close to an edge of the current cell, then block to the left and right if there is a wall end there.
+    //   This also prevents walking off the edge of a door, which is covered as a subset of this check.
+    DirFlags EndOfWallBlockers(Vector2 pos2, int i, int j)
     {
-        DirFlags blockers = DirFlags.None;
-        Cell c = gen.cellGrid[i, j];
-        if (true)
+        Cell cell_off_grid = new(-1,-1);  // use this for off-grid cells (no walls or doors set)
+
+        // Which edges of current tile is the player near to?
+        bool S_Edge = (pos2.y % 1f) <= radius;
+        bool N_Edge = (pos2.y % 1f) >= (1f - radius);
+        bool W_Edge = (pos2.x % 1f) <= radius;
+        bool E_Edge = (pos2.x % 1f) >= (1f - radius);
+
+        // grab a cell to each side of current cell, using dummy cell when off-grid
+        Cell C_South = gen.In(i,j-1) ? gen.cellGrid[i, j - 1] : cell_off_grid;
+        Cell C_North = gen.In(i,j+1) ? gen.cellGrid[i, j + 1] : cell_off_grid;
+        Cell C_West = gen.In(i-1,j) ? gen.cellGrid[i - 1, j] : cell_off_grid;
+        Cell C_East = gen.In(i+1,j) ? gen.cellGrid[i + 1, j] : cell_off_grid;
+
+        // Do we have the end of a wall in this direction? Initialize to no
+        bool S_End_Wall = false;
+        bool N_End_Wall = false;
+        bool W_End_Wall = false;
+        bool E_End_Wall = false;
+
+        // If we are by the edge of the cell, look right and left along that same edge for a wall or door.
+        if (E_Edge)
         {
-            if ((c.doors & DirFlags.S) != DirFlags.None)
-                if ((pos2.y % 1f) < radius)
-                    blockers |= ((~c.doors) & (DirFlags.E | DirFlags.W));
-            if ((c.doors & DirFlags.N) != DirFlags.None)
-                if ((pos2.y % 1f) > (1f - radius))
-                    blockers |= ((~c.doors) & (DirFlags.E | DirFlags.W));
-            if ((c.doors & DirFlags.W) != DirFlags.None)
-                if ((pos2.x % 1f) < radius)
-                    blockers |= ((~c.doors) & (DirFlags.N | DirFlags.S));
-            if ((c.doors & DirFlags.E) != DirFlags.None)
-                if ((pos2.x % 1f) > (1f - radius))
-                    blockers |= ((~c.doors) & (DirFlags.N | DirFlags.S));
+            S_End_Wall = ((C_South.walls | C_South.doors) & DirFlags.E) != 0;
+            N_End_Wall = ((C_North.walls | C_North.doors) & DirFlags.E) != 0;
         }
-        return blockers;
+        if (W_Edge)
+        {
+            S_End_Wall = ((C_South.walls | C_South.doors) & DirFlags.W) != 0;
+            N_End_Wall = ((C_North.walls | C_North.doors) & DirFlags.W) != 0;
+        }
+        if (N_Edge)
+        {
+            W_End_Wall = ((C_West.walls | C_West.doors) & DirFlags.N) != 0;
+            E_End_Wall = ((C_East.walls | C_East.doors) & DirFlags.N) != 0;
+        }
+        if (S_Edge)
+        {
+            W_End_Wall = ((C_West.walls | C_West.doors) & DirFlags.S) != 0;
+            E_End_Wall = ((C_East.walls | C_East.doors) & DirFlags.S) != 0;
+        }
+
+        // create DirFlags for all the end walls that would get in our way in that direction.
+        DirFlags End_Walls = (N_End_Wall ? DirFlags.N : 0)
+                           | (S_End_Wall ? DirFlags.S : 0)
+                           | (W_End_Wall ? DirFlags.W : 0)
+                           | (E_End_Wall ? DirFlags.E : 0);
+
+        return End_Walls;
     }
 
-    public static float SnapToCardinals(float yawDeg, float snapToCardinalDegrees = 10f)
+    // If we are near a cardinal direction, tweak yaw to go exactly the cardinal direction
+    public float SnapToCardinals(float yawDeg, float snapToCardinalDegrees = 10f)
     {
         // Normalize into [0,360)
         yawDeg = Mathf.Repeat(yawDeg, 360f);
         //Debug.Log($"yawDeg = {yawDeg}");
 
         // Cardinal angles
-        float[] cardinals = { 0f, 90f, 180f, 270f };
+        float[] cardinals4 = { 0f, 90f, 180f, 270f };
+        float[] cardinals8 = { 0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f };
+        float[] cardinals;
+
+        // support snapping to diagonals if configured in parameters.
+        if (snapEightWay) cardinals = cardinals8;
+        else              cardinals = cardinals4;
 
         foreach (float c in cardinals)
         {
@@ -222,7 +247,8 @@ public partial class Player : MonoBehaviour
 
         return yawDeg; // leave unchanged if no snap
     }
-    // ---- Stubs you can wire into your systems later ----
+
+    // ---- Stubs to wire into systems later ----
 
     // Return whether the door on edge (i,j,dir) is open. For now: consider doors open by default.
     bool GetDoorOpenState(int i, int j, DirFlags dir)

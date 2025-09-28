@@ -2150,7 +2150,7 @@ MonoBehaviour:
   baseSpeed: 6
   turnSpeedDegPerSec: 180
   radius: 0.4
-  snapToCardinalDegrees: 15
+  snapToCardinalDegrees: 10
   slopeUphillFactor: 0.85
   slopeDownhillFactor: 1.08
   xCorrection: 0.5
