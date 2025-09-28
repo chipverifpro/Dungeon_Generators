@@ -17,9 +17,9 @@ public partial class Player : MonoBehaviour
     public BottomBanner bottomBanner;
 
     [Header("Current Player position")]
-    Vector2 pos2;          // XY or XZ (depending on useXZPlane)
-    float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
-    int floorHeight = 1;   // height of current tile.
+    public Vector2 pos2;          // XY or XZ (depending on useXZPlane)
+    public float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
+    public int floorHeight = 1;   // height of current tile.
 
     [Header("Unique Agent Parameters")]
     public float baseSpeed = 6.0f;       // W/S movement world units per second

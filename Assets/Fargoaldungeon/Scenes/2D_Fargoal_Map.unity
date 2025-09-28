@@ -2147,10 +2147,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
+  pos2: {x: 0, y: 0}
+  yawDeg: 0
+  floorHeight: 1
   baseSpeed: 6
   turnSpeedDegPerSec: 180
   radius: 0.4
   snapToCardinalDegrees: 10
+  snapEightWay: 1
   slopeUphillFactor: 0.85
   slopeDownhillFactor: 1.08
   xCorrection: 0.5
@@ -2649,14 +2653,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 705631740}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.5, y: 0.5, z: -0.5, w: 0.5}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: -52.989567, y: 17.069933, z: -26.708233}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 676370304}
   m_Father: {fileID: 438825160}
-  m_LocalEulerAnglesHint: {x: 90, y: 90, z: 0}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!114 &705631742
 MonoBehaviour:
   m_ObjectHideFlags: 0

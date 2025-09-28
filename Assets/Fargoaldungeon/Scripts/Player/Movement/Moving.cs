@@ -1,4 +1,5 @@
 using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 public partial class Player : MonoBehaviour
@@ -6,8 +7,8 @@ public partial class Player : MonoBehaviour
     void Move_Start()
     {
         var p = transform.position;   // grab object position and set it in variable
-        if (useXZPlane) pos2 = new Vector2(p.x + xCorrection, p.z + yCorrection);
-        else pos2 = new Vector2(p.x + xCorrection, p.y + yCorrection);
+        if (useXZPlane) pos2 = World_to_Map(new Vector2(p.x, p.z));
+        else            pos2 = World_to_Map(new Vector2(p.x, p.y));
 
         // Initialize yaw from current rotation
         yawDeg = useXZPlane ? transform.eulerAngles.y - yawCorrection : transform.eulerAngles.z - yawCorrection;
@@ -16,16 +17,22 @@ public partial class Player : MonoBehaviour
     // called by Input_Update to move in response to inputs.
     void Move_Update(float turn, float thrust)
     {
+        // round to nearest .01 to reduce cumulative errors.
+        CleanupFloat(ref turn, false);
+        CleanupFloat(ref thrust);
+        Cleanup(ref pos2);
+
         if (Math.Abs(turn) > 1e-10f)
         {
             // Rotate the Player
             yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
+            CleanupFloat(ref yawDeg);
 
             // commit rotation ALWAYS (even if thrust == 0)
             if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
             else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
         }
-        else
+        else // player not rotating
         {
             if (Math.Abs(thrust) > 1e-5f)    // only snap if turning=false but moving=true
             {
@@ -39,6 +46,7 @@ public partial class Player : MonoBehaviour
         // Forward direction unit vector in 2D plane
         float yawRad = - yawDeg * Mathf.Deg2Rad;
         Vector2 fwd2 = new Vector2(Mathf.Cos(yawRad), Mathf.Sin(yawRad)); // XY forward (or XZ’s X/Z)
+        Cleanup(ref fwd2);
 
         // Desired 2D motion (no strafing here)
         Vector2 desiredDir2 = fwd2 * Mathf.Clamp(thrust, -1f, 1f);
@@ -57,18 +65,22 @@ public partial class Player : MonoBehaviour
 
     void TransformPosition()
     {
+        Cleanup(ref pos2);
+
         if (useXZPlane)
         {
-            var t = transform.position;
-            t.x = pos2.x - xCorrection; t.z = pos2.y - yCorrection; // note: pos2.y -> world Z
+            Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
+            Vector2 t_World = Map_to_World(pos2);
+            t.x = t_World.x; t.z = t_World.y; // XZ location
             t.y = floorHeight + 1;
             transform.position = t;
             //transform.rotation = Quaternion.Euler(0f, yawDeg, 0f); // rotate around Y for 3D
         }
         else
         {
-            var t = transform.position;
-            t.x = pos2.x - xCorrection; t.y = pos2.y - yCorrection; // XY floor
+            Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
+            Vector2 t_World = Map_to_World(pos2);
+            t.x = t_World.x; t.y = t_World.y; // XY location
             t.z = floorHeight + 1;
             transform.position = t;
             //transform.rotation = Quaternion.Euler(0f, 0f, yawDeg); // rotate around Z for XY
@@ -78,14 +90,14 @@ public partial class Player : MonoBehaviour
     // ---- Grid constraint solver against DirFlags walls/doors ----
     Vector2 ResolveGridConstraints(Vector2 from, Vector2 to, float r, int maxIters)
     {
-        //Vector2 p = from;
+        Cleanup(ref from);
+        Cleanup(ref to);
+
         int W = gen.cfg.mapWidth;
         int H = gen.cfg.mapHeight;
 
         int from_i;
         int from_j;
-        int to_i;
-        int to_j;
 
         Vector2 final = from;   // initialize with current position
 
@@ -106,8 +118,6 @@ public partial class Player : MonoBehaviour
             // Recompute cell after bounds clamp
             from_i = Mathf.FloorToInt(from.x);
             from_j = Mathf.FloorToInt(from.y);
-            to_i = Mathf.FloorToInt(to.x);
-            to_j = Mathf.FloorToInt(to.y);
 
             // Define the maximum we allow movement in each direction.
             float cxmin = Mathf.Max(from_i - 1f + r, 0 + r);  
@@ -117,7 +127,7 @@ public partial class Player : MonoBehaviour
 
             // debug display:
             //var c = gen.cellGrid[from_i, from_j];                                     // Debug
-            //Debug.Log($"pos={from_i},{from_j}  Walls={c.walls}, Doors={c.doors}");    // Debug
+            //Debug.Log($"pos={from},{from}  Walls={c.walls}, Doors={c.doors}");    // Debug
 
             // Apply edge block constraints for current 'from'
             if (EdgeBlocked(from_i, from_j, DirFlags.E)) cxmax = Mathf.Min(cxmax, from_i + 1f - r);
@@ -147,6 +157,7 @@ public partial class Player : MonoBehaviour
             final = on_the_way; // set final position in case we are at last iteration
         }
 
+        Cleanup(ref final);
         return final;    // final is how far we were able to move 'to' within wall limits
     }
 
@@ -173,12 +184,23 @@ public partial class Player : MonoBehaviour
     DirFlags EndOfWallBlockers(Vector2 pos2, int i, int j)
     {
         Cell cell_off_grid = new(-1,-1);  // use this for off-grid cells (no walls or doors set)
+        cell_off_grid.doors = DirFlags.None;
+        cell_off_grid.walls = DirFlags.None;
+
+        Cleanup(ref pos2); // eliminate cumulative errors
+
+        float InGrid_x = pos2.x % 1f;   // WARNING: results in inexact fractions
+        float InGrid_y = pos2.y % 1f;
+        float One_Minus_Radius = 1f - radius;
+        CleanupFloat(ref InGrid_x);
+        CleanupFloat(ref InGrid_y); 
 
         // Which edges of current tile is the player near to?
-        bool S_Edge = (pos2.y % 1f) <= radius;
-        bool N_Edge = (pos2.y % 1f) >= (1f - radius);
-        bool W_Edge = (pos2.x % 1f) <= radius;
-        bool E_Edge = (pos2.x % 1f) >= (1f - radius);
+        bool S_Edge = (InGrid_y < radius);
+        bool N_Edge = (InGrid_y > One_Minus_Radius);
+        bool W_Edge = (InGrid_x < radius);
+        bool E_Edge = (InGrid_x > One_Minus_Radius);
+        Debug.Log($"{pos2}->{InGrid_x},{InGrid_y} in {i},{j}  Near Edges: N={N_Edge}, S={S_Edge}, W={W_Edge}, E={E_Edge}.  radius={radius}, 1-radius={One_Minus_Radius}");
 
         // grab a cell to each side of current cell, using dummy cell when off-grid
         Cell C_South = gen.In(i,j-1) ? gen.cellGrid[i, j - 1] : cell_off_grid;
@@ -220,6 +242,7 @@ public partial class Player : MonoBehaviour
                            | (W_End_Wall ? DirFlags.W : 0)
                            | (E_End_Wall ? DirFlags.E : 0);
 
+        Debug.Log($"End_Walls = {End_Walls}");
         return End_Walls;
     }
 
@@ -248,6 +271,47 @@ public partial class Player : MonoBehaviour
         return yawDeg; // leave unchanged if no snap
     }
 
+    // Rounds a number to nearest .01 to eliminate tiny cumulative errors
+    // Option to keep the destination within the same integer value
+    void CleanupFloat(ref float num, bool same_tile = true)
+    {
+        float new_num;
+        new_num = Mathf.Round(num * 100f) / 100f;   // round to 0.01
+
+        if (same_tile)      // prevent going into different tile
+        {
+            float tile_num = Mathf.Floor(num); // tile to stay in
+
+            new_num = Mathf.Clamp(new_num, tile_num, tile_num + 0.99f);
+        }
+        num = new_num;  // update the ref to the cleaned up num
+    }
+
+    // Rounds Vector2 x,y to nearest .01 to eliminate tiny cumulative errors
+    void Cleanup(ref Vector2 vect, bool same_tile = true)
+    {
+        CleanupFloat(ref vect.x, same_tile);
+        CleanupFloat(ref vect.y, same_tile);
+    }
+
+    // apply offset from world coordinates to map coordinates
+    Vector2 World_to_Map(Vector2 world_loc)
+    {
+        Vector2 map_loc;
+        map_loc.x = world_loc.x + xCorrection;
+        map_loc.y = world_loc.y + yCorrection;
+        return map_loc;
+    }
+
+    // apply offset from map coordinates to world coordinates
+    Vector2 Map_to_World(Vector2 map_loc)
+    {
+        Vector2 world_loc;
+        world_loc.x = map_loc.x - xCorrection;
+        world_loc.y = map_loc.y - yCorrection;
+        return world_loc;
+    }
+   
     // ---- Stubs to wire into systems later ----
 
     // Return whether the door on edge (i,j,dir) is open. For now: consider doors open by default.
