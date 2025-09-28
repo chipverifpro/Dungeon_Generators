@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public partial class Player : MonoBehaviour
@@ -5,13 +6,24 @@ public partial class Player : MonoBehaviour
     // called by Input_Update to move in response to inputs.
     void Move_Update(float turn, float thrust)
     {
-        // Rotate the Player
-        yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
- 
-        // commit rotation ALWAYS (even if thrust == 0)
-        if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
-        else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
+        if (Math.Abs(turn) > 1e-10f)
+        {
+            // Rotate the Player
+            yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
 
+            // commit rotation ALWAYS (even if thrust == 0)
+            if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
+            else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
+        }
+        else
+        {
+            if (Math.Abs(thrust) > 1e-5f)    // only snap if turning=false but moving=true
+            {
+                yawDeg = SnapToCardinals(yawDeg, snapToCardinalDegrees);
+                if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
+                else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
+            }
+        }
         // done with turning, next is moving...
 
         // Forward direction unit vector in 2D plane
@@ -155,6 +167,23 @@ public partial class Player : MonoBehaviour
         return wall;
     }
 
+    public static float SnapToCardinals(float yawDeg, float snapToCardinalDegrees = 10f)
+    {
+        // Normalize into [0,360)
+        yawDeg = Mathf.Repeat(yawDeg, 360f);
+        Debug.Log($"yawDeg = {yawDeg}");
+
+        // Cardinal angles
+        float[] cardinals = { 0f, 90f, 180f, 270f };
+
+        foreach (float c in cardinals)
+        {
+            if (Mathf.Abs(Mathf.DeltaAngle(yawDeg, c)) <= snapToCardinalDegrees)
+                return c; // Snap!
+        }
+
+        return yawDeg; // leave unchanged if no snap
+    }
     // ---- Stubs you can wire into your systems later ----
 
     // Return whether the door on edge (i,j,dir) is open. For now: consider doors open by default.

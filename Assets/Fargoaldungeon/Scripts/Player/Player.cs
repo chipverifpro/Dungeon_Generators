@@ -20,6 +20,7 @@ public partial class Player : MonoBehaviour
     [Range(0.1f, 0.49f)]
     public float radius = 0.30f;         // collision radius inside a 1x1 cell
     public bool faceMoveDirection = true;
+    public float snapToCardinalDegrees = 15f;
 
     [Header("Tuning")]
     public int constraintIters = 3;      // how many passes to resolve against edges

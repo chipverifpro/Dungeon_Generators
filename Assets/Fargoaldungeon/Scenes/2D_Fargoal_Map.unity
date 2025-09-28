@@ -1619,6 +1619,7 @@ MonoBehaviour:
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
   bottomBanner: {fileID: 409665912}
   timeManager: {fileID: 409665913}
+  buildComplete: 0
   room_rects: []
   room_rects_heights: 
   room_rects_color: []
@@ -2150,10 +2151,12 @@ MonoBehaviour:
   xCorrection: 0.5
   yCorrection: 0.5
   yawCorrection: 90
+  heightCorrection: 1
   gen: {fileID: 409665914}
   baseSpeed: 6
   radius: 0.3
   faceMoveDirection: 1
+  snapToCardinalDegrees: 15
   constraintIters: 3
   slopeUphillFactor: 0.85
   slopeDownhillFactor: 1.08
