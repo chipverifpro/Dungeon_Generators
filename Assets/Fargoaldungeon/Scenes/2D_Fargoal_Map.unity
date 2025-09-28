@@ -2145,21 +2145,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcdc0a2c1733d440881cfeeedb6fbcf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
+  baseSpeed: 6
   turnSpeedDegPerSec: 180
-  useXZPlane: 1
+  radius: 0.4
+  snapToCardinalDegrees: 15
+  slopeUphillFactor: 0.85
+  slopeDownhillFactor: 1.08
   xCorrection: 0.5
   yCorrection: 0.5
   yawCorrection: 90
-  heightCorrection: 1
-  gen: {fileID: 409665914}
-  baseSpeed: 6
-  radius: 0.3
-  faceMoveDirection: 1
-  snapToCardinalDegrees: 15
+  heightCorrection: 0
+  useXZPlane: 1
   constraintIters: 3
-  slopeUphillFactor: 0.85
-  slopeDownhillFactor: 1.08
 --- !u!1 &564834504 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4283123491008757125, guid: 8c65657c6138d4d76aa2e7e8aa85c841,

@@ -4,7 +4,7 @@ using UnityEngine;
 
 // TODO list:
 //   add movement on diagonal walls
-//   add start on map floor tile
+//   DONE add start on map floor tile
 //   add height to movement
 //   switch to heightmap instead of grid to allow movement with vertical stacking
 //   move all params into this file.
@@ -14,51 +14,55 @@ public partial class Player : MonoBehaviour
 {
     [Header("Refs")]
     public DungeonGenerator gen;         // assign in Inspector (has cellGrid, rooms, etc.)
+    public BottomBanner bottomBanner;
 
-    [Header("Movement")]
-    public float baseSpeed = 6.0f;       // world units per second
+    [Header("Current Player position")]
+    Vector2 pos2;          // XY or XZ (depending on useXZPlane)
+    float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
+    int floorHeight = 1;   // height of current tile.
+
+    [Header("Unique Agent Parameters")]
+    public float baseSpeed = 6.0f;       // W/S movement world units per second
+    public float turnSpeedDegPerSec = 180f;     // A/D rotate speed
     [Range(0.1f, 0.49f)]
     public float radius = 0.30f;         // collision radius inside a 1x1 cell
-    public bool faceMoveDirection = true;
-    public float snapToCardinalDegrees = 15f;
 
-    [Header("Tuning")]
-    public int constraintIters = 3;      // how many passes to resolve against edges
+    [Header("Movement")]
+    public float snapToCardinalDegrees = 15f;
     public float slopeUphillFactor = 0.85f; // (stub) scale speed a bit uphill
     public float slopeDownhillFactor = 1.08f;
 
-    //Vector2 posXY;                       // working XY pose (Z comes from transform)
-    int floorHeight = 1;
+    [Header("Player to Walls adjustment")]
+    public float xCorrection = 0.5f;
+    public float yCorrection = 0.5f;
+    public float yawCorrection = 90f;
+    public float heightCorrection = 1f;
 
-    public struct Pose2             // location and direction of player
-    {
-        public Vector2 p;           // 2D location of player
-        public float height;
-        public float yaw;
-    }
-
-    public struct AgentParams       // tracks characteristics of player
-    {
-        public float radius;
-        public float baseSpeed;
-    }
-
+    // Tuning internal parameters
+    [HideInInspector]
+    public bool useXZPlane = false;             // false = XY floor (tilemap), true = XZ floor (3D)
+    [HideInInspector]
+    public int constraintIters = 3;      // how many passes to resolve against edges
 
     void Awake()
     {
-        if (!gen)   // if DungeonGenerator is missing, find it.
+        // if references are missing, find them.
+        if (!gen)
             gen = FindAnyObjectByType<DungeonGenerator>();
+        if (!bottomBanner)
+            bottomBanner = FindAnyObjectByType<BottomBanner>();
     }
 
     void Start()
     {
-        StartCoroutine(DetermineStartPosition());
-        Input_Start();
+        StartCoroutine(DetermineStartPosition());   // background task waits for generator to complete before choosing starting location
+        Move_Start();   // grab initial position from Unity object
     }
 
     void Update()
     {
         Input_Update();  // this is the update for inputs and resulting movement
+        // Input_Update will call Move_Update with the appropriate parameters.
     }
 
     public IEnumerator DetermineStartPosition()
