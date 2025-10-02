@@ -30,10 +30,10 @@ public partial class DungeonGenerator : MonoBehaviour
         yield return StartCoroutine(AddLoopDoors(candidates, extraTarget, moat, cfg.doors.minDoorSpacing, cfg.doors.maxDoorsPerRoom, doorsYieldEvery));
 
         DrawMapByRooms(rooms);
-        yield return new WaitForSeconds(1f);
+        //yield return new WaitForSeconds(1f);
         UpdateDoorsInRooms(candidates);
         DrawMapByRooms(rooms);
-        yield return new WaitForSeconds(1f);
+        //yield return new WaitForSeconds(1f);
 
         PrintCandidates(candidates);
     }

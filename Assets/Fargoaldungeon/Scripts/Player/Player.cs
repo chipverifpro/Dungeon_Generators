@@ -16,8 +16,14 @@ public partial class Player : MonoBehaviour
     public DungeonGenerator gen;         // assign in Inspector (has cellGrid, rooms, etc.)
     public BottomBanner bottomBanner;
 
+    public GameObject PackGameObject;   // Assign your parent GameObject in the Inspector
+    public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
+
+    public Pack pack;                   // pack structure
+
     [Header("Current Player position")]
-    public Vector2 pos2;          // XY or XZ (depending on useXZPlane)
+    public Agent agent;
+    //public Vector2 pos2;          // XY or XZ (depending on useXZPlane)
     public float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
     public int floorHeight = 1;   // height of current tile.
 
@@ -26,6 +32,8 @@ public partial class Player : MonoBehaviour
     public float turnSpeedDegPerSec = 180f;     // A/D rotate speed
     [Range(0.1f, 0.49f)]
     public float radius = 0.30f;         // collision radius inside a 1x1 cell
+    public Color color1 = Color.black;  // top color
+    public Color color2 = Color.white;  // bottom color (or outline)
 
     [Header("Movement")]
     public float snapToCardinalDegrees = 10f;
@@ -41,23 +49,27 @@ public partial class Player : MonoBehaviour
 
     // Tuning internal parameters
     [HideInInspector]
-    public bool useXZPlane = false;             // false = XY floor (tilemap), true = XZ floor (3D)
+    public bool useXZPlane = false;      // false = XY floor (tilemap), true = XZ floor (3D)
     [HideInInspector]
     public int constraintIters = 3;      // how many passes to resolve against edges
 
-    void Awake()
+    public void Awake()
     {
         // if references are missing, find them.
         if (!gen)
             gen = FindAnyObjectByType<DungeonGenerator>();
         if (!bottomBanner)
             bottomBanner = FindAnyObjectByType<BottomBanner>();
+        agent = new();
     }
 
     void Start()
     {
         StartCoroutine(DetermineStartPosition());   // background task waits for generator to complete before choosing starting location
-        Move_Start();   // grab initial position from Unity object
+        Move_Start();           // grab initial position from Unity object
+        agent.trail = GetComponent<BreadcrumbTrail>();
+        BuildPackObjects(3);    // This exists in Pack class.
+        ChangePlayerAgent(pack.PackLeader);
     }
 
     void Update()
@@ -72,9 +84,9 @@ public partial class Player : MonoBehaviour
         yield return null;
         yield return new WaitUntil(() => gen.buildComplete);
 
-        // start with default location, and if not a valid floor, randomly pick a new one.
-        int x = Mathf.FloorToInt(pos2.x);
-        int y = Mathf.FloorToInt(pos2.y);
+        // randomly pick a start location.
+        int x = Mathf.FloorToInt(agent.pos2.x);
+        int y = Mathf.FloorToInt(agent.pos2.y);
         x = -1; // Debug: Force a move
         y = -1;
         //TODO fix this to use Heightmap instead of cellGrid
@@ -84,11 +96,47 @@ public partial class Player : MonoBehaviour
             x = UnityEngine.Random.Range(0, gen.cfg.mapWidth);
             y = UnityEngine.Random.Range(0, gen.cfg.mapHeight);
         }
-        pos2.x = x + 0.5f;  // center of cell
-        pos2.y = y + 0.5f;
-        floorHeight = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
+        agent.pos2.x = x + 0.5f;  // center of cell
+        agent.pos2.y = y + 0.5f;
+        agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
         TransformPosition();    // move the player
 
-        Debug.Log($"Set StartPosition to {pos2.x}, {pos2.y}, {floorHeight}");
+        Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
     }
+    
+        void BuildPackObjects(int squadSize)
+        {
+            for (int i = 0; i < squadSize; i++)
+            {
+                // Create a new GameObject for this squad member
+                GameObject agentObj;
+
+                if (DogPrefab != null)
+                {
+                    // If you have a prefab, instantiate it
+                    agentObj = Instantiate(DogPrefab, PackGameObject.transform);
+                    agentObj.name = $"PlayerAgent_{i}";
+                }
+                else
+                {
+                    // Otherwise just make a blank one
+                    agentObj = new GameObject($"PlayerAgent_{i}");
+                    agentObj.transform.SetParent(PackGameObject.transform, worldPositionStays: false);
+                }
+
+                // Add the PlayerAgent script
+                agentObj.AddComponent<PlayerAgent>();
+
+                // Spread them out a little (optional)
+                agentObj.transform.localPosition = new Vector3(i * 2.0f, 0, 0);
+            }
+        }
+    
+
+    // Change which agent the player is controlling...
+    void ChangePlayerAgent(Agent new_agent)
+    {
+        agent = new_agent;
+    }
+
 }

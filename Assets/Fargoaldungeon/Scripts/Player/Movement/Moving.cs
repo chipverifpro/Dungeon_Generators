@@ -7,8 +7,8 @@ public partial class Player : MonoBehaviour
     void Move_Start()
     {
         var p = transform.position;   // grab object position and set it in variable
-        if (useXZPlane) pos2 = World_to_Map(new Vector2(p.x, p.z));
-        else            pos2 = World_to_Map(new Vector2(p.x, p.y));
+        if (useXZPlane) agent.pos2 = World_to_Map(new Vector2(p.x, p.z));
+        else            agent.pos2 = World_to_Map(new Vector2(p.x, p.y));
 
         // Initialize yaw from current rotation
         yawDeg = useXZPlane ? transform.eulerAngles.y - yawCorrection : transform.eulerAngles.z - yawCorrection;
@@ -20,7 +20,7 @@ public partial class Player : MonoBehaviour
         // round to nearest .01 to reduce cumulative errors.
         CleanupFloat(ref turn, false);
         CleanupFloat(ref thrust);
-        Cleanup(ref pos2);
+        Cleanup(ref agent.pos2);
 
         if (Math.Abs(turn) > 1e-10f)
         {
@@ -50,27 +50,27 @@ public partial class Player : MonoBehaviour
 
         // Desired 2D motion (no strafing here)
         Vector2 desiredDir2 = fwd2 * Mathf.Clamp(thrust, -1f, 1f);
-        float speed = baseSpeed * SampleSlopeMultiplier(pos2, desiredDir2);
+        float speed = baseSpeed * SampleSlopeMultiplier(agent.pos2, desiredDir2);
 
         // 2) Integrate and resolve against grid edges
-        Vector2 p_from = pos2;  // pos2 is the Vector2 of the player location
+        Vector2 p_from = agent.pos2;  // pos2 is the Vector2 of the player location
         Vector2 p_to = p_from + desiredDir2 * speed * Time.deltaTime;
         Vector2 p_new = ResolveGridConstraints(p_from, p_to, radius, constraintIters);
 
         // 3) Commit position & rotation to Transform
-        pos2 = p_new;
+        agent.pos2 = p_new;
 
         TransformPosition();
     }
 
     void TransformPosition()
     {
-        Cleanup(ref pos2);
+        Cleanup(ref agent.pos2);
 
         if (useXZPlane)
         {
             Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
-            Vector2 t_World = Map_to_World(pos2);
+            Vector2 t_World = Map_to_World(agent.pos2);
             t.x = t_World.x; t.z = t_World.y; // XZ location
             t.y = floorHeight + 1;
             transform.position = t;
@@ -79,7 +79,7 @@ public partial class Player : MonoBehaviour
         else
         {
             Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
-            Vector2 t_World = Map_to_World(pos2);
+            Vector2 t_World = Map_to_World(agent.pos2);
             t.x = t_World.x; t.y = t_World.y; // XY location
             t.z = floorHeight + 1;
             transform.position = t;
@@ -170,7 +170,7 @@ public partial class Player : MonoBehaviour
         bool hasDoor = (c.doors & dir) != 0;
         bool doorOpen = hasDoor && GetDoorOpenState(i, j, dir);
 
-        DirFlags endWallBlockers = EndOfWallBlockers(pos2, i, j);
+        DirFlags endWallBlockers = EndOfWallBlockers(agent.pos2, i, j);
         bool blockedByEndWall = (endWallBlockers & dir) != 0;
 
         //Debug.Log($"EdgeBlocked({i}, {j}, dir={dir} = {wall})");
@@ -191,7 +191,7 @@ public partial class Player : MonoBehaviour
 
         float InGrid_x = pos2.x % 1f;   // WARNING: results in inexact fractions
         float InGrid_y = pos2.y % 1f;
-        float One_Minus_Radius = 1f - radius;
+        float One_Minus_Radius = 1f - radius; // no extra fractions
         CleanupFloat(ref InGrid_x);
         CleanupFloat(ref InGrid_y); 
 

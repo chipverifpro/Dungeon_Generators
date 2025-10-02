@@ -160,6 +160,12 @@ Debug.Log($"{d} has {bits} bits set.");
 
 */
 
+public class ScentClass
+{
+    public int agentId;
+    public float intensity;     // current scent strength
+    public float nextIntensity; // temporary next value during decay/spread calculation
+}
 
 // ===================== Cell class ===================
 public class Cell       // one cell in a Room
@@ -177,6 +183,9 @@ public class Cell       // one cell in a Room
     // Delegates for behaviors (see notes below)
     public Action<Cell> OnView;     // function triggered when viewed
     public Action<Cell> OnStep;     // function triggered when stepped on
+    public List<ScentClass> scents; // tracks who has passed this way before
+    public List<ScentClass> nextScents; // temporarily holds next scent amount during decay/spread calculations
+    
 
     // Constructors:
     public Cell(int x, int y, int z)

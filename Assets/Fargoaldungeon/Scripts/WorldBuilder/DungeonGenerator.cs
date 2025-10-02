@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections;
 using System;
+using Unity.Mathematics;
 
 
 /* DONE list...
@@ -53,7 +54,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public TimeManager timeManager;
 
     public bool buildComplete = false;
-
+    public Time lastScentTime;
     // ------------------------------------- //
     // Start is called by Unity before the first frame update
     public void Start()
@@ -66,6 +67,7 @@ public partial class DungeonGenerator : MonoBehaviour
         // Start the fun...
 
         StartCoroutine(RegenerateDungeon(null));
+        StartCoroutine(ScentDecayOnIntervals());
     }
 
     // RegenerateDungeon is the main coroutine that handles dungeon generation.
@@ -991,6 +993,134 @@ public partial class DungeonGenerator : MonoBehaviour
         // (Optional) sort by size descending like your existing code
         merged.Sort((a, b) => b.Size.CompareTo(a.Size));
         return merged;
+    }
+
+    public IEnumerator ScentDecayOnIntervals()
+    {
+        var DecayWaiter = new WaitForSeconds(cfg.ScentInterval);
+        while (true)
+        {
+            yield return DecayWaiter;
+            StartCoroutine(ScentDecayAndSpread());
+        }
+    }
+
+    // This routine is called every cfg.ScentInterval
+    //   It scans every Cell in every Room looking for existing scents.
+    //   It decays scent by cfg.ScentDecayRate.
+    //   It spreads scent to each neighbor by cfg.ScentSpradAmount.
+    //   All of these are put into a nextScent list so we only work on the originals.
+    //     It moves all the nextScent list entries to the scent list except...
+    //       It removes the scent if it decays below cfg.ScentMinimum
+    public IEnumerator ScentDecayAndSpread()
+    {
+        Cell neighborCell;
+        Vector2Int nPos;
+        int spread_count;
+
+        foreach (Room r in rooms)
+        {
+            foreach (Cell c in r.cells)
+            {
+                if (c.scents != null)
+                {
+                    for (int s = 0; s < c.scents.Count; s++)
+                    {
+                        float orig_intensity = c.scents[s].intensity;
+                        spread_count = 0;
+
+                        // spread scent to nearby cells
+                        foreach (DirFlags dir in DirFlagsEx.AllCardinals)
+                        {
+                            //walls and closed doors block scent spread
+                            if ((dir & (c.walls | (c.doors /* & c.doors_closed*/))) == 0)    // TODO: include door open/closed
+                            {
+                                nPos = DirFlagsEx.ToVector2Int(dir);
+                                neighborCell = GetCellFromHf(c.x + nPos.x, c.y + nPos.y, c.z, threshold: 10);
+                                if (neighborCell != null)
+                                {
+                                    // spread the scent...
+                                    AddToNextScentIntensity(neighborCell, s, orig_intensity * cfg.ScentSpreadAmount);
+                                    spread_count++;
+                                }
+                            }
+                        }
+                        // to decay this scent, add a negative amount
+                        //   start with current intensity
+                        //   multiply by decay rate configuration parameter (eg. 0.8 => 20% loss)
+                        //   multiply by (number of open directions+1)/5
+                        //     (narrow corridors dissipate more slowly than open space)
+                        //     (if we don't do this, feedback from neighbors will actually make dissipation slower in open spaces)
+                        //       4 sides open 100% .. 3 sides open 80% .. 2 sides open 60% .. 1 side open 40% .. closed room 20%
+                        AddToNextScentIntensity(c, s, -orig_intensity * cfg.ScentDecayRate * ((spread_count + 1) / 5));
+                    }
+                }
+                yield return null;  // once per room to leave time for other activities.
+            }
+
+            // now, transfer all those NextScents back to Scents.
+            foreach (Room room in rooms)
+            {
+                foreach (Cell cell in room.cells)
+                {
+                    if (cell.scents == null) cell.scents = new();
+
+                    for (int scent_num = 0; scent_num < cell.scents.Count; scent_num++)
+                    {
+                        // only keep scent if above cfg.ScentMinimum
+                        if (cell.scents[scent_num].nextIntensity >= cfg.ScentMinimum)
+                        {
+                            cell.scents[scent_num].intensity = cell.scents[scent_num].nextIntensity;
+                            cell.scents[scent_num].nextIntensity = 0; // clear for next pass
+                        }
+                        else
+                        {
+                            cell.scents.RemoveAt(scent_num);
+                            scent_num--;
+                        }
+                    }
+
+                }
+                yield return null;   // once per room to leave time for other activities.
+            }
+        }
+    }
+
+    void AddToNextScentIntensity(Cell c, int agent_id, float added_intensity)
+    {
+        if (c.nextScents == null) c.nextScents = new();
+
+        // if we find a matching agentId, add the scent amount
+        for (int scent_num = 0; scent_num < c.nextScents.Count; scent_num++)
+        {
+            if (c.scents[scent_num].agentId == agent_id)
+            {
+                c.scents[scent_num].nextIntensity += added_intensity; //orig_scent.intensity * cfg.ScentSpreadAmount;
+                return;   // found a match so we are done.
+            }
+        }
+
+        // matching AgentId not found, add a new scent to list;
+        ScentClass new_scent = new ScentClass
+        {
+            agentId = agent_id,
+            nextIntensity = added_intensity
+        };
+        c.scents.Add(new_scent);
+    }
+
+    Cell GetCellFromHf(int x, int y, int z, int threshold)
+    {
+        NeighborMatch match;
+        if (hf.TryQueryAt(x, y + 1, z, threshold: 10, out match))
+        {
+            Room nRoom = rooms[match.roomId];
+            foreach (Cell cc in nRoom.cells)
+            {
+                if ((cc.x == x) && (cc.y == y)) return cc;
+            }
+        }
+        return null;
     }
 
     // =======================================================

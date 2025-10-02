@@ -28,6 +28,12 @@ public class DungeonSettings : ScriptableObject
     public int maxElevation = 100;
     public float unitHeight = 0.1f;  // World units per height unit in the height map. (eg. size of one X tile = 1/unitHeight Z)
 
+    [Header("Scent Parameters")]
+    public float ScentInterval = 30f;       // interval to decay/spread scents (seconds)
+    public float ScentDecayRate = 0.9f;     // decay by percent per ScentInterval
+    public float ScentSpreadAmount = 0.1f;  // neighbors get this percent added per ScentInterval
+    public float ScentMinimum = 0.005f;       // amount below which the scent completely disappears
+
     [Header("Room Floor Bumpiness Settings")]
     public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
     public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
@@ -35,16 +41,16 @@ public class DungeonSettings : ScriptableObject
     [Header("Tilt Entire Rooms Settings")]
     public int slopeRoomMaxAngle = 10;  // If > 0, tilt room floors by up to this angle in degrees.
 
-    [Header("Smooth Floor by Tilting every Floor Tile Settings")]
+    [Header("Smooth Floor by Tilting every Floor Tile")]
     public bool enableTiltedTiles = true;  // If true, tilt individual floor tiles to match height map.
     public int tiltFloorTilesMaxAngle = 45;  // If > 0, tilt individual floor tiles by up to this angle in degrees.
     public float edgeTiltScale = 0.95f; // Scale down tilt near edges to avoid extreme tilts
 
     [Header("3D Build Settings")]
     //public float unitHeight = 0.1f;             // world Y per step
-    public bool useDiagonalCorners = true;
-    public bool skipOrthogonalWhenDiagonal = true;
-    public int perimeterWallSteps = 30; // height of perimeter walls in steps
+    public bool useDiagonalCorners = true;      // if exactly 2 adjacent walls, convert to a diagonal wall
+    public bool skipOrthogonalWhenDiagonal = true; // don't add both square and diagonal walls at the same time
+    public int perimeterWallSteps = 30; // height of walls in steps
 
 
     [Header("Scatter Room Settings")]
