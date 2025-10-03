@@ -21,10 +21,12 @@ public class Agent : MonoBehaviour
     public float radius = 0.30f;            // collision radius inside a 1x1 cell
 
     // current status
-    public Vector3 pos3;// => new() { x=pos2.x, y=pos2.y, z=height};
+    //public Vector3 pos3;// => new() { x=pos2.x, y=pos2.y, z=height};
     public Vector2 pos2;
     public int height;
     public float yawDeg;
+
+    public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
 
     // next crumb in trail we are following
     public Crumb next_crumb;
@@ -38,15 +40,16 @@ public class Agent : MonoBehaviour
     public BreadcrumbTrail trail;       // 
     public bool trailLeader = false;    //
     public bool trailFollower = false;  //
+    public bool camera_refresh_needed = true;   // one-time request for vcam to refresh visibility settings
 
     protected virtual void Awake()
     {
-        trail = GetComponent<BreadcrumbTrail>();
+        //trail = GetComponent<BreadcrumbTrail>();
     }
 
     protected virtual void Start()
     {
-
+        
     }
 
     protected virtual void Update()

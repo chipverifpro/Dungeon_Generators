@@ -2148,11 +2148,8 @@ MonoBehaviour:
   gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
   PackGameObject: {fileID: 766807146}
-  DogPrefab: {fileID: 564834504}
   pack: {fileID: 766807147}
-  agent: {fileID: 0}
-  yawDeg: 0
-  floorHeight: 1
+  agent: {fileID: 1159626742}
   baseSpeed: 6
   turnSpeedDegPerSec: 180
   radius: 0.4
@@ -2166,6 +2163,7 @@ MonoBehaviour:
   yCorrection: 0.5
   yawCorrection: 90
   heightCorrection: 0
+  camera_refresh_needed: 1
   useXZPlane: 1
   constraintIters: 3
 --- !u!1 &564834504 stripped
@@ -2903,7 +2901,6 @@ GameObject:
   m_Component:
   - component: {fileID: 766807148}
   - component: {fileID: 766807147}
-  - component: {fileID: 766807149}
   m_Layer: 0
   m_Name: Pack
   m_TagString: Untagged
@@ -2928,7 +2925,7 @@ MonoBehaviour:
   PackParentObject: {fileID: 766807148}
   agentVisual: {fileID: 4283123491008757125, guid: 8c65657c6138d4d76aa2e7e8aa85c841,
     type: 3}
-  trail: {fileID: 766807149}
+  trail: {fileID: 1480059014}
   PackLeader: {fileID: 1159626742}
   packList: []
   inFollowFormation: 1
@@ -2950,26 +2947,10 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1480059013}
   - {fileID: 1159626743}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &766807149
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 766807146}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f193ce3274844831a0f2a39d226c46f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dropDistance: 0.5
-  maxCrumbs: 256
-  leader: {fileID: 1159626742}
-  followers: []
-  crumbs: []
 --- !u!1 &805874265
 GameObject:
   m_ObjectHideFlags: 0
@@ -3756,11 +3737,11 @@ MonoBehaviour:
   id: 0
   baseSpeed: 6
   turnSpeedDegPerSec: 180
-  radius: 0.3
-  pos3: {x: 0, y: 0, z: 0}
+  radius: 0.4
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  DogPrefab: {fileID: 979927833}
   next_crumb:
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0
@@ -3770,9 +3751,10 @@ MonoBehaviour:
   healthPoints: 0
   racialType: 
   race: 
-  trail: {fileID: 0}
+  trail: {fileID: 1480059014}
   trailLeader: 0
   trailFollower: 0
+  camera_refresh_needed: 1
   isPlayer: 0
   selected: 0
   tendencyToWander: 0.1
@@ -5283,6 +5265,57 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
+--- !u!1 &1480059012
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1480059013}
+  - component: {fileID: 1480059014}
+  m_Layer: 0
+  m_Name: PackTrail
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1480059013
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1480059012}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.00037384033, y: 0, z: 0.083862305}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 766807148}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1480059014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1480059012}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f193ce3274844831a0f2a39d226c46f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dropDistance: 0.5
+  maxCrumbs: 256
+  leader: {fileID: 1159626742}
+  followers: []
+  crumbs: []
+  lastDropPos: {x: 0, y: 0, z: 0}
+  hasAny: 0
 --- !u!1 &1485730646
 GameObject:
   m_ObjectHideFlags: 0
@@ -6567,8 +6600,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1815589282}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -52.989567, y: 17.069933, z: -26.708233}
+  m_LocalRotation: {x: 0.33100697, y: -0.000000046003645, z: 0.000000016137209, w: 0.9436283}
+  m_LocalPosition: {x: -52.989567, y: 5.0699325, z: -36.708233}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6666,6 +6699,7 @@ MonoBehaviour:
   toggleKey: 9
   player: {fileID: 556401679}
   height: 20
+  playerVisible: 1
 --- !u!114 &1815589289
 MonoBehaviour:
   m_ObjectHideFlags: 0

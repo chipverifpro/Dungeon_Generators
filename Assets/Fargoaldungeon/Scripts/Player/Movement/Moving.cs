@@ -6,12 +6,12 @@ public partial class Player : MonoBehaviour
 {
     void Move_Start()
     {
-        var p = transform.position;   // grab object position and set it in variable
+        var p = agent.transform.position;   // grab object position and set it in variable
         if (useXZPlane) agent.pos2 = World_to_Map(new Vector2(p.x, p.z));
         else            agent.pos2 = World_to_Map(new Vector2(p.x, p.y));
 
         // Initialize yaw from current rotation
-        yawDeg = useXZPlane ? transform.eulerAngles.y - yawCorrection : transform.eulerAngles.z - yawCorrection;
+        agent.yawDeg = useXZPlane ? agent.transform.eulerAngles.y - yawCorrection : agent.transform.eulerAngles.z - yawCorrection;
     }
 
     // called by Input_Update to move in response to inputs.
@@ -25,26 +25,26 @@ public partial class Player : MonoBehaviour
         if (Math.Abs(turn) > 1e-10f)
         {
             // Rotate the Player
-            yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
-            CleanupFloat(ref yawDeg);
+            agent.yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
+            CleanupFloat(ref agent.yawDeg);
 
             // commit rotation ALWAYS (even if thrust == 0)
-            if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
-            else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
+            //if (useXZPlane) agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f);
+            //else agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection);
         }
         else // player not rotating
         {
             if (Math.Abs(thrust) > 1e-5f)    // only snap if turning=false but moving=true
             {
-                yawDeg = SnapToCardinals(yawDeg, snapToCardinalDegrees);
-                if (useXZPlane) transform.rotation = Quaternion.Euler(0f, yawDeg + yawCorrection, 0f);
-                else transform.rotation = Quaternion.Euler(0f, 0f, yawDeg + yawCorrection);
+                agent.yawDeg = SnapToCardinals(agent.yawDeg, snapToCardinalDegrees);
+                //if (useXZPlane) agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f);
+                //else agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection);
             }
         }
         // done with turning, next is moving...
 
         // Forward direction unit vector in 2D plane
-        float yawRad = - yawDeg * Mathf.Deg2Rad;
+        float yawRad = - agent.yawDeg * Mathf.Deg2Rad;
         Vector2 fwd2 = new Vector2(Mathf.Cos(yawRad), Mathf.Sin(yawRad)); // XY forward (or XZ’s X/Z)
         Cleanup(ref fwd2);
 
@@ -55,7 +55,7 @@ public partial class Player : MonoBehaviour
         // 2) Integrate and resolve against grid edges
         Vector2 p_from = agent.pos2;  // pos2 is the Vector2 of the player location
         Vector2 p_to = p_from + desiredDir2 * speed * Time.deltaTime;
-        Vector2 p_new = ResolveGridConstraints(p_from, p_to, radius, constraintIters);
+        Vector2 p_new = ResolveGridConstraints(p_from, p_to, agent.radius, constraintIters);
 
         // 3) Commit position & rotation to Transform
         agent.pos2 = p_new;
@@ -72,18 +72,22 @@ public partial class Player : MonoBehaviour
             Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
             Vector2 t_World = Map_to_World(agent.pos2);
             t.x = t_World.x; t.z = t_World.y; // XZ location
-            t.y = floorHeight + 1;
+            t.y = agent.height + 1;
+            agent.transform.position = t;
             transform.position = t;
-            //transform.rotation = Quaternion.Euler(0f, yawDeg, 0f); // rotate around Y for 3D
+            agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
+            transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
         }
         else
         {
             Vector3 t; // = transform.position; // not necessary, we overwrite this value completely
             Vector2 t_World = Map_to_World(agent.pos2);
             t.x = t_World.x; t.y = t_World.y; // XY location
-            t.z = floorHeight + 1;
+            t.z = agent.height + 1;
+            agent.transform.position = t;
             transform.position = t;
-            //transform.rotation = Quaternion.Euler(0f, 0f, yawDeg); // rotate around Z for XY
+            agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
+            transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
         }
     }
 

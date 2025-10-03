@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 // TODO list:
 //   add movement on diagonal walls
@@ -17,15 +18,15 @@ public partial class Player : MonoBehaviour
     public BottomBanner bottomBanner;
 
     public GameObject PackGameObject;   // Assign your parent GameObject in the Inspector
-    public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
+    //public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
 
     public Pack pack;                   // pack structure
 
     [Header("Current Player position")]
-    public Agent agent;
+    public Agent agent;             // Everything to do with the currently active player
     //public Vector2 pos2;          // XY or XZ (depending on useXZPlane)
-    public float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
-    public int floorHeight = 1;   // height of current tile.
+    //public float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
+    //public int floorHeight = 1;   // height of current tile.
 
     [Header("Unique Agent Parameters")]
     public float baseSpeed = 6.0f;       // W/S movement world units per second
@@ -47,6 +48,9 @@ public partial class Player : MonoBehaviour
     public float yawCorrection = 90f;
     public float heightCorrection = 1f;
 
+    [HideInInspector]
+    public bool camera_refresh_needed = true;   // self-clears after camera updates
+
     // Tuning internal parameters
     [HideInInspector]
     public bool useXZPlane = false;      // false = XY floor (tilemap), true = XZ floor (3D)
@@ -60,22 +64,23 @@ public partial class Player : MonoBehaviour
             gen = FindAnyObjectByType<DungeonGenerator>();
         if (!bottomBanner)
             bottomBanner = FindAnyObjectByType<BottomBanner>();
-        agent = new();
+        //agent = new();
     }
 
     void Start()
     {
         StartCoroutine(DetermineStartPosition());   // background task waits for generator to complete before choosing starting location
         Move_Start();           // grab initial position from Unity object
-        agent.trail = GetComponent<BreadcrumbTrail>();
-        BuildPackObjects(3);    // This exists in Pack class.
+                                //agent.trail = GetComponent<BreadcrumbTrail>();
+                                //BuildPackObjects(3);    // This exists in Pack class.
+        pack.packList.Add(pack.PackLeader); // leader agent needs to be added to the packlist.
         ChangePlayerAgent(pack.PackLeader);
     }
 
     void Update()
     {
         Input_Update();  // this is the update for inputs and resulting movement
-        // Input_Update will call Move_Update with the appropriate parameters.
+                         // Input_Update will call Move_Update with the appropriate parameters.
     }
 
     public IEnumerator DetermineStartPosition()
@@ -103,40 +108,23 @@ public partial class Player : MonoBehaviour
 
         Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
     }
-    
-        void BuildPackObjects(int squadSize)
-        {
-            for (int i = 0; i < squadSize; i++)
-            {
-                // Create a new GameObject for this squad member
-                GameObject agentObj;
-
-                if (DogPrefab != null)
-                {
-                    // If you have a prefab, instantiate it
-                    agentObj = Instantiate(DogPrefab, PackGameObject.transform);
-                    agentObj.name = $"PlayerAgent_{i}";
-                }
-                else
-                {
-                    // Otherwise just make a blank one
-                    agentObj = new GameObject($"PlayerAgent_{i}");
-                    agentObj.transform.SetParent(PackGameObject.transform, worldPositionStays: false);
-                }
-
-                // Add the PlayerAgent script
-                agentObj.AddComponent<PlayerAgent>();
-
-                // Spread them out a little (optional)
-                agentObj.transform.localPosition = new Vector3(i * 2.0f, 0, 0);
-            }
-        }
-    
 
     // Change which agent the player is controlling...
     void ChangePlayerAgent(Agent new_agent)
     {
+        agent.DogPrefab.SetActive(true);    // if prefab was hidden by the first-person camera, bring it back
         agent = new_agent;
+        agent.camera_refresh_needed = true;   // camera visibility refresh
+        Move_Update(0f, 0f);    // screen refresh
     }
 
+    // Change which agent the player is controlling...
+    void ChangePlayerAgentByNum(int new_agent_num)
+    {
+        for (int i = 0; i < pack.packList.Count; i++)
+            if (pack.packList[i].id == new_agent_num)
+            {
+                ChangePlayerAgent(pack.packList[i]);
+            }
+    }
 }

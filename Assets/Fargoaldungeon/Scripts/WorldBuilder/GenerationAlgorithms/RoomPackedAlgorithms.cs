@@ -9,7 +9,7 @@ using UnityEngine.Tilemaps;
 public partial class DungeonGenerator : MonoBehaviour
 {
     // This is all that is left from PackMap:
-    public Cell[,] cellGrid;    // was cellGrid
+    public Cell[,] cellGrid;    // grid
     public HashSet<(int, int)> corridors = new();
 
     public IEnumerator GeneratePackedRooms(int? seedOverride = null)

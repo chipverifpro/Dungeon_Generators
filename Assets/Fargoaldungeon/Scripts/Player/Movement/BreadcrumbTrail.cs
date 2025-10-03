@@ -28,13 +28,14 @@ public class BreadcrumbTrail : MonoBehaviour
 
 
     public List<Crumb> crumbs = new List<Crumb>(256);
-    private Vector3 lastDropPos;
-    private bool hasAny = false;
+    public Vector3 lastDropPos;
+    public bool hasAny = false;
 
     void Awake()
     {
         hasAny = false;
         if (followers == null) followers = new();
+        if (crumbs == null) crumbs = new();
     }
 
     void Update()
@@ -46,27 +47,29 @@ public class BreadcrumbTrail : MonoBehaviour
     /// Can be forced in the case of a sharp turn that we want included.
     public void RecordIfNeeded(bool forceDrop = false)
     {
+        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
+        Debug.Log($"RecordIfNeeded: numFollowers = {numFollowers}, numCrumbs = {crumbs.Count}, hasAny={hasAny}, forceDrop={forceDrop}");
         if (numFollowers == 0) return;
 
         if (!hasAny)
         {
             AddCrumb();
-            lastDropPos = leader.pos3;
+            lastDropPos = leader_pos3;
             hasAny = true;
             return;
         }
 
-        if (forceDrop && (leader.pos3 != lastDropPos))
+        if (forceDrop && (leader_pos3 != lastDropPos))
         {
             AddCrumb();
-            lastDropPos = leader.pos3;
+            lastDropPos = leader_pos3;
             return;
         }
-
-        if ((leader.pos3 - lastDropPos).sqrMagnitude >= dropDistance * dropDistance)
+        Debug.Log($"RecordIfNeeded: leader.pos3={leader_pos3}, lastDropPos={lastDropPos}, distSquared = {(leader_pos3 - lastDropPos).sqrMagnitude}");
+        if ((leader_pos3 - lastDropPos).sqrMagnitude >= dropDistance * dropDistance)
         {
             AddCrumb();
-            lastDropPos = leader.pos3;
+            lastDropPos = leader_pos3;
         }
     }
 
@@ -79,7 +82,8 @@ public class BreadcrumbTrail : MonoBehaviour
             // Drop oldest when full
             crumbs.RemoveAt(0);
         }
-        Crumb new_crumb = new() { position = leader.pos3, yawDeg = leader.yawDeg };
+        Vector3 agent_pos_3 = new(leader.pos2.x, leader.pos2.y, leader.height);
+        Crumb new_crumb = new() { position = agent_pos_3, yawDeg = leader.yawDeg };
         crumbs.Add(new_crumb);
     }
 
@@ -87,7 +91,8 @@ public class BreadcrumbTrail : MonoBehaviour
     public Vector3 GetLatestPositionFallback()
     {
         if (crumbs.Count > 0) return crumbs[crumbs.Count - 1].position;
-        return leader.pos3;
+        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
+        return leader_pos3;
     }
 
     public void AddFollower(Agent agent)
@@ -168,9 +173,10 @@ public class BreadcrumbTrail : MonoBehaviour
         }
         // not found, so create a temporary crumb at current leader position
         // does not add to trail.
+        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
         Crumb new_crumb = new()
         {
-            position = leader.pos3,
+            position = leader_pos3,
             yawDeg = leader.yawDeg,
             whichFollowersArrived = new() { eater_index }
         };

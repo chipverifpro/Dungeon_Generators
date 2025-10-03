@@ -9,8 +9,12 @@ public class CameraModeSwitcher : MonoBehaviour
     public GameObject playerModel;
     public KeyCode toggleKey = KeyCode.Tab;
     int current_camera;
-    public Transform player;
+    //public Transform player;
+    public Player player;
     public float height = 20f;
+    public bool playerVisible = true;
+
+    private Coroutine waiter = null;
 
     void Update()
     {
@@ -20,7 +24,8 @@ public class CameraModeSwitcher : MonoBehaviour
             vcamTop.Priority = 0;
             vcamFP.Priority = 0;
             vcamOverhead.Priority = 0;
-            bool playerVisible = true;
+            playerVisible = true;
+            player.camera_refresh_needed = true;
 
             switch (current_camera)
             {
@@ -29,20 +34,31 @@ public class CameraModeSwitcher : MonoBehaviour
                     break;
                 case 1:
                     vcamFP.Priority = 10;
-                    playerVisible = false;   // hide player in first person mode
+                    //playerVisible = false;   // hide player in first person mode
                     break;
                 case 2:
                     vcamOverhead.Priority = 10;
                     break;
             }
+        }
+
+        if (player.camera_refresh_needed)
+        {
+            //if (waiter!=null) StopCoroutine(waiter);  // in case WaitForArrival was already running, kill it.
+
+            playerVisible = (vcamFP.Priority==10) ? false : true; // hide player in first person mode
 
             if (!playerVisible)
             {
                 // Wait for camera to arrive at first person before disabling player visibility
-                StartCoroutine(WaitForArrival(vcamFP, onArrived: onArrivedAtFP));
-            } else {
-                playerModel.SetActive(true);
+                waiter = StartCoroutine(WaitForArrival(vcamFP, onArrived: onArrivedAtFP));
             }
+            else
+            {
+                //playerModel.SetActive(true);
+                player.agent.DogPrefab.SetActive(true);
+            }
+            player.camera_refresh_needed = false;
         }
     }
 
@@ -60,7 +76,8 @@ public class CameraModeSwitcher : MonoBehaviour
 
     void onArrivedAtFP()
     {
-        playerModel.SetActive(false);
+        //playerModel.SetActive(false);
+        player.agent.DogPrefab.SetActive(playerVisible);
         return;
     }
 
@@ -69,12 +86,14 @@ public class CameraModeSwitcher : MonoBehaviour
 
     void LateUpdate()
     {
+        // all cameras point to current agent
         if (player == null) return;
         vcamTop.transform.position = new Vector3(
-            player.position.x,
-            height,
-            player.position.z
+            player.agent.transform.position.x,
+            player.agent.height,
+            player.agent.transform.position.z
         );
+        // top camera override angle so north is top of screen
         vcamTop.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // always north up
     }
 }

@@ -43,19 +43,32 @@ public partial class DungeonGenerator : MonoBehaviour
     // global variables for return of success and failure results (some functions only)
     [HideInInspector] public bool success;    // global generic return value from various tasks
     [HideInInspector] public string failure;    // global failure description string
-    
+
+    // globally incremented counter across all Agents.
+    private int lastIssuedAgentId = 0;      // allows giving agents unique ID's
+
     // list of directions for neighbor checks
     public Vector2Int[] directions_xy = { Vector2Int.up,
                                    Vector2Int.down,
                                    Vector2Int.left,
                                    Vector2Int.right, };
-                            //       Vector2Int.up + Vector2Int.left,
-                            //       Vector2Int.up + Vector2Int.right,
-                            //       Vector2Int.down + Vector2Int.left,
-                            //       Vector2Int.down + Vector2Int.right };
-                            
+    //       Vector2Int.up + Vector2Int.left,
+    //       Vector2Int.up + Vector2Int.right,
+    //       Vector2Int.down + Vector2Int.left,
+    //       Vector2Int.down + Vector2Int.right };
+
     private void Awake()
     {
         // initialize references
+    }
+
+    // Sets the agent id to a unique number, and returns that value.
+    // Can be called without an agent, and caller must assign the number themselves.
+    // ID is used to (a) determine equivalence match, (b) track id of some event in a list.
+    public int GetNewAgentId(Agent agent)
+    {
+        lastIssuedAgentId++;
+        if (agent!=null) agent.id = lastIssuedAgentId;
+        return lastIssuedAgentId;
     }
 }

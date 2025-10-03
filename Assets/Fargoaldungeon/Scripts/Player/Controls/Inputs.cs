@@ -12,5 +12,18 @@ public partial class Player : MonoBehaviour
         {
             Move_Update(turn, thrust);  // Only needed if we want to move
         }
+
+        // Change the agent controllef by the player using the number keys
+        if (Input.GetKeyDown(KeyCode.Alpha0)) ChangePlayerAgentByNum(0);
+        if (Input.GetKeyDown(KeyCode.Alpha1)) ChangePlayerAgentByNum(1);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) ChangePlayerAgentByNum(2);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) ChangePlayerAgentByNum(3);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) ChangePlayerAgentByNum(4);
+        if (Input.GetKeyDown(KeyCode.Alpha5)) ChangePlayerAgentByNum(5);
+        if (Input.GetKeyDown(KeyCode.Alpha6)) ChangePlayerAgentByNum(6);
+        if (Input.GetKeyDown(KeyCode.Alpha7)) ChangePlayerAgentByNum(7);
+        if (Input.GetKeyDown(KeyCode.Alpha8)) ChangePlayerAgentByNum(8);
+        if (Input.GetKeyDown(KeyCode.Alpha9)) ChangePlayerAgentByNum(9);
+
     }
 }
