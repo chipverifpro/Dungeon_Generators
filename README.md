@@ -32,4 +32,6 @@ Add thin 3D walls to the room perimeters.  Option for diagonal walls enabled.  S
 Adding some elevation to the map.  Here, the circular rooms are at different heights, and the corridors contain ramps to connect them.
 <img width="744" height="435" alt="Screenshot 2025-08-22 at 4 45 59 PM" src="https://github.com/user-attachments/assets/5ca11a8d-4a97-427e-a560-86ec9929bf6f" />
 <br>
-
+I will add some more screenshots of more algorithms created here, but plan to fork this off in a new direction.  
+<p>
+I am transforming this into a <b>game</b>.  I'm excited to see everything come together to help tell a story.  The plot involves bravery, discovery, and a yearning to be more.  Face challenges together with friends made along the way. Discover you can be more than you ever dreamed of, and finally be able to decide which path you truly want to to follow.
