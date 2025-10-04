@@ -64,7 +64,8 @@ public partial class Player : MonoBehaviour
             gen = FindAnyObjectByType<DungeonGenerator>();
         if (!bottomBanner)
             bottomBanner = FindAnyObjectByType<BottomBanner>();
-        //agent = new();
+        //if (agent == null)
+            //ChangePlayerAgent(pack.PackLeader);
     }
 
     void Start()

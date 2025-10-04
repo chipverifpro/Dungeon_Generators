@@ -277,7 +277,7 @@ public partial class Player : MonoBehaviour
 
     // Rounds a number to nearest .01 to eliminate tiny cumulative errors
     // Option to keep the destination within the same integer value
-    void CleanupFloat(ref float num, bool same_tile = true)
+    public void CleanupFloat(ref float num, bool same_tile = true)
     {
         float new_num;
         new_num = Mathf.Round(num * 100f) / 100f;   // round to 0.01
@@ -292,14 +292,14 @@ public partial class Player : MonoBehaviour
     }
 
     // Rounds Vector2 x,y to nearest .01 to eliminate tiny cumulative errors
-    void Cleanup(ref Vector2 vect, bool same_tile = true)
+    public void Cleanup(ref Vector2 vect, bool same_tile = true)
     {
         CleanupFloat(ref vect.x, same_tile);
         CleanupFloat(ref vect.y, same_tile);
     }
 
     // apply offset from world coordinates to map coordinates
-    Vector2 World_to_Map(Vector2 world_loc)
+    public Vector2 World_to_Map(Vector2 world_loc)
     {
         Vector2 map_loc;
         map_loc.x = world_loc.x + xCorrection;
@@ -308,7 +308,7 @@ public partial class Player : MonoBehaviour
     }
 
     // apply offset from map coordinates to world coordinates
-    Vector2 Map_to_World(Vector2 map_loc)
+    public Vector2 Map_to_World(Vector2 map_loc)
     {
         Vector2 world_loc;
         world_loc.x = map_loc.x - xCorrection;

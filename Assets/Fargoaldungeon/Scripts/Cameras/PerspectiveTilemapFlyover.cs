@@ -24,7 +24,13 @@ public class PerspectiveTilemapFlyover : MonoBehaviour
 
     void Start()
     {
-        if (autoStart) FlyNow();
+        if (tilemap == null)
+        {
+            GameObject go = GameObject.FindGameObjectWithTag("TilemapFloor");
+            tilemap = go.GetComponent<Tilemap>();
+        }
+        //    tilemap = FindFirstObjectByType<Tilemap>(FindObjectsInactive.Include);
+        //if (autoStart) FlyNow();
     }
 
     public void FlyNow()

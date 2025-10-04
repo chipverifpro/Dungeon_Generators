@@ -59,9 +59,26 @@ public class Pack : MonoBehaviour
         clone.transform.SetParent(PackParentObject, false);
 
         // Optional: move it a little so you can see both
-        clone.transform.position += Vector3.right * 2f;
+        clone.transform.position += Vector3.right * 2f * packList.Count;
 
-        // clone the visible prefab and attach it.
+        // set the player location to match.
+        var p = clone.transform.position;   // grab object position and set it in variable
+        if (player.useXZPlane) clone.pos2 = player.World_to_Map(new Vector2(p.x, p.z));
+        else            clone.pos2 = player.World_to_Map(new Vector2(p.x, p.y));
+
+        // Initialize yaw from current rotation
+        clone.yawDeg = player.useXZPlane ? clone.transform.eulerAngles.y - player.yawCorrection : clone.transform.eulerAngles.z - player.yawCorrection;
+
+
+        // remove the old prefab.
+        // Find the child named "PlayerArrow" and remove it
+        Transform arrow = clone.transform.Find("PlayerArrow");
+        if (arrow != null)
+        {
+            Destroy(arrow.gameObject);
+        }
+
+        // clone the visible prefab and attach it.  Since future prefabs will be unique per agent.
         GameObject prefabClone = Instantiate(PlayerAgent1.DogPrefab);
         prefabClone.name = "Dog_Clone_" + (packList.Count + 1);
         prefabClone.transform.SetParent(clone.transform, false);

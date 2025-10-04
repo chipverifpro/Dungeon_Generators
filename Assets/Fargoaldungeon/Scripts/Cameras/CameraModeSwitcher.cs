@@ -16,6 +16,11 @@ public class CameraModeSwitcher : MonoBehaviour
 
     private Coroutine waiter = null;
 
+    void Start()
+    {
+        if (player == null) player = FindFirstObjectByType<Player>();
+    }
+
     void Update()
     {
         if (Input.GetKeyDown(toggleKey))
