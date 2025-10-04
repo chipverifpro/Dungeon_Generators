@@ -32,6 +32,18 @@ Add thin 3D walls to the room perimeters.  Option for diagonal walls enabled.  S
 Adding some elevation to the map.  Here, the circular rooms are at different heights, and the corridors contain ramps to connect them.
 <img width="744" height="435" alt="Screenshot 2025-08-22 at 4 45 59 PM" src="https://github.com/user-attachments/assets/5ca11a8d-4a97-427e-a560-86ec9929bf6f" />
 <br>
-I will add some more screenshots of more algorithms created here, but plan to fork this off in a new direction.  
+Here I added some Perlin noise to the elevation of the floors.
+<img width="553" height="354" alt="Screenshot 2025-09-08 at 11 34 48 PM" src="https://github.com/user-attachments/assets/9ea1ebdb-1b75-4dcc-86df-cc291af34ddd" />
+<br>
+Extreme Perlin noise floors with tilted floor panels to smooth out the surface.
+<img width="548" height="365" alt="Screenshot 2025-09-08 at 11 39 59 PM" src="https://github.com/user-attachments/assets/b78d95da-d687-4d84-88d9-e794d6718a43" />
+<br>
+Three views of a packed room algorithm containing multiple player agents...
+<img width="828" height="468" alt="Screenshot 2025-10-04 at 3 41 30 AM" src="https://github.com/user-attachments/assets/84633fcf-cfc0-4398-b480-7ac4e2f9539a" />
+<br>
+<img width="826" height="520" alt="Screenshot 2025-10-04 at 3 39 48 AM" src="https://github.com/user-attachments/assets/0ff4446c-8ff6-42d9-96d2-66e69dd12471" />
+<br>
+<img width="815" height="462" alt="Screenshot 2025-10-04 at 3 40 42 AM" src="https://github.com/user-attachments/assets/eacfcefa-e4c7-4984-a1a2-899c97c8b272" />
+<br>
 <p>
 I am transforming this into a <b>game</b>.  I'm excited to see everything come together to help tell a story.  The plot involves bravery, discovery, and a yearning to be more.  Face challenges together with friends made along the way. Discover you can be more than you ever dreamed of, and finally be able to decide which path you truly want to to follow.
