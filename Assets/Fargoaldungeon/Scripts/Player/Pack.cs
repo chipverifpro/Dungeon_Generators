@@ -32,12 +32,7 @@ public class Pack : MonoBehaviour
             Debug.LogError("Pack (parent) is not assigned.");
             return;
         }
-        //if (breadcrumbTrailPrefab != null)
-        //    trailPrefabObj = Instantiate(breadcrumbTrailPrefab, PackParentObject);
-        //else
-        //    trailPrefabObj = null;
-
-        //CreatePackObjects();  // Crreate Leader and Followers under the Pack object
+        PackLeader.pack = this;
         for (int i = 0; i < 4; i++)
             CreatePackAgent();
     }
@@ -55,6 +50,7 @@ public class Pack : MonoBehaviour
         trail.AddFollower(clone);
         clone.trailLeader = false;
         clone.trailFollower = true;
+        clone.pack = this;
         // Optional: parent under something
         clone.transform.SetParent(PackParentObject, false);
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.UIElements;
 
 // TODO list:
@@ -52,8 +53,8 @@ public partial class Player : MonoBehaviour
     public bool camera_refresh_needed = true;   // self-clears after camera updates
 
     // Tuning internal parameters
-    [HideInInspector]
-    public bool useXZPlane = false;      // false = XY floor (tilemap), true = XZ floor (3D)
+    
+    public bool useXZPlane = true;      // false = XY floor (tilemap), true = XZ floor (3D)
     [HideInInspector]
     public int constraintIters = 3;      // how many passes to resolve against edges
 
@@ -65,7 +66,7 @@ public partial class Player : MonoBehaviour
         if (!bottomBanner)
             bottomBanner = FindAnyObjectByType<BottomBanner>();
         //if (agent == null)
-            //ChangePlayerAgent(pack.PackLeader);
+        //ChangePlayerAgent(pack.PackLeader);
     }
 
     void Start()
@@ -105,7 +106,7 @@ public partial class Player : MonoBehaviour
         agent.pos2.x = x + 0.5f;  // center of cell
         agent.pos2.y = y + 0.5f;
         agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
-        TransformPosition();    // move the player
+        agent.TransformPosition(agent);    // move the player's agent
 
         Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
     }
@@ -115,17 +116,58 @@ public partial class Player : MonoBehaviour
     {
         agent.DogPrefab.SetActive(true);    // if prefab was hidden by the first-person camera, bring it back
         agent = new_agent;
+        agent.trailLeader = true;
+        agent.trailFollower = false;
         agent.camera_refresh_needed = true;   // camera visibility refresh
         Move_Update(0f, 0f);    // screen refresh
     }
 
     // Change which agent the player is controlling...
-    void ChangePlayerAgentByNum(int new_agent_num)
+    // old leader agent becomes a follower, and new agent becomes leader.
+    // new agent moves to front of pack order.
+    void ChangePlayerAgentById(int new_agent_id)
     {
+        int old_leader_id = 0;
         for (int i = 0; i < pack.packList.Count; i++)
-            if (pack.packList[i].id == new_agent_num)
+            if (pack.packList[i].trailLeader == true)   // old trailLeader
             {
-                ChangePlayerAgent(pack.packList[i]);
+                old_leader_id = pack.packList[i].id;
+                pack.packList[i].trailLeader = false;
+                pack.packList[i].trailFollower = true;
+                break;
             }
+
+        for (int i = 0; i < pack.packList.Count; i++)
+            if (pack.packList[i].id == new_agent_id)    // new agent becomes leader
+            {
+                Agent new_leader_agent = pack.packList[i];
+                // move new leader to front of list.
+                pack.packList.RemoveAt(i);
+                pack.packList.Insert(0, new_leader_agent);
+                ChangeTrailEater(new_agent_id, old_leader_id);
+
+                ChangePlayerAgent(pack.packList[0]);    // player agent is now front of list
+                break;
+            }
+    }
+
+    // clean up the crumb list when new leader takes over.
+    void ChangeTrailEater(int new_leader_id, int old_leader_id)
+    {
+        for (int c = 0; c < pack.trail.crumbs.Count; c++)
+        {
+            // put old and new followers on every breadcrumb as having eaten it.
+            if (!pack.trail.crumbs[c].whichFollowersArrived.Contains(old_leader_id))
+                pack.trail.crumbs[c].whichFollowersArrived.Add(old_leader_id);
+            if (!pack.trail.crumbs[c].whichFollowersArrived.Contains(new_leader_id))
+                pack.trail.crumbs[c].whichFollowersArrived.Add(new_leader_id);
+
+            // remove the crumb if all followers have seen it.
+            if (pack.trail.crumbs[c].whichFollowersArrived.Count == pack.packList.Count)
+            {
+                pack.trail.crumbs.RemoveAt(c);
+                c--;
+            }
+        }
     }
 }

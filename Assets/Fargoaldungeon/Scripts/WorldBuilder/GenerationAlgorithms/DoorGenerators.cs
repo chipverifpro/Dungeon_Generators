@@ -184,7 +184,7 @@ public partial class DungeonGenerator : MonoBehaviour
                             cellB = n
                         };
                         bool placed = TryPlaceDoor(dcand, moat);
-                        Debug.Log($"ConnectLooseEnds: Tried to place door at {dcand.x},{dcand.y} placed = {placed}");
+                        //Debug.Log($"ConnectLooseEnds: Tried to place door at {dcand.x},{dcand.y} placed = {placed}");
 
                         break;
                     }
@@ -221,7 +221,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 if (doorsUsedPerRoom[c.roomId] >= maxDoorsPerRoom) continue;
                 bool placed = TryPlaceDoor(c, moat);
                 c.placed = placed;
-                Debug.Log($"EnsureConnectivity1: Tried to place door at {c.x},{c.y} placed = {placed}");
+                //Debug.Log($"EnsureConnectivity1: Tried to place door at {c.x},{c.y} placed = {placed}");
                 
                 if (placed) { doorsUsedPerRoom[c.roomId]++; chosen++; }
             }
@@ -234,7 +234,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
                 bool placed = TryPlaceDoor(c, moat);
                 c.placed = placed;
-                Debug.Log($"EnsureConnectivity2: Tried to place door at {c.x},{c.y} placed = {placed}");
+                //Debug.Log($"EnsureConnectivity2: Tried to place door at {c.x},{c.y} placed = {placed}");
                 if (placed)
                 {
                     uf.Union(c.roomId, c.targetRoomId);
@@ -272,7 +272,7 @@ public partial class DungeonGenerator : MonoBehaviour
             bool placed;
             if (placed=TryPlaceDoor(c, moat))
             {
-                Debug.Log($"AdddLoopDoors: Tried to place door at {c.x},{c.y} placed = {placed}");
+                //Debug.Log($"AdddLoopDoors: Tried to place door at {c.x},{c.y} placed = {placed}");
                 if (c.toCorridor) perRoom[c.roomId]++; else { perRoom[c.roomId]++; perRoom[c.targetRoomId]++; }
                 added++;
             }
@@ -430,13 +430,13 @@ public partial class DungeonGenerator : MonoBehaviour
         int complete = 0;
         foreach (DoorCandidate c in candidates)
         {
-            Debug.Log($"Candidate {num}: @{c.x},{c.y} {c.dir} placed={c.placed} A={c.roomId} -> B={c.targetRoomId}");
+            //Debug.Log($"Candidate {num}: @{c.x},{c.y} {c.dir} placed={c.placed} A={c.roomId} -> B={c.targetRoomId}");
             //Debug.Log($"room {c.roomId} : doors = {rooms[c.roomId].doors.Count}");
-            Debug.Log($"{c.cellA.x},{c.cellA.y} doors={c.cellA.doors} -> {c.cellB.x},{c.cellB.y} doors={c.cellB.doors}");
+            //Debug.Log($"{c.cellA.x},{c.cellA.y} doors={c.cellA.doors} -> {c.cellB.x},{c.cellB.y} doors={c.cellB.doors}");
             num++;
             if (c.placed) complete++;
         }
-        Debug.Log($"Door Candidates = {num}, Doors Complete = {complete}");
+        //Debug.Log($"Door Candidates = {num}, Doors Complete = {complete}");
     }
 
     void UpdateDoorsInRooms(List<DoorCandidate> candidates)
@@ -456,15 +456,15 @@ public partial class DungeonGenerator : MonoBehaviour
                 c.cellA.walls |= c.dir;     // set the wall bit if not placed.
                 if ((before_doors != c.cellA.doors) || (before_walls != c.cellA.walls))
                 {
-                    Debug.Log($"before_doors = {before_doors}, after_doors = {c.cellA.doors}");
-                    Debug.Log($"before_walls = {before_walls}, after_walls = {c.cellA.walls}");
+                    //($"before_doors = {before_doors}, after_doors = {c.cellA.doors}");
+                    //Debug.Log($"before_walls = {before_walls}, after_walls = {c.cellA.walls}");
                     num_changes++;
                 }
                 //Debug.Log($"{c.cellA.x},{c.cellA.y} doors={c.cellA.doors} -> {c.cellB.x},{c.cellB.y} doors={c.cellB.doors}");
                 //num++;
                 //if (c.placed) complete++;
             }
-            if (num_changes != 0) Debug.Log($"num_changes = {num_changes}");
+            //if (num_changes != 0) Debug.Log($"num_changes = {num_changes}");
             //Debug.Log($"Door Candidates = {num}, Doors Complete = {complete}");
         }
     }

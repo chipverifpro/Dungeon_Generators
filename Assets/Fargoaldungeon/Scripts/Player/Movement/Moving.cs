@@ -60,10 +60,10 @@ public partial class Player : MonoBehaviour
         // 3) Commit position & rotation to Transform
         agent.pos2 = p_new;
 
-        TransformPosition();
+        TransformPosition(agent);
     }
 
-    void TransformPosition()
+    public void TransformPosition(Agent agent)
     {
         Cleanup(ref agent.pos2);
 
@@ -204,7 +204,7 @@ public partial class Player : MonoBehaviour
         bool N_Edge = (InGrid_y > One_Minus_Radius);
         bool W_Edge = (InGrid_x < radius);
         bool E_Edge = (InGrid_x > One_Minus_Radius);
-        Debug.Log($"{pos2}->{InGrid_x},{InGrid_y} in {i},{j}  Near Edges: N={N_Edge}, S={S_Edge}, W={W_Edge}, E={E_Edge}.  radius={radius}, 1-radius={One_Minus_Radius}");
+        //Debug.Log($"{pos2}->{InGrid_x},{InGrid_y} in {i},{j}  Near Edges: N={N_Edge}, S={S_Edge}, W={W_Edge}, E={E_Edge}.  radius={radius}, 1-radius={One_Minus_Radius}");
 
         // grab a cell to each side of current cell, using dummy cell when off-grid
         Cell C_South = gen.In(i,j-1) ? gen.cellGrid[i, j - 1] : cell_off_grid;
@@ -246,7 +246,7 @@ public partial class Player : MonoBehaviour
                            | (W_End_Wall ? DirFlags.W : 0)
                            | (E_End_Wall ? DirFlags.E : 0);
 
-        Debug.Log($"End_Walls = {End_Walls}");
+        //Debug.Log($"End_Walls = {End_Walls}");
         return End_Walls;
     }
 

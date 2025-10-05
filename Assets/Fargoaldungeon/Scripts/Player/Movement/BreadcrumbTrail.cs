@@ -7,6 +7,7 @@ using UnityEngine;
 [System.Serializable]
 public class Crumb
 {
+    public bool valid = false;
     public Vector3 position;        // point creator was at
     public float yawDeg;       // angle player wasw at: helps followers turn?
     public List<int> whichFollowersArrived;
@@ -48,7 +49,7 @@ public class BreadcrumbTrail : MonoBehaviour
     public void RecordIfNeeded(bool forceDrop = false)
     {
         Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
-        Debug.Log($"RecordIfNeeded: numFollowers = {numFollowers}, numCrumbs = {crumbs.Count}, hasAny={hasAny}, forceDrop={forceDrop}");
+        //Debug.Log($"RecordIfNeeded: numFollowers = {numFollowers}, numCrumbs = {crumbs.Count}, hasAny={hasAny}, forceDrop={forceDrop}");
         if (numFollowers == 0) return;
 
         if (!hasAny)
@@ -65,7 +66,7 @@ public class BreadcrumbTrail : MonoBehaviour
             lastDropPos = leader_pos3;
             return;
         }
-        Debug.Log($"RecordIfNeeded: leader.pos3={leader_pos3}, lastDropPos={lastDropPos}, distSquared = {(leader_pos3 - lastDropPos).sqrMagnitude}");
+        //Debug.Log($"RecordIfNeeded: leader.pos3={leader_pos3}, lastDropPos={lastDropPos}, distSquared = {(leader_pos3 - lastDropPos).sqrMagnitude}");
         if ((leader_pos3 - lastDropPos).sqrMagnitude >= dropDistance * dropDistance)
         {
             AddCrumb();
@@ -83,7 +84,7 @@ public class BreadcrumbTrail : MonoBehaviour
             crumbs.RemoveAt(0);
         }
         Vector3 agent_pos_3 = new(leader.pos2.x, leader.pos2.y, leader.height);
-        Crumb new_crumb = new() { position = agent_pos_3, yawDeg = leader.yawDeg };
+        Crumb new_crumb = new() { position = agent_pos_3, yawDeg = leader.yawDeg, valid = true };
         crumbs.Add(new_crumb);
     }
 
@@ -145,17 +146,25 @@ public class BreadcrumbTrail : MonoBehaviour
         return eater_index;
     }
 
-    public Vector3 GetNextCrumb(Agent agent)
+    public Crumb GetNextCrumb(Agent agent)
     {
         int eater_index;
         int crumb_index;
+        // for returning an invalid crumb
+        Crumb invalid_crumb = new();
+        invalid_crumb.valid = false;
+        invalid_crumb.position = new(999f, 999f, 999f);
 
         eater_index = FindFollowerIndex(agent);
-
+        if (eater_index < 0) return invalid_crumb;
         // scan through the crumb list to find the first one that the eater has not eaten
         for (crumb_index = 0; crumb_index < crumbs.Count; crumb_index++)
         {
             ///if (crumbs[crumb_index].position == lastEaten[eater_index])
+            //if (crumbs == null) return invalid_crumb;
+            if (crumbs[crumb_index].whichFollowersArrived == null)
+                crumbs[crumb_index].whichFollowersArrived = new();
+
             if (!crumbs[crumb_index].whichFollowersArrived.Contains(eater_index))
             {
                 // we located the last crumb this follower ate.  Now give follower the next one    
@@ -168,19 +177,9 @@ public class BreadcrumbTrail : MonoBehaviour
                     crumbs.RemoveAt(crumb_index);
                 }
                 // return that position
-                return agent.next_crumb.position;
+                return agent.next_crumb;
             }
         }
-        // not found, so create a temporary crumb at current leader position
-        // does not add to trail.
-        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
-        Crumb new_crumb = new()
-        {
-            position = leader_pos3,
-            yawDeg = leader.yawDeg,
-            whichFollowersArrived = new() { eater_index }
-        };
-        agent.next_crumb = new_crumb;
-        return agent.next_crumb.position;
+        return invalid_crumb;
     }
 }

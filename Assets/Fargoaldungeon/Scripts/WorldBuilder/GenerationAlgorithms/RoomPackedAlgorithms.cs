@@ -916,7 +916,7 @@ public partial class DungeonGenerator : MonoBehaviour
                         num_splits = SplitOversizedRooms(moat, frontiers);
                     else
                         num_splits = 0;
-                    Debug.Log($"num_splits = {num_splits}");
+                    //Debug.Log($"num_splits = {num_splits}");
 
                     // calculate room bounds and allocate cooldown for all new rooms.
                     for (var j = 0; j < num_splits; j++)
@@ -1544,7 +1544,7 @@ public partial class DungeonGenerator : MonoBehaviour
             int splitPercent = rng.Next(25, 75);   // 25%-75%
             bool splitVert = (w >= h); // cut along long axis
             int cut = splitVert ? (minx + w * splitPercent / 100) : (miny + h * splitPercent / 100);
-            Debug.Log($"Cut box: min={minx},{miny} max={maxx},{maxy}");
+            //Debug.Log($"Cut box: min={minx},{miny} max={maxx},{maxy}");
 
             // Create new room
             Room newRoom = new Room { my_room_number = rooms.Count, cells = new List<Cell>() };
@@ -1623,7 +1623,7 @@ public partial class DungeonGenerator : MonoBehaviour
             if (newRoom.cells.Count > 0)    // add to master rooms list
             {
                 rooms.Add(newRoom);
-                Debug.Log($"adding newRoom #{rooms.Count} with {newRoom.cells.Count} cells");
+                //Debug.Log($"adding newRoom #{rooms.Count} with {newRoom.cells.Count} cells");
             }
 
             cuts_made++;
@@ -2132,7 +2132,7 @@ public partial class DungeonGenerator : MonoBehaviour
         new_room.bounds = new RectInt(x, y, 1, 1);
         rooms.Add(new_room);   // add room to master list of rooms
 
-        Debug.Log($"Created Room {new_cell.room_number} seed at {x},{y}");
+        //Debug.Log($"Created Room {new_cell.room_number} seed at {x},{y}");
     }
 
     public Room ExtractRoomFromVectors(List<Vector2Int> vect)
