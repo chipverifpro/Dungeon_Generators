@@ -85,6 +85,7 @@ public class BreadcrumbTrail : MonoBehaviour
         }
         Vector3 agent_pos_3 = new(leader.pos2.x, leader.pos2.y, leader.height);
         Crumb new_crumb = new() { position = agent_pos_3, yawDeg = leader.yawDeg, valid = true };
+        new_crumb.whichFollowersArrived = new();
         crumbs.Add(new_crumb);
     }
 

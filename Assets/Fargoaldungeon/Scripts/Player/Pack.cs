@@ -32,9 +32,9 @@ public class Pack : MonoBehaviour
             Debug.LogError("Pack (parent) is not assigned.");
             return;
         }
-        PackLeader.pack = this;
-        for (int i = 0; i < 4; i++)
-            CreatePackAgent();
+        //PackLeader.pack = this;
+        //for (int i = 0; i < 4; i++)
+        //    CreatePackAgent();
     }
 
     public Agent PlayerAgent1;
@@ -46,7 +46,7 @@ public class Pack : MonoBehaviour
         // Make a copy at the same position/rotation
         Agent clone = Instantiate(PlayerAgent1);
         gen.GetNewAgentId(clone);
-        clone.name = "Player_Clone_" + (packList.Count + 1);
+        clone.name = "Player_Clone_" + clone.id;
         trail.AddFollower(clone);
         clone.trailLeader = false;
         clone.trailFollower = true;

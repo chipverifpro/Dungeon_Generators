@@ -75,7 +75,7 @@ public partial class Player : MonoBehaviour
         Move_Start();           // grab initial position from Unity object
                                 //agent.trail = GetComponent<BreadcrumbTrail>();
                                 //BuildPackObjects(3);    // This exists in Pack class.
-        pack.packList.Add(pack.PackLeader); // leader agent needs to be added to the packlist.
+        //pack.packList.Add(pack.PackLeader); // leader agent needs to be added to the packlist.
         ChangePlayerAgent(pack.PackLeader);
     }
 
@@ -107,18 +107,19 @@ public partial class Player : MonoBehaviour
         agent.pos2.y = y + 0.5f;
         agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
         agent.TransformPosition(agent);    // move the player's agent
-
+        agent.camera_refresh_needed=true;
         Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
     }
 
     // Change which agent the player is controlling...
     void ChangePlayerAgent(Agent new_agent)
     {
-        agent.DogPrefab.SetActive(true);    // if prefab was hidden by the first-person camera, bring it back
+        agent.DogPrefab.SetActive(true);    // if old prefab was hidden by the first-person camera, bring it back
         agent = new_agent;
         agent.trailLeader = true;
         agent.trailFollower = false;
         agent.camera_refresh_needed = true;   // camera visibility refresh
+        pack.PackLeader = agent;
         Move_Update(0f, 0f);    // screen refresh
     }
 
@@ -128,18 +129,25 @@ public partial class Player : MonoBehaviour
     void ChangePlayerAgentById(int new_agent_id)
     {
         int old_leader_id = 0;
+        int old_leader_index = -1;
         for (int i = 0; i < pack.packList.Count; i++)
             if (pack.packList[i].trailLeader == true)   // old trailLeader
             {
                 old_leader_id = pack.packList[i].id;
-                pack.packList[i].trailLeader = false;
-                pack.packList[i].trailFollower = true;
+                old_leader_index = i;
+
+                //pack.packList[i].trailLeader = false;
+                //pack.packList[i].trailFollower = true;
                 break;
             }
 
         for (int i = 0; i < pack.packList.Count; i++)
             if (pack.packList[i].id == new_agent_id)    // new agent becomes leader
             {
+                // remove old leader from trailLeader
+                pack.packList[old_leader_index].trailLeader = false;
+                pack.packList[old_leader_index].trailFollower = true;
+                
                 Agent new_leader_agent = pack.packList[i];
                 // move new leader to front of list.
                 pack.packList.RemoveAt(i);

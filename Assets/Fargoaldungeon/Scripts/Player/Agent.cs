@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 
@@ -29,6 +30,8 @@ public class Agent : MonoBehaviour
     public float yawDeg;
 
     public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
+
+    public Animator anim;
 
     // next crumb in trail we are following
     public Crumb next_crumb;
@@ -63,7 +66,9 @@ public class Agent : MonoBehaviour
     protected virtual void Start()
     {
 
+        StartCoroutine(CycleAnimations());
     }
+
 
     protected virtual void Update()
     {
@@ -74,6 +79,17 @@ public class Agent : MonoBehaviour
         if (trailFollower)
         {
             FollowTrail();
+        }
+    }
+
+    IEnumerator CycleAnimations()
+    {
+        yield return new WaitForSeconds(.5f);
+
+        while (true)
+        {
+            anim.SetInteger("AnimationID", UnityEngine.Random.Range(0,15));
+            yield return new WaitForSeconds(2);
         }
     }
 
@@ -107,7 +123,7 @@ public class Agent : MonoBehaviour
         //loop until move_credit is gone
         while (move_credit > 0.0001)
         {
-            Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
+            //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
 
             agentPos3 = new(pos2.x, pos2.y, height);
             dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
@@ -123,7 +139,7 @@ public class Agent : MonoBehaviour
 
             agent_ahead_pos = GetPositionOfAgentBeforeMe(id);
             dist_to_next_agent = Mathf.Sqrt((agent_ahead_pos - agentPos3).sqrMagnitude);
-            if (dist_to_next_agent <= 3 * radius)
+            if (dist_to_next_agent <= 9 * radius)
             {
                 // bumped into agent ahead, stop here.
                 return;
