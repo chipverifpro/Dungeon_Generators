@@ -107,6 +107,7 @@ public partial class Player : MonoBehaviour
         agent.pos2.y = y + 0.5f;
         agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
         agent.TransformPosition(agent);    // move the player's agent
+        
         agent.camera_refresh_needed=true;
         Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
     }
@@ -114,12 +115,16 @@ public partial class Player : MonoBehaviour
     // Change which agent the player is controlling...
     void ChangePlayerAgent(Agent new_agent)
     {
+        bool old_active = agent.DogPrefab.activeSelf;
         agent.DogPrefab.SetActive(true);    // if old prefab was hidden by the first-person camera, bring it back
         agent = new_agent;
         agent.trailLeader = true;
         agent.trailFollower = false;
         agent.camera_refresh_needed = true;   // camera visibility refresh
+        agent.DogPrefab.SetActive(old_active);  // if old was invisible, make new one also invisible.
         pack.PackLeader = agent;
+        pack.trail.leader = agent;
+        agent.TransformPosition(agent);    // move the player's agent
         Move_Update(0f, 0f);    // screen refresh
     }
 
@@ -147,7 +152,7 @@ public partial class Player : MonoBehaviour
                 // remove old leader from trailLeader
                 pack.packList[old_leader_index].trailLeader = false;
                 pack.packList[old_leader_index].trailFollower = true;
-                
+
                 Agent new_leader_agent = pack.packList[i];
                 // move new leader to front of list.
                 pack.packList.RemoveAt(i);
@@ -162,6 +167,9 @@ public partial class Player : MonoBehaviour
     // clean up the crumb list when new leader takes over.
     void ChangeTrailEater(int new_leader_id, int old_leader_id)
     {
+        // experimental: just delete the whole crumbs list on leader change...
+        pack.trail.crumbs.Clear();
+
         for (int c = 0; c < pack.trail.crumbs.Count; c++)
         {
             // put old and new followers on every breadcrumb as having eaten it.

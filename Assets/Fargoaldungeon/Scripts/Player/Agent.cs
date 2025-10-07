@@ -139,7 +139,7 @@ public class Agent : MonoBehaviour
 
             agent_ahead_pos = GetPositionOfAgentBeforeMe(id);
             dist_to_next_agent = Mathf.Sqrt((agent_ahead_pos - agentPos3).sqrMagnitude);
-            if (dist_to_next_agent <= 9 * radius)
+            if (dist_to_next_agent <= 3 * radius)
             {
                 // bumped into agent ahead, stop here.
                 return;
@@ -226,9 +226,14 @@ public class Agent : MonoBehaviour
             t.x = t_World.x; t.z = t_World.y; // XZ location
             t.y = agent.height + 1;
             agent.transform.position = t;
-            //transform.position = t;
+            //pack.player.transform.position = t;
             agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
-            //agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
+            //pack.player.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
+            if (pack.player.agent == agent)
+            {
+                pack.player.transform.position = t;
+                pack.player.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
+            }
         }
         else
         {
@@ -237,9 +242,14 @@ public class Agent : MonoBehaviour
             t.x = t_World.x; t.y = t_World.y; // XY location
             t.z = agent.height + 1;
             agent.transform.position = t;
-            //transform.position = t;
+            //pack.player.transform.position = t;
             agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
-            //transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
+            if (pack.player.agent == agent)
+            {
+                pack.player.transform.position = t;
+                pack.player.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Y for 3D
+            }                                                                                       //pack.player.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
+
         }
     }
 
