@@ -126,6 +126,7 @@ public partial class Player : MonoBehaviour
         pack.trail.leader = agent;
         agent.TransformPosition(agent);    // move the player's agent
         Move_Update(0f, 0f);    // screen refresh
+        BottomBanner.ShowFor($"New leader = {agent.name}", 5f);
     }
 
     // Change which agent the player is controlling...

@@ -99,7 +99,7 @@ public class BreadcrumbTrail : MonoBehaviour
 
     public void AddFollower(Agent agent)
     {
-        FindFollowerIndex(agent, addIfNotFollowing: true); // if not found, aadds missing follower
+        FindFollowerIndex(agent, addIfNotFollowing: true); // if not found, adds missing follower
     }
 
     public void RemoveFollower(Agent agent)
@@ -152,24 +152,41 @@ public class BreadcrumbTrail : MonoBehaviour
         int eater_index;
         int crumb_index;
         // for returning an invalid crumb
-        Crumb invalid_crumb = new();
-        invalid_crumb.valid = false;
-        invalid_crumb.position = new(999f, 999f, 999f);
+        Crumb invalid_crumb = new()
+        {
+            valid = false,
+            position = new(999f, 999f, 999f)
+        };
+        Crumb leader_pos_crumb = new()
+        {
+            valid = true,
+            position = new(leader.pos2.x, leader.pos2.y, leader.height),
+            yawDeg = leader.yawDeg
+        };
+        agent.next_actualCrumb = leader_pos_crumb; // default to leader position if no crumbs
+        return agent.next_actualCrumb;
+        /*
 
         eater_index = FindFollowerIndex(agent);
         if (eater_index < 0) return invalid_crumb;
         // scan through the crumb list to find the first one that the eater has not eaten
-        for (crumb_index = 0; crumb_index < crumbs.Count; crumb_index++)
+        for (crumb_index = crumbs.Count-1; crumb_index >=0; crumb_index--)
         {
             ///if (crumbs[crumb_index].position == lastEaten[eater_index])
             //if (crumbs == null) return invalid_crumb;
             if (crumbs[crumb_index].whichFollowersArrived == null)
                 crumbs[crumb_index].whichFollowersArrived = new();
 
+            agent.next_actualCrumb = crumbs[crumb_index];
+
             if (!crumbs[crumb_index].whichFollowersArrived.Contains(eater_index))
             {
+                if (crumb_index < crumbs.Count - 1)
+                {
+                    crumb_index++;   // not off end of list
+                }
                 // we located the last crumb this follower ate.  Now give follower the next one    
-                agent.next_crumb = crumbs[crumb_index];
+                agent.next_actualCrumb = crumbs[crumb_index];
                 // update the crumb to know it was eaten.
                 crumbs[crumb_index].whichFollowersArrived.Add(eater_index);
                 // if every follower has eaten here, remove crumb from trail.
@@ -178,9 +195,10 @@ public class BreadcrumbTrail : MonoBehaviour
                     crumbs.RemoveAt(crumb_index);
                 }
                 // return that position
-                return agent.next_crumb;
+                return agent.next_actualCrumb;
             }
         }
         return invalid_crumb;
+        */
     }
 }

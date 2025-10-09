@@ -4,7 +4,7 @@ using UnityEngine;
 
 
 //[RequireComponent(typeof(BreadcrumbTrail))]
-public class Agent : MonoBehaviour
+public partial class Agent : MonoBehaviour
 {
     // ==============================================================
     // An Agent is a character.  Specific types inherit these behaviors
@@ -29,12 +29,18 @@ public class Agent : MonoBehaviour
     public int height;
     public float yawDeg;
 
-    public GameObject DogPrefab;        // Optional: prefab to give each agent a visible model
+    // while in a pack formation, these are the target positions as calculated from leader's position.
+    //public Vector2 formationTargetPos;     // position we should be at in formation
+    //public float formationTargetYaw;     // direction we should be facing in formation
+    //public Vector2 formationCrumbPos;      // allows finding Crumbs to continue following while holding formation.
+
+    public GameObject DogPrefab;        // prefab to give each agent a visible model
 
     public Animator anim;
 
     // next crumb in trail we are following
-    public Crumb next_crumb;
+    public Crumb next_actualCrumb;
+    public Crumb next_formationCrumb;
 
     // add other properties...
     public Color color1;// = Color.black;  // top color
@@ -78,7 +84,8 @@ public class Agent : MonoBehaviour
         }
         if (trailFollower)
         {
-            FollowTrail();
+            //FollowTrail();
+            FollowTrailInFormation();
         }
     }
 
@@ -93,27 +100,124 @@ public class Agent : MonoBehaviour
         }
     }
 
-    void FollowTrail()
+    /*
+        void FollowTrail()
+        {
+            Vector3 originalPos;
+            Vector3 agentPos3;
+            Vector3 loc_clamped;
+
+            //Vector3 next_crumb_pos;
+            float dist_to_next_crumb;
+            Vector3 agent_ahead_pos;
+            float dist_to_next_agent;
+            Vector3 target_pos;
+            float dist_to_target;
+            float move_credit;
+
+            originalPos = new(pos2.x, pos2.y, height);
+
+            // if we have no valid destination, see if we can get a new crumb, else abort
+            if (next_crumb.valid == false)
+            {
+                next_crumb = trail.GetNextCrumb(this);
+                if (next_crumb.valid == false) return; // no trail to follow
+            }
+
+            // calculate the move_credit;
+            move_credit = baseSpeed * Time.deltaTime;
+            //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
+
+            //loop until move_credit is gone
+            while (move_credit > 0.0001)
+            {
+                //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
+
+                agentPos3 = new(pos2.x, pos2.y, height);
+                dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
+                if (dist_to_next_crumb < .0001)
+                {
+                    // arrived, get next crumb
+                    next_crumb = trail.GetNextCrumb(this);
+                    if (next_crumb.valid == false) return;  // arrived at last available crumb.
+                    dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
+
+                    if (dist_to_next_crumb < .01) return; // we are also at the next crumb, stop for now.???? not supposed to happen.
+                }
+
+                agent_ahead_pos = GetPositionOfAgentBeforeMe(id);
+                dist_to_next_agent = Mathf.Sqrt((agent_ahead_pos - agentPos3).sqrMagnitude);
+                if (dist_to_next_agent <= 3 * radius)
+                {
+                    // bumped into agent ahead, stop here.
+                    return;
+                }
+
+                // we have two limits, choose the closer one.
+                if (dist_to_next_crumb < dist_to_next_agent)
+                {
+                    dist_to_target = dist_to_next_crumb;
+                    target_pos = next_crumb.position;
+                }
+                else
+                {
+                    dist_to_target = dist_to_next_agent;
+                    target_pos = agent_ahead_pos;
+                }
+
+                // move up to target, maximum move is move_credit.
+
+                // do the move.  Travel dist towards target position
+                if (move_credit < dist_to_target)
+                {
+                    // cannot go all the way, so travel by move_credit distance
+                    loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
+                    pos2.x = loc_clamped.x;
+                    pos2.y = loc_clamped.y;
+                    height = (int)loc_clamped.z;  // TODO: make height a float
+                    move_credit = 0;
+                }
+                else
+                {
+                    // we have enough move_credit to go all the way.  Do it and repeat the loop.
+                    pos2.x = target_pos.x;
+                    pos2.y = target_pos.y;
+                    height = (int)target_pos.z;    // TODO: make height a float
+                    move_credit -= dist_to_target;    // continue while loop getting next crumb
+                }
+                Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
+                Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
+                yawDeg = Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
+
+                TransformPosition(this);    // move the agent object to it's new location.
+            }
+        }
+    */
+
+    void FollowTrailInFormation()
     {
         Vector3 originalPos;
         Vector3 agentPos3;
         Vector3 loc_clamped;
+        //Crumb next_actualCrumb;
 
         //Vector3 next_crumb_pos;
         float dist_to_next_crumb;
-        Vector3 agent_ahead_pos;
-        float dist_to_next_agent;
+        //Vector3 agent_ahead_pos;
+        //float dist_to_next_agent;
         Vector3 target_pos;
         float dist_to_target;
         float move_credit;
+        bool use_crumb_yaw = false;
 
-        originalPos = new(pos2.x, pos2.y, height);
+        originalPos = new(pos2.x, pos2.y, height);  // current agent position
 
         // if we have no valid destination, see if we can get a new crumb, else abort
-        if (next_crumb.valid == false)
+        if (next_formationCrumb.valid == false)
         {
-            next_crumb = trail.GetNextCrumb(this);
-            if (next_crumb.valid == false) return; // no trail to follow
+            next_actualCrumb = trail.GetNextCrumb(this);
+            next_formationCrumb = GetFormationPosition(pack, id, next_actualCrumb);
+            if (next_formationCrumb.valid == false) return; // no trail to follow, do nothing
         }
 
         // calculate the move_credit;
@@ -124,38 +228,30 @@ public class Agent : MonoBehaviour
         while (move_credit > 0.0001)
         {
             //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
-
+            use_crumb_yaw = false;
             agentPos3 = new(pos2.x, pos2.y, height);
-            dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
+            dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
             if (dist_to_next_crumb < .0001)
             {
                 // arrived, get next crumb
-                next_crumb = trail.GetNextCrumb(this);
-                if (next_crumb.valid == false) return;  // arrived at last available crumb.
-                dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
+                next_actualCrumb = trail.GetNextCrumb(this);
+                next_formationCrumb = GetFormationPosition(pack, id, next_actualCrumb);
+                if (next_formationCrumb.valid == false)
+                {
+                    use_crumb_yaw = true;
+                    break;  // arrived at last available crumb.
+                }
+                dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
 
-                if (dist_to_next_crumb < .01) return; // we are also at the next crumb, stop for now.???? not supposed to happen.
+                if (dist_to_next_crumb < .01)
+                {
+                    use_crumb_yaw = true;
+                    break; // we are also at the next crumb, stop for now.???? not supposed to happen.
+                }
             }
 
-            agent_ahead_pos = GetPositionOfAgentBeforeMe(id);
-            dist_to_next_agent = Mathf.Sqrt((agent_ahead_pos - agentPos3).sqrMagnitude);
-            if (dist_to_next_agent <= 3 * radius)
-            {
-                // bumped into agent ahead, stop here.
-                return;
-            }
-
-            // we have two limits, choose the closer one.
-            if (dist_to_next_crumb < dist_to_next_agent)
-            {
-                dist_to_target = dist_to_next_crumb;
-                target_pos = next_crumb.position;
-            }
-            else
-            {
-                dist_to_target = dist_to_next_agent;
-                target_pos = agent_ahead_pos;
-            }
+            dist_to_target = dist_to_next_crumb;
+            target_pos = next_formationCrumb.position;
 
             // move up to target, maximum move is move_credit.
 
@@ -176,13 +272,23 @@ public class Agent : MonoBehaviour
                 pos2.y = target_pos.y;
                 height = (int)target_pos.z;    // TODO: make height a float
                 move_credit -= dist_to_target;    // continue while loop getting next crumb
+                //use_crumb_yaw = true;
             }
-            Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
-            Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
+        } // continue while credits remain
+
+        Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
+        Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
+        if (use_crumb_yaw)
+        {
+            if (pack.formation == FormationsEnum.Circle) // face outwards
+                yawDeg = 180 + Mathf.Atan2(pos2.x - pack.PackLeader.pos2.x, pos2.y - pack.PackLeader.pos2.y) * Mathf.Rad2Deg + 180f - yawCorrection; // face outwards
+            else
+                yawDeg = pack.PackLeader.yawDeg; // face the right direction on arrival
+        }
+        else
             yawDeg = Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
 
-            TransformPosition(this);    // move the agent object to it's new location.
-        }
+        TransformPosition(this);    // move the agent object to it's new location.
     }
 
     // Apply Lerp to all 3 dimensions of a vector.

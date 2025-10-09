@@ -18,9 +18,9 @@ public class Pack : MonoBehaviour
     public bool inFollowFormation = true;
     public bool inGroupFormation = false;
     public bool soloMode = false;       // not travelling as a pack
-
-    //public Formations formation; // future: SingleFile, Triangle, SideBySide, TwoWide, DefensiveCircle 
-
+    public FormationsEnum formation = FormationsEnum.Wedge;
+    public float formationSpacing = 1.5f;  // spacing between members in formation
+    
     [Header("Pack Members Object Creation")]
     public int squadSize = 4;       // 1 leader + (squadSize - 1) followers
     public float initialSpacing = 1.5f;
