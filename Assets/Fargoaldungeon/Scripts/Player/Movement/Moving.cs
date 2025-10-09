@@ -1,5 +1,4 @@
 using System;
-using Unity.Mathematics;
 using UnityEngine;
 
 public partial class Player : MonoBehaviour
@@ -8,7 +7,7 @@ public partial class Player : MonoBehaviour
     {
         var p = agent.transform.position;   // grab object position and set it in variable
         if (useXZPlane) agent.pos2 = World_to_Map(new Vector2(p.x, p.z));
-        else            agent.pos2 = World_to_Map(new Vector2(p.x, p.y));
+        else agent.pos2 = World_to_Map(new Vector2(p.x, p.y));
 
         // Initialize yaw from current rotation
         agent.yawDeg = useXZPlane ? agent.transform.eulerAngles.y - yawCorrection : agent.transform.eulerAngles.z - yawCorrection;
@@ -44,7 +43,7 @@ public partial class Player : MonoBehaviour
         // done with turning, next is moving...
 
         // Forward direction unit vector in 2D plane
-        float yawRad = - agent.yawDeg * Mathf.Deg2Rad;
+        float yawRad = -agent.yawDeg * Mathf.Deg2Rad;
         Vector2 fwd2 = new Vector2(Mathf.Cos(yawRad), Mathf.Sin(yawRad)); // XY forward (or XZ’s X/Z)
         Cleanup(ref fwd2);
 
@@ -108,11 +107,11 @@ public partial class Player : MonoBehaviour
         // clamp destination to world bounds
         float xmin = r, xmax = W - r;
         float ymin = r, ymax = H - r;
-        to.x = Mathf.Clamp(to.x, xmin, xmax);   
+        to.x = Mathf.Clamp(to.x, xmin, xmax);
         to.y = Mathf.Clamp(to.y, ymin, ymax);
 
-        if ((from - to).sqrMagnitude < 1e-10f)  
-                return to; // not moving
+        if ((from - to).sqrMagnitude < 1e-10f)
+            return to; // not moving
 
         // iterate if we cross into a new tile so we always use correct wall bounds.
         for (int iter = 0; iter < maxIters; iter++)
@@ -124,7 +123,7 @@ public partial class Player : MonoBehaviour
             from_j = Mathf.FloorToInt(from.y);
 
             // Define the maximum we allow movement in each direction.
-            float cxmin = Mathf.Max(from_i - 1f + r, 0 + r);  
+            float cxmin = Mathf.Max(from_i - 1f + r, 0 + r);
             float cxmax = Mathf.Min(from_i + 2f - r, W - r);  // big enough to get into neighbor cell, but not through it without checking next iteration first.
             float cymin = Mathf.Max(from_j - 1f + r, 0 + r);  // also clamp at world bounds
             float cymax = Mathf.Min(from_j + 2f - r, H - r);
@@ -132,6 +131,17 @@ public partial class Player : MonoBehaviour
             // debug display:
             //var c = gen.cellGrid[from_i, from_j];                                     // Debug
             //Debug.Log($"pos={from},{from}  Walls={c.walls}, Doors={c.doors}");    // Debug
+
+
+            // deal with Diagonal walls if present
+            Vector3 start = new(from.x - from_i, from.y - from_j, 0f);
+            Vector2 dir = (to - from).normalized; // should be normalized
+            Vector3 dir3 = new(dir.x, dir.y, 0f);
+            float diagonalDist;
+            float cellSize = 1f; // something like: gen.cfg.cellSize;
+            Vector2 on_the_way;
+            Cell cell = gen.cellGrid[from_i, from_j];
+            Room room = gen.rooms[cell.room_number];
 
             // Apply edge block constraints for current 'from'
             if (EdgeBlocked(from_i, from_j, DirFlags.E)) cxmax = Mathf.Min(cxmax, from_i + 1f - r);
@@ -141,10 +151,67 @@ public partial class Player : MonoBehaviour
 
             //Debug.Log($"p={from_i},{from_j} cxmin/max={cxmin}-{cxmax} cymin/max={cymin}-{cymax}");    // Debug
 
-            Vector2 on_the_way = new Vector2(        // move toward destination (within clamps)
+            Vector2 temp_on_the_way = new Vector2(        // move toward destination (within clamps)
                 Mathf.Clamp(to.x, cxmin, cxmax),
                 Mathf.Clamp(to.y, cymin, cymax)
             );
+
+            float temp_distance = (temp_on_the_way - from).magnitude;
+            on_the_way = temp_on_the_way; // initialize
+            /*if (TryDistanceToDiagonalWall(room, new Vector2Int(from_i, from_j), start, dir3, cellSize, radius, out diagonalDist))
+            {
+                Debug.Log($"   Diagonal wall at distance {diagonalDist}, temp_distance={temp_distance}");
+                if (diagonalDist < temp_distance)
+                {
+                    // hit the diagonal wall before we could get to temp_on_the_way
+                    //temp_distance = diagonalDist;
+                    on_the_way = from + (dir * diagonalDist);
+                    // TODO: Buggy here: we get stuck to the diagonal wall and cannot move away.
+                    // Need to slide along it, not just stop.
+
+                    Debug.Log($"   Diagonal wall hit at distance {diagonalDist} before reaching {temp_distance}");
+                    final = on_the_way; // set final position in case we are at last iteration
+                    break;
+                }
+            } */
+            if (TryDistanceToDiagonalWall(room, new Vector2Int(from_i, from_j), start, dir3, cellSize, r, out diagonalDist))
+            {
+                // Hit point on the shrunken diagonal
+                Vector2 hit = from + dir * diagonalDist;
+
+                // Remaining distance we intended to travel this iter (within clamps)
+                float remaining = Mathf.Max(0f, temp_distance - diagonalDist);
+
+                // Slide along the diagonal’s tangent in the direction closest to our intent
+                Vector2 tan, nrm;
+                GetDiagonalTangentAndNormal(room, new Vector2Int(from_i, from_j), out tan, out nrm);
+
+                float sign = Mathf.Sign(Vector2.Dot(dir, tan));   // choose forward/back along tangent
+                Vector2 slideTarget = hit + tan * (remaining * sign);
+
+                // Clamp the slide to current cell’s edge limits so we don’t skip checks
+                slideTarget = new Vector2(
+                    Mathf.Clamp(slideTarget.x, cxmin, cxmax),
+                    Mathf.Clamp(slideTarget.y, cymin, cymax)
+                );
+
+                // Tiny nudge off the wall along the *opposite* of the wall normal to avoid immediate re-collide
+                const float EPS = 1e-4f;
+                slideTarget += (-nrm) * EPS;
+
+                on_the_way = slideTarget;
+                temp_distance = (on_the_way - from).magnitude;
+
+                // We handled the diagonal; continue the loop to process next cell if needed
+            }
+            else
+            {
+                // No diagonal in that cell, ray misses or parallel → treat as no hit here
+                Debug.Log($"   Diagonal wall missed at distance {diagonalDist} before reaching {temp_distance}");
+
+                on_the_way = temp_on_the_way;
+            }
+
 
             if ((on_the_way - to).sqrMagnitude < 1e-10f)     // are we at destination?
             {
@@ -182,12 +249,15 @@ public partial class Player : MonoBehaviour
         return (hasWall || blockedByEndWall);
     }
 
+
+
+
     // Prevent walking into the end of a thin wall:
     //   If we are close to an edge of the current cell, then block to the left and right if there is a wall end there.
     //   This also prevents walking off the edge of a door, which is covered as a subset of this check.
     DirFlags EndOfWallBlockers(Vector2 pos2, int i, int j)
     {
-        Cell cell_off_grid = new(-1,-1);  // use this for off-grid cells (no walls or doors set)
+        Cell cell_off_grid = new(-1, -1);  // use this for off-grid cells (no walls or doors set)
         cell_off_grid.doors = DirFlags.None;
         cell_off_grid.walls = DirFlags.None;
 
@@ -197,7 +267,7 @@ public partial class Player : MonoBehaviour
         float InGrid_y = pos2.y % 1f;
         float One_Minus_Radius = 1f - radius; // no extra fractions
         CleanupFloat(ref InGrid_x);
-        CleanupFloat(ref InGrid_y); 
+        CleanupFloat(ref InGrid_y);
 
         // Which edges of current tile is the player near to?
         bool S_Edge = (InGrid_y < radius);
@@ -207,10 +277,10 @@ public partial class Player : MonoBehaviour
         //Debug.Log($"{pos2}->{InGrid_x},{InGrid_y} in {i},{j}  Near Edges: N={N_Edge}, S={S_Edge}, W={W_Edge}, E={E_Edge}.  radius={radius}, 1-radius={One_Minus_Radius}");
 
         // grab a cell to each side of current cell, using dummy cell when off-grid
-        Cell C_South = gen.In(i,j-1) ? gen.cellGrid[i, j - 1] : cell_off_grid;
-        Cell C_North = gen.In(i,j+1) ? gen.cellGrid[i, j + 1] : cell_off_grid;
-        Cell C_West = gen.In(i-1,j) ? gen.cellGrid[i - 1, j] : cell_off_grid;
-        Cell C_East = gen.In(i+1,j) ? gen.cellGrid[i + 1, j] : cell_off_grid;
+        Cell C_South = gen.In(i, j - 1) ? gen.cellGrid[i, j - 1] : cell_off_grid;
+        Cell C_North = gen.In(i, j + 1) ? gen.cellGrid[i, j + 1] : cell_off_grid;
+        Cell C_West = gen.In(i - 1, j) ? gen.cellGrid[i - 1, j] : cell_off_grid;
+        Cell C_East = gen.In(i + 1, j) ? gen.cellGrid[i + 1, j] : cell_off_grid;
 
         // Do we have the end of a wall in this direction? Initialize to no
         bool S_End_Wall = false;
@@ -264,7 +334,7 @@ public partial class Player : MonoBehaviour
 
         // support snapping to diagonals if configured in parameters.
         if (snapEightWay) cardinals = cardinals8;
-        else              cardinals = cardinals4;
+        else cardinals = cardinals4;
 
         foreach (float c in cardinals)
         {
@@ -277,7 +347,7 @@ public partial class Player : MonoBehaviour
 
     // Rounds a number to nearest .01 to eliminate tiny cumulative errors
     // Option to keep the destination within the same integer value
-    public void CleanupFloat(ref float num, bool same_tile = true)
+    public static void CleanupFloat(ref float num, bool same_tile = true)
     {
         float new_num;
         new_num = Mathf.Round(num * 100f) / 100f;   // round to 0.01
@@ -315,7 +385,7 @@ public partial class Player : MonoBehaviour
         world_loc.y = map_loc.y - yCorrection;
         return world_loc;
     }
-   
+
     // ---- Stubs to wire into systems later ----
 
     // Return whether the door on edge (i,j,dir) is open. For now: consider doors open by default.
@@ -332,4 +402,167 @@ public partial class Player : MonoBehaviour
         // return uphill ? slopeUphillFactor : downhill ? slopeDownhillFactor : 1f;
         return 1f;
     }
+
+    // Handle diagonal walls
+
+    /// <summary>
+    /// Distance from startWorld along dirWorld (normalized XZ) to the diagonal-corner wall
+    /// inside the given cell, already accounting for playerRadius (no extra subtract needed).
+    /// Returns true and sets 'distance' if hit; false if no diagonal in cell or ray misses.
+    /// </summary>
+    public static bool TryDistanceToDiagonalWall(
+        Room room,
+        Vector2Int cellXY,          // which cell in this room we're testing
+        Vector3 startWorld,         // start position (XZ used)
+        Vector3 dirWorld,           // direction (XZ), should be normalized
+        float cellSize,           // room.Cell size in world units
+        float playerRadius,       // radius to keep away from walls
+        out float distance)
+    {
+        distance = 0f;
+
+        int cellIndex = room.GetCellInRoom(cellXY);
+        if (cellIndex < 0) return false;
+
+        var cell = room.cells[cellIndex];
+        Debug.Log($"   Checking diagonal in cell {cellXY} walls={cell.walls} doors={cell.doors}");
+        // Determine which diagonal corner this cell blocks (two walls, no doors)
+        var diag = GetDiagonalOpenDirection(cell.walls, cell.doors);
+        Debug.Log($"   Diagonal open direction = {diag}");
+        if (diag == DiagonalOpenDirection.None) return false;
+
+        // Cell's world-space min corner (bottom-left in your grid)
+        //float xMin = room.bounds.xMin + (cellXY.x - room.bounds.xMin) * cellSize;
+        //float zMin = room.bounds.yMin + (cellXY.y - room.bounds.yMin) * cellSize;
+        // If you store absolute tile coords (not relative to bounds), use:
+        float xMin = (startWorld.x % 1f) * cellSize;
+        float zMin = (startWorld.y % 1f) * cellSize;
+        CleanupFloat(ref xMin, true);
+        CleanupFloat(ref zMin, true);
+
+        Debug.Log($"   Cell {cellXY} world coords: xMin={xMin}, zMin={zMin}");
+
+        // Build diagonal line in cell-local (u,v) with u=(x-xMin)/s, v=(z-zMin)/s in [0,1]
+        // General form: a*u + b*v = c
+        float a, b, c;
+
+        // Offset amount in (u,v) units for radius: move by radius along the line normal.
+        // For u+v=k or u-v=k, the unit normal length in (u,v) space is sqrt(2),
+        // so c shifts by (playerRadius / cellSize) * sqrt(2).
+        float k = (playerRadius / Mathf.Max(1e-5f, cellSize)) * 1.41421356f;
+
+        switch (diag)
+        {
+            case DiagonalOpenDirection.NE:
+                // Corner at (u=1,v=1). Blocking line is u + v = 1 - k  (pulled in by radius)
+                a = 1f; b = 1f; c = 1f - k;
+                break;
+            case DiagonalOpenDirection.SW:
+                // Corner at (0,0). Blocking line is u + v = k
+                a = 1f; b = 1f; c = k;
+                break;
+            case DiagonalOpenDirection.SE:
+                // Corner at (1,0). Blocking line is u - v = 1 - k
+                a = 1f; b = -1f; c = 1f - k;
+                break;
+            case DiagonalOpenDirection.NW:
+                // Corner at (0,1). Blocking line is u - v = -(1 - k)
+                a = 1f; b = -1f; c = -(1f - k);
+                break;
+            default:
+                return false;
+        }
+
+        // Ray/line intersection in WORLD units.
+        // Let u = (x - xMin)/s, v = (z - zMin)/s.
+        // Solve a*u + b*v = c for T where x = x0 + dir.x*T, z = z0 + dir.z*T.
+        //Vector2 xz0 = new Vector2(startWorld.x, startWorld.z);
+        Vector2 xz0 = new Vector2(xMin, zMin);
+        Vector2 d = new Vector2(dirWorld.x, dirWorld.z);
+
+        // Denominator: a*(dx/s) + b*(dz/s) -> simplified into world units:
+        float denom = a * d.x + b * d.y;
+        if (Mathf.Abs(denom) < 1e-6f) return false; // ray parallel to diagonal
+
+        // Numerator: s*c - [a*(x0 - xMin) + b*(z0 - zMin)]
+        float num = cellSize * c - (a * (xz0.x) + b * (xz0.y));
+
+        float T = num / denom;         // distance along 'dirWorld' (since 'denom' is in world units)
+        //if (T <= 0f) return false;     // intersection behind start or at start
+
+        // Intersection point
+        Vector2 hitXZ = xz0 + d * T;
+        Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y})");
+
+        // Must lie within the cell’s square [xMin,xMax] x [zMin,zMax]
+        xMin = 0f; zMin = 0f;
+        float xMax = xMin + cellSize;
+        float zMax = zMin + cellSize;
+        Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}");
+
+        if (hitXZ.x < xMin - 1e-4f || hitXZ.x > xMax + 1e-4f ||
+            hitXZ.y < zMin - 1e-4f || hitXZ.y > zMax + 1e-4f)
+            {
+                Debug.Log($"   Diagonal wall hit outside cell bounds -- use it anyway");
+                //return false; // The infinite line was hit, but not the segment inside the cell
+            }
+
+            distance = T; // Already accounts for playerRadius via 'k'
+        Debug.Log($"   Diagonal wall hit confirmed at distance {distance}");
+        return true;
+    }
+
+    // Your diagonal detector – rewritten to accept flags directly.
+    private static DiagonalOpenDirection GetDiagonalOpenDirection(DirFlags walls, DirFlags doors)
+    {
+        // exactly two walls, no doors
+        int wallBits = walls.Count();
+        if (wallBits != 2 || doors != DirFlags.None) return DiagonalOpenDirection.None;
+
+        if ((walls & (DirFlags.N | DirFlags.E)) == (DirFlags.N | DirFlags.E)) return DiagonalOpenDirection.SW;
+        if ((walls & (DirFlags.S | DirFlags.E)) == (DirFlags.S | DirFlags.E)) return DiagonalOpenDirection.NW;
+        if ((walls & (DirFlags.S | DirFlags.W)) == (DirFlags.S | DirFlags.W)) return DiagonalOpenDirection.NE;
+        if ((walls & (DirFlags.N | DirFlags.W)) == (DirFlags.N | DirFlags.W)) return DiagonalOpenDirection.SE;
+        return DiagonalOpenDirection.None;
+    }
+    public static Vector3 DirFromYawDeg(float yawDeg)
+    {
+        float yawRad = yawDeg * Mathf.Deg2Rad;
+        // Unity uses a left-handed Y-up system:
+        // X = cos(yaw), Z = sin(yaw)
+        return new Vector3(Mathf.Cos(yawRad), 0f, Mathf.Sin(yawRad));
+    }
+    
+    // Returns a unit tangent (direction along the diagonal line within the cell) and a unit normal pointing toward the blocked corner.
+void GetDiagonalTangentAndNormal(Room room, Vector2Int cellXY, out Vector2 tangent, out Vector2 normal)
+{
+    var cell = room.cells[room.GetCellInRoom(cellXY)];
+    var diag = GetDiagonalOpenDirection(cell.walls, cell.doors); // your function
+
+    switch (diag)
+    {
+        case DiagonalOpenDirection.NE:
+            // diagonal is u+v = const, blocked corner is (1,1)
+            tangent = new Vector2( 1f, -1f).normalized;   // slope -1
+            normal  = new Vector2( 1f,  1f).normalized;   // toward NE corner
+            break;
+        case DiagonalOpenDirection.SW:
+            tangent = new Vector2( 1f, -1f).normalized;   // same line, other side
+            normal  = new Vector2(-1f, -1f).normalized;   // toward SW corner
+            break;
+        case DiagonalOpenDirection.SE:
+            // diagonal is u-v = const, blocked corner is (1,0)
+            tangent = new Vector2( 1f,  1f).normalized;   // slope +1
+            normal  = new Vector2( 1f, -1f).normalized;   // toward SE corner
+            break;
+        case DiagonalOpenDirection.NW:
+            tangent = new Vector2( 1f,  1f).normalized;
+            normal  = new Vector2(-1f,  1f).normalized;   // toward NW corner
+            break;
+        default:
+            tangent = Vector2.right;  // fallback
+            normal  = Vector2.up;
+            break;
+    }
+}
 }

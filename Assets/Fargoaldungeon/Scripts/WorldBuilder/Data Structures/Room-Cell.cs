@@ -167,6 +167,15 @@ public class ScentClass
     public float nextIntensity; // temporary next value during decay/spread calculation
 }
 
+public enum DiagonalOpenDirection
+{
+    None = 0,
+    NE = 1,
+    SE = 2,
+    SW = 3,
+    NW = 4
+}
+
 // ===================== Cell class ===================
 public class Cell       // one cell in a Room
 {
@@ -176,6 +185,7 @@ public class Cell       // one cell in a Room
     public int type;                // Floor, Solid Stone, Water, etc.
     public DirFlags walls = DirFlags.None;  // walls: N-E-S-W bit field
     public DirFlags doors = DirFlags.None;  // doors: N-E-S-W bit field
+    //public DiagonalOpenDirection diagonalOpen = DiagonalOpenDirection.None; // if diagonal wall present, which way is open to room
     public Color colorFloor = new(1f, 0.4f, 0.7f, 0.5f); // default semi-transparent pink
     public Quaternion tiltFloor = Quaternion.identity; // optional tilt of the floor tile
     public float travel_cost = 1f;  // examples: 1 = open floor, 2 = rough terrain, 0.75 = road
@@ -185,7 +195,7 @@ public class Cell       // one cell in a Room
     public Action<Cell> OnStep;     // function triggered when stepped on
     public List<ScentClass> scents; // tracks who has passed this way before
     public List<ScentClass> nextScents; // temporarily holds next scent amount during decay/spread calculations
-    
+
 
     // Constructors:
     public Cell(int x, int y, int z)
@@ -211,6 +221,21 @@ public class Cell       // one cell in a Room
     public int x => pos.x;
     public int y => pos.y;
     public int z => height;
+
+    public DiagonalOpenDirection GetDiagonalOpenDirection()
+    {
+        if (walls.Count() != 2) return DiagonalOpenDirection.None; // must be exactly two walls to have a diagonal open
+        if (doors != DirFlags.None) return DiagonalOpenDirection.None; // if doors present, no diagonal open
+        if ((walls & (DirFlags.N | DirFlags.E)) == (DirFlags.N | DirFlags.E))
+            return DiagonalOpenDirection.NE;
+        if ((walls & (DirFlags.S | DirFlags.E)) == (DirFlags.S | DirFlags.E))
+            return DiagonalOpenDirection.SE;
+        if ((walls & (DirFlags.S | DirFlags.W)) == (DirFlags.S | DirFlags.W))
+            return DiagonalOpenDirection.SW;
+        if ((walls & (DirFlags.N | DirFlags.W)) == (DirFlags.N | DirFlags.W))
+            return DiagonalOpenDirection.NW;
+        return DiagonalOpenDirection.None;
+    }
 
     // Helpers to trigger delegates safely
     public void TriggerView() { OnView?.Invoke(this); }
