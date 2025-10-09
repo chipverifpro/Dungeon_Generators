@@ -149,8 +149,8 @@ public class BreadcrumbTrail : MonoBehaviour
 
     public Crumb GetNextCrumb(Agent agent)
     {
-        int eater_index;
-        int crumb_index;
+        //int eater_index;
+        //int crumb_index;
         // for returning an invalid crumb
         Crumb invalid_crumb = new()
         {

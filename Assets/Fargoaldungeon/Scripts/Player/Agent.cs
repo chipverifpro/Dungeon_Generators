@@ -26,7 +26,7 @@ public partial class Agent : MonoBehaviour
     // current status
     //public Vector3 pos3;// => new() { x=pos2.x, y=pos2.y, z=height};
     public Vector2 pos2;
-    public int height;
+    public float height;
     public float yawDeg;
 
     // while in a pack formation, these are the target positions as calculated from leader's position.
@@ -174,7 +174,7 @@ public partial class Agent : MonoBehaviour
                     loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
                     pos2.x = loc_clamped.x;
                     pos2.y = loc_clamped.y;
-                    height = (int)loc_clamped.z;  // TODO: make height a float
+                    height = loc_clamped.z;
                     move_credit = 0;
                 }
                 else
@@ -182,7 +182,7 @@ public partial class Agent : MonoBehaviour
                     // we have enough move_credit to go all the way.  Do it and repeat the loop.
                     pos2.x = target_pos.x;
                     pos2.y = target_pos.y;
-                    height = (int)target_pos.z;    // TODO: make height a float
+                    height = target_pos.z;
                     move_credit -= dist_to_target;    // continue while loop getting next crumb
                 }
                 Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
@@ -262,7 +262,7 @@ public partial class Agent : MonoBehaviour
                 loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
                 pos2.x = loc_clamped.x;
                 pos2.y = loc_clamped.y;
-                height = (int)loc_clamped.z;  // TODO: make height a float
+                height = loc_clamped.z;
                 move_credit = 0;
             }
             else
@@ -270,7 +270,7 @@ public partial class Agent : MonoBehaviour
                 // we have enough move_credit to go all the way.  Do it and repeat the loop.
                 pos2.x = target_pos.x;
                 pos2.y = target_pos.y;
-                height = (int)target_pos.z;    // TODO: make height a float
+                height = target_pos.z;
                 move_credit -= dist_to_target;    // continue while loop getting next crumb
                 //use_crumb_yaw = true;
             }

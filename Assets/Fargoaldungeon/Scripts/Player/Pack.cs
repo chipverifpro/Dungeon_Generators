@@ -39,6 +39,7 @@ public class Pack : MonoBehaviour
 
     public Agent PlayerAgent1;
 
+/*
     // This version copies the PlayerAgent1 already created in the GUI.
     public void CreatePackAgent()
     {
@@ -60,7 +61,7 @@ public class Pack : MonoBehaviour
         // set the player location to match.
         var p = clone.transform.position;   // grab object position and set it in variable
         if (player.useXZPlane) clone.pos2 = player.World_to_Map(new Vector2(p.x, p.z));
-        else            clone.pos2 = player.World_to_Map(new Vector2(p.x, p.y));
+        else clone.pos2 = player.World_to_Map(new Vector2(p.x, p.y));
 
         // Initialize yaw from current rotation
         clone.yawDeg = player.useXZPlane ? clone.transform.eulerAngles.y - player.yawCorrection : clone.transform.eulerAngles.z - player.yawCorrection;
@@ -130,6 +131,7 @@ public class Pack : MonoBehaviour
         }
     }
 
+
     private GameObject CreateAgentGO(string name, Transform parent, GameObject visualPrefab)
     {
         GameObject go;
@@ -151,6 +153,6 @@ public class Pack : MonoBehaviour
         }
         return go;
     }
-
+*/
 }
 

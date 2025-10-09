@@ -23,6 +23,8 @@ public class CameraModeSwitcher : MonoBehaviour
 
     void Update()
     {
+        UpdateZoom();
+
         if (Input.GetKeyDown(toggleKey))
         {
             current_camera = (current_camera + 1) % 3;
@@ -51,7 +53,7 @@ public class CameraModeSwitcher : MonoBehaviour
         {
             //if (waiter!=null) StopCoroutine(waiter);  // in case WaitForArrival was already running, kill it.
 
-            playerVisible = (vcamFP.Priority==10) ? false : true; // hide player in first person mode
+            playerVisible = (vcamFP.Priority == 10) ? false : true; // hide player in first person mode
 
             if (!playerVisible)
             {
@@ -100,5 +102,130 @@ public class CameraModeSwitcher : MonoBehaviour
         );
         // top camera override angle so north is top of screen
         vcamTop.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // always north up
+    }
+
+
+    void Update_CameraHeight()
+    {
+        float delta = 0f;
+        float step = 0.5f;
+        bool continuous = true;
+
+        // '+' is usually Shift+'='
+        bool plus = Input.GetKey(KeyCode.Equals) || Input.GetKey(KeyCode.Plus);
+        bool minus = Input.GetKey(KeyCode.Minus) || Input.GetKey(KeyCode.Underscore);
+
+        if (continuous)
+        {
+            if (plus) delta += step * Time.deltaTime * 10f;
+            if (minus) delta -= step * Time.deltaTime * 10f;
+        }
+        else
+        {
+            if (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus)) delta += step;
+            if (Input.GetKeyDown(KeyCode.Minus) || Input.GetKeyDown(KeyCode.Underscore)) delta -= step;
+        }
+
+        if (Mathf.Approximately(delta, 0f)) return;
+
+        // Pick which of your three is currently live
+        CinemachineVirtualCamera targetVcam = GetLiveOfThree();
+        if (targetVcam == null) return;
+
+        // Adjust according to body type
+        var transposer = targetVcam.GetCinemachineComponent<CinemachineTransposer>();
+        if (transposer != null)
+        {
+            var off = transposer.m_FollowOffset;
+            off.y += delta;
+            transposer.m_FollowOffset = off;
+            return;
+        }
+
+        // Hard Lock to Target: use Camera Offset extension for "height"
+        var camOffset = targetVcam.GetComponent<CinemachineCameraOffset>();
+        if (camOffset == null)
+            camOffset = targetVcam.gameObject.AddComponent<CinemachineCameraOffset>();
+
+        var o = camOffset.m_Offset;
+        o.y += delta;
+        camOffset.m_Offset = o;
+    }
+
+    CinemachineVirtualCamera GetLiveOfThree()
+    {
+        // Prefer the one that is live according to Cinemachine
+        if (IsLive(vcamFP)) return vcamFP;
+        if (IsLive(vcamTop)) return vcamTop;
+        if (IsLive(vcamOverhead)) return vcamOverhead;
+
+        // Fallback: highest Priority
+        CinemachineVirtualCamera best = null;
+        int bestP = int.MinValue;
+        foreach (var v in new[] { vcamFP, vcamTop, vcamOverhead })
+        {
+            if (v != null && v.Priority > bestP) { best = v; bestP = v.Priority; }
+        }
+        return best;
+    }
+
+    bool IsLive(CinemachineVirtualCamera v)
+    {
+        if (v == null || brain == null) return false;
+        return CinemachineCore.Instance.IsLive(v);
+    }
+
+    [Header("Zoom Controls")]
+    public float zoomStep = 2f;           // how fast to zoom
+    public float minZoom = 2f;            // clamp limits
+    public float maxZoom = 50f;
+    public float minFOV = 30f;       // narrowest FOV
+    public float maxFOV = 60f;       // widest FOV
+
+
+    void UpdateZoom()
+    {
+        float delta = 0f;
+
+        // '+' = zoom in (closer), '-' = zoom out (farther)
+        if (Input.GetKey(KeyCode.Equals) || Input.GetKey(KeyCode.Plus))
+            delta -= zoomStep * Time.deltaTime * 10f;
+        if (Input.GetKey(KeyCode.Minus) || Input.GetKey(KeyCode.Underscore))
+            delta += zoomStep * Time.deltaTime * 10f;
+
+        if (Mathf.Approximately(delta, 0f))
+            return;
+
+        // --- First Person: change FOV ---
+        if (vcamFP)
+        {
+            float fov = vcamFP.m_Lens.FieldOfView;
+            fov = Mathf.Clamp(fov + delta, minFOV, maxFOV);
+            vcamFP.m_Lens.FieldOfView = fov;
+        }
+
+        // Top cam (Transposer): adjust FollowOffset.z for zoom effect
+        if (vcamTop)
+        {
+            var transposer = vcamTop.GetCinemachineComponent<CinemachineTransposer>();
+            if (transposer != null)
+            {
+                var off = transposer.m_FollowOffset;
+                off.z = Mathf.Clamp(off.z + delta, -maxZoom, -minZoom);
+                transposer.m_FollowOffset = off;
+            }
+        }
+
+        // Overhead cam (Transposer): keep old behavior = change height (FollowOffset.y)
+        if (vcamOverhead)
+        {
+            var transposer = vcamOverhead.GetCinemachineComponent<CinemachineTransposer>();
+            if (transposer != null)
+            {
+                var off = transposer.m_FollowOffset;
+                off.y += delta;
+                transposer.m_FollowOffset = off;
+            }
+        }
     }
 }

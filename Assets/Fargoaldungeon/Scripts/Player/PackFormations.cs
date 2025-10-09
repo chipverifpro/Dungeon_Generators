@@ -32,16 +32,16 @@ public partial class Agent
     readonly List<Vector2> TwoColumnsPos5 = new()
     {
         new Vector2(0,0),
-        new Vector2(-1,-1),
-        new Vector2(1,-1),
-        new Vector2(-1,-2),
-        new Vector2(1,-2)
+        new Vector2(-0.5f,-1),
+        new Vector2(0.5f,-1),
+        new Vector2(-0.5f,-2),
+        new Vector2(0.5f,-2)
     };
     readonly List<Vector2> TwoColumnsPos4 = new()
     {
         new Vector2(0,0),
-        new Vector2(-1,-1),
-        new Vector2(1,-1),
+        new Vector2(-0.5f,-1),
+        new Vector2(0.5f,-1),
         new Vector2(0,-2)
     };
     readonly List<Vector2> WedgePos = new()
