@@ -174,35 +174,38 @@ public partial class Player : MonoBehaviour
                     break;
                 }
             } */
+
             if (TryDistanceToDiagonalWall(room, new Vector2Int(from_i, from_j), start, dir3, cellSize, r, out diagonalDist))
             {
-                // Hit point on the shrunken diagonal
+                // Point where we contact the shrunken diagonal
                 Vector2 hit = from + dir * diagonalDist;
 
-                // Remaining distance we intended to travel this iter (within clamps)
-                float remaining = Mathf.Max(0f, temp_distance - diagonalDist);
+                // Remaining intent this iteration (toward the clamped target)
+                Vector2 remVec = temp_on_the_way - hit;
 
-                // Slide along the diagonal’s tangent in the direction closest to our intent
+                // Get diagonal tangent (unit) and normal (unit)
                 Vector2 tan, nrm;
                 GetDiagonalTangentAndNormal(room, new Vector2Int(from_i, from_j), out tan, out nrm);
 
-                float sign = Mathf.Sign(Vector2.Dot(dir, tan));   // choose forward/back along tangent
-                Vector2 slideTarget = hit + tan * (remaining * sign);
+                // Slide only by the perpendicular projection: component along tangent
+                float slideLen = Vector2.Dot(remVec, tan);      // signed; can be negative
+                Vector2 slide  = tan * slideLen;
 
-                // Clamp the slide to current cell’s edge limits so we don’t skip checks
+                // New target = hit + allowed slide along the diagonal
+                Vector2 slideTarget = hit + slide;
+
+                // Clamp into current cell’s movement limits; prevents skipping edge checks
                 slideTarget = new Vector2(
                     Mathf.Clamp(slideTarget.x, cxmin, cxmax),
                     Mathf.Clamp(slideTarget.y, cymin, cymax)
                 );
 
-                // Tiny nudge off the wall along the *opposite* of the wall normal to avoid immediate re-collide
+                // Tiny nudge off the wall so next iteration doesn't re-hit due to FP error
                 const float EPS = 1e-4f;
                 slideTarget += (-nrm) * EPS;
 
                 on_the_way = slideTarget;
                 temp_distance = (on_the_way - from).magnitude;
-
-                // We handled the diagonal; continue the loop to process next cell if needed
             }
             else
             {
@@ -413,18 +416,21 @@ public partial class Player : MonoBehaviour
     public static bool TryDistanceToDiagonalWall(
         Room room,
         Vector2Int cellXY,          // which cell in this room we're testing
-        Vector3 startWorld,         // start position (XZ used)
-        Vector3 dirWorld,           // direction (XZ), should be normalized
+        Vector3 startWorldXY,         // start position (XZ used)
+        Vector3 dirWorldXY,           // direction (XZ), should be normalized
         float cellSize,           // room.Cell size in world units
         float playerRadius,       // radius to keep away from walls
         out float distance)
     {
         distance = 0f;
+        Vector3 startWorld = new(startWorldXY.x, 0, startWorldXY.y);
+        Vector3 dirWorld = new(dirWorldXY.x, 0, dirWorldXY.y);
 
         int cellIndex = room.GetCellInRoom(cellXY);
         if (cellIndex < 0) return false;
 
         var cell = room.cells[cellIndex];
+        Debug.Log($"startWorld=({startWorld.x},{startWorld.z}) dirWorld=({dirWorld.x},{dirWorld.z}) in cell {cellXY} of room {room.my_room_number}");
         Debug.Log($"   Checking diagonal in cell {cellXY} walls={cell.walls} doors={cell.doors}");
         // Determine which diagonal corner this cell blocks (two walls, no doors)
         var diag = GetDiagonalOpenDirection(cell.walls, cell.doors);
@@ -439,6 +445,9 @@ public partial class Player : MonoBehaviour
         float zMin = (startWorld.y % 1f) * cellSize;
         CleanupFloat(ref xMin, true);
         CleanupFloat(ref zMin, true);
+
+        xMin = 0f;
+        zMin = 0f;
 
         Debug.Log($"   Cell {cellXY} world coords: xMin={xMin}, zMin={zMin}");
 
@@ -477,7 +486,7 @@ public partial class Player : MonoBehaviour
         // Let u = (x - xMin)/s, v = (z - zMin)/s.
         // Solve a*u + b*v = c for T where x = x0 + dir.x*T, z = z0 + dir.z*T.
         //Vector2 xz0 = new Vector2(startWorld.x, startWorld.z);
-        Vector2 xz0 = new Vector2(xMin, zMin);
+        Vector2 xz0 = new Vector2((startWorld.x % 1f) * cellSize, (startWorld.z % 1f) * cellSize);
         Vector2 d = new Vector2(dirWorld.x, dirWorld.z);
 
         // Denominator: a*(dx/s) + b*(dz/s) -> simplified into world units:
@@ -492,13 +501,13 @@ public partial class Player : MonoBehaviour
 
         // Intersection point
         Vector2 hitXZ = xz0 + d * T;
-        Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y})");
+        Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
 
         // Must lie within the cell’s square [xMin,xMax] x [zMin,zMax]
         xMin = 0f; zMin = 0f;
         float xMax = xMin + cellSize;
         float zMax = zMin + cellSize;
-        Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}");
+        Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}, hitXZ=({hitXZ.x},{hitXZ.y})");
 
         if (hitXZ.x < xMin - 1e-4f || hitXZ.x > xMax + 1e-4f ||
             hitXZ.y < zMin - 1e-4f || hitXZ.y > zMax + 1e-4f)
@@ -534,35 +543,35 @@ public partial class Player : MonoBehaviour
     }
     
     // Returns a unit tangent (direction along the diagonal line within the cell) and a unit normal pointing toward the blocked corner.
-void GetDiagonalTangentAndNormal(Room room, Vector2Int cellXY, out Vector2 tangent, out Vector2 normal)
-{
-    var cell = room.cells[room.GetCellInRoom(cellXY)];
-    var diag = GetDiagonalOpenDirection(cell.walls, cell.doors); // your function
-
-    switch (diag)
+    void GetDiagonalTangentAndNormal(Room room, Vector2Int cellXY, out Vector2 tangent, out Vector2 normal)
     {
-        case DiagonalOpenDirection.NE:
-            // diagonal is u+v = const, blocked corner is (1,1)
-            tangent = new Vector2( 1f, -1f).normalized;   // slope -1
-            normal  = new Vector2( 1f,  1f).normalized;   // toward NE corner
-            break;
-        case DiagonalOpenDirection.SW:
-            tangent = new Vector2( 1f, -1f).normalized;   // same line, other side
-            normal  = new Vector2(-1f, -1f).normalized;   // toward SW corner
-            break;
-        case DiagonalOpenDirection.SE:
-            // diagonal is u-v = const, blocked corner is (1,0)
-            tangent = new Vector2( 1f,  1f).normalized;   // slope +1
-            normal  = new Vector2( 1f, -1f).normalized;   // toward SE corner
-            break;
-        case DiagonalOpenDirection.NW:
-            tangent = new Vector2( 1f,  1f).normalized;
-            normal  = new Vector2(-1f,  1f).normalized;   // toward NW corner
-            break;
-        default:
-            tangent = Vector2.right;  // fallback
-            normal  = Vector2.up;
-            break;
+        var cell = room.cells[room.GetCellInRoom(cellXY)];
+        var diag = GetDiagonalOpenDirection(cell.walls, cell.doors); // your function
+
+        switch (diag)
+        {
+            case DiagonalOpenDirection.NE:
+                // diagonal is u+v = const, blocked corner is (1,1)
+                tangent = new Vector2( 1f, -1f).normalized;   // slope -1
+                normal  = new Vector2( 1f,  1f).normalized;   // toward NE corner
+                break;
+            case DiagonalOpenDirection.SW:
+                tangent = new Vector2( 1f, -1f).normalized;   // same line, other side
+                normal  = new Vector2(-1f, -1f).normalized;   // toward SW corner
+                break;
+            case DiagonalOpenDirection.SE:
+                // diagonal is u-v = const, blocked corner is (1,0)
+                tangent = new Vector2( 1f,  1f).normalized;   // slope +1
+                normal  = new Vector2( 1f, -1f).normalized;   // toward SE corner
+                break;
+            case DiagonalOpenDirection.NW:
+                tangent = new Vector2( 1f,  1f).normalized;
+                normal  = new Vector2(-1f,  1f).normalized;   // toward NW corner
+                break;
+            default:
+                tangent = Vector2.zero;  // fallback
+                normal  = Vector2.zero;
+                break;
+        }
     }
-}
 }

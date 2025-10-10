@@ -17,7 +17,7 @@ MonoBehaviour:
   showBuildProcess: 0
   stepDelay: 0.1
   randomizeSeed: 1
-  seed: -1049632546
+  seed: -868732758
   useThinWalls: 1
   mapWidth: 100
   mapHeight: 100
@@ -35,7 +35,7 @@ MonoBehaviour:
   enableTiltedTiles: 1
   tiltFloorTilesMaxAngle: 30
   edgeTiltScale: 0.01
-  useDiagonalCorners: 1
+  useDiagonalCorners: 0
   skipOrthogonalWhenDiagonal: 1
   perimeterWallSteps: 30
   useScatterRooms: 0
