@@ -158,22 +158,6 @@ public partial class Player : MonoBehaviour
 
             float temp_distance = (temp_on_the_way - from).magnitude;
             on_the_way = temp_on_the_way; // initialize
-            /*if (TryDistanceToDiagonalWall(room, new Vector2Int(from_i, from_j), start, dir3, cellSize, radius, out diagonalDist))
-            {
-                Debug.Log($"   Diagonal wall at distance {diagonalDist}, temp_distance={temp_distance}");
-                if (diagonalDist < temp_distance)
-                {
-                    // hit the diagonal wall before we could get to temp_on_the_way
-                    //temp_distance = diagonalDist;
-                    on_the_way = from + (dir * diagonalDist);
-                    // TODO: Buggy here: we get stuck to the diagonal wall and cannot move away.
-                    // Need to slide along it, not just stop.
-
-                    Debug.Log($"   Diagonal wall hit at distance {diagonalDist} before reaching {temp_distance}");
-                    final = on_the_way; // set final position in case we are at last iteration
-                    break;
-                }
-            } */
 
             if (TryDistanceToDiagonalWall(room, new Vector2Int(from_i, from_j), start, dir3, cellSize, r, out diagonalDist))
             {
@@ -187,7 +171,7 @@ public partial class Player : MonoBehaviour
                 Vector2 tan, nrm;
                 GetDiagonalTangentAndNormal(room, new Vector2Int(from_i, from_j), out tan, out nrm);
 
-                Debug.Log($" tan=({tan.x},{tan.y}) nrm=({nrm.x},{nrm.y})");
+                //Debug.Log($" tan=({tan.x},{tan.y}) nrm=({nrm.x},{nrm.y})");
 
                 // Slide only by the perpendicular projection: component along tangent
                 float slideLen = Vector2.Dot(remVec, tan);      // signed; can be negative
@@ -212,7 +196,7 @@ public partial class Player : MonoBehaviour
             else
             {
                 // No diagonal in that cell, ray misses or parallel → treat as no hit here
-                Debug.Log($"   Diagonal wall missed at distance {diagonalDist} before reaching {temp_distance}");
+                //Debug.Log($"   Diagonal wall missed at distance {diagonalDist} before reaching {temp_distance}");
 
                 on_the_way = temp_on_the_way;
             }
@@ -434,11 +418,11 @@ public partial class Player : MonoBehaviour
         if (cellIndex < 0) return false;
 
         var cell = room.cells[cellIndex];
-        Debug.Log($"startWorld=({startWorld.x},{startWorld.z}) dirWorld=({dirWorld.x},{dirWorld.z}) in cell {cellXY} of room {room.my_room_number}");
-        Debug.Log($"   Checking diagonal in cell {cellXY} walls={cell.walls} doors={cell.doors}");
+        //Debug.Log($"startWorld=({startWorld.x},{startWorld.z}) dirWorld=({dirWorld.x},{dirWorld.z}) in cell {cellXY} of room {room.my_room_number}");
+        //Debug.Log($"   Checking diagonal in cell {cellXY} walls={cell.walls} doors={cell.doors}");
         // Determine which diagonal corner this cell blocks (two walls, no doors)
         var diag = GetDiagonalOpenDirection(cell.walls, cell.doors);
-        Debug.Log($"   Diagonal open direction = {diag}");
+        //Debug.Log($"   Diagonal open direction = {diag}");
         if (diag == DiagonalOpenDirection.None) return false;
 
         // Cell's world-space min corner (bottom-left in your grid)
@@ -496,7 +480,7 @@ public partial class Player : MonoBehaviour
         if (Mathf.Abs(denom) < 1e-6f)
         {
             distance = 999;
-            Debug.Log($"   Diagonal wall line parallel to ray, denom={denom}");
+            //Debug.Log($"   Diagonal wall line parallel to ray, denom={denom}");
             return false; // ray parallel to diagonal
         }
         // Numerator: s*c - [a*(x0 - xMin) + b*(z0 - zMin)]
@@ -506,12 +490,12 @@ public partial class Player : MonoBehaviour
 
         // Intersection point
         Vector2 hitXZ = xz0 + (d * T);
-        Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
+        //Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
 
         if (T <= 0f)
         {
             distance = T;     // a negative nummer means intersection behind start
-            Debug.Log($"   Diagonal wall line hit behind start. at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
+            //Debug.Log($"   Diagonal wall line hit behind start. at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
             //return false;     // intersection behind start or at start, back up the player
         }
 
@@ -520,18 +504,18 @@ public partial class Player : MonoBehaviour
         float zMin = 0f;
         float xMax = xMin + cellSize;
         float zMax = zMin + cellSize;
-        Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}, hitXZ=({hitXZ.x},{hitXZ.y})");
+        //Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}, hitXZ=({hitXZ.x},{hitXZ.y})");
 
         if (hitXZ.x < xMin - 1e-4f || hitXZ.x > xMax + 1e-4f ||
             hitXZ.y < zMin - 1e-4f || hitXZ.y > zMax + 1e-4f)
         {
-            Debug.Log($"   Diagonal wall hit outside cell bounds -- use it anyway");
+            //Debug.Log($"   Diagonal wall hit outside cell bounds -- use it anyway");
             distance = T;
             //return false; // The infinite line was hit, but not the segment inside the cell
         }
 
         distance = T; // Already accounts for playerRadius via 'k'
-        Debug.Log($"   Diagonal wall hit confirmed at distance {distance}");
+        //Debug.Log($"   Diagonal wall hit confirmed at distance {distance}");
         return true;
     }
 
