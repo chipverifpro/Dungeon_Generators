@@ -187,6 +187,8 @@ public partial class Player : MonoBehaviour
                 Vector2 tan, nrm;
                 GetDiagonalTangentAndNormal(room, new Vector2Int(from_i, from_j), out tan, out nrm);
 
+                Debug.Log($" tan=({tan.x},{tan.y}) nrm=({nrm.x},{nrm.y})");
+
                 // Slide only by the perpendicular projection: component along tangent
                 float slideLen = Vector2.Dot(remVec, tan);      // signed; can be negative
                 Vector2 slide  = tan * slideLen;
@@ -365,7 +367,7 @@ public partial class Player : MonoBehaviour
     }
 
     // Rounds Vector2 x,y to nearest .01 to eliminate tiny cumulative errors
-    public void Cleanup(ref Vector2 vect, bool same_tile = true)
+    public static void Cleanup(ref Vector2 vect, bool same_tile = true)
     {
         CleanupFloat(ref vect.x, same_tile);
         CleanupFloat(ref vect.y, same_tile);
@@ -422,6 +424,8 @@ public partial class Player : MonoBehaviour
         float playerRadius,       // radius to keep away from walls
         out float distance)
     {
+        //playerRadius = 0f; // TEMP disable radius for testing
+
         distance = 0f;
         Vector3 startWorld = new(startWorldXY.x, 0, startWorldXY.y);
         Vector3 dirWorld = new(dirWorldXY.x, 0, dirWorldXY.y);
@@ -441,15 +445,10 @@ public partial class Player : MonoBehaviour
         //float xMin = room.bounds.xMin + (cellXY.x - room.bounds.xMin) * cellSize;
         //float zMin = room.bounds.yMin + (cellXY.y - room.bounds.yMin) * cellSize;
         // If you store absolute tile coords (not relative to bounds), use:
-        float xMin = (startWorld.x % 1f) * cellSize;
-        float zMin = (startWorld.y % 1f) * cellSize;
-        CleanupFloat(ref xMin, true);
-        CleanupFloat(ref zMin, true);
-
-        xMin = 0f;
-        zMin = 0f;
-
-        Debug.Log($"   Cell {cellXY} world coords: xMin={xMin}, zMin={zMin}");
+        //float xMin = (startWorld.x % 1f) * cellSize;
+        //float zMin = (startWorld.y % 1f) * cellSize;
+        //CleanupFloat(ref xMin, true);
+        //CleanupFloat(ref zMin, true);
 
         // Build diagonal line in cell-local (u,v) with u=(x-xMin)/s, v=(z-zMin)/s in [0,1]
         // General form: a*u + b*v = c
@@ -462,19 +461,19 @@ public partial class Player : MonoBehaviour
 
         switch (diag)
         {
-            case DiagonalOpenDirection.NE:
-                // Corner at (u=1,v=1). Blocking line is u + v = 1 - k  (pulled in by radius)
-                a = 1f; b = 1f; c = 1f - k;
+            case DiagonalOpenDirection.NE: // S+W walls
+                // Corner at (u=0,v=0). Blocking line is u + v = 1 - k  (pulled in by radius)
+                a = 1f; b = 1f; c = 1f + k;
                 break;
-            case DiagonalOpenDirection.SW:
-                // Corner at (0,0). Blocking line is u + v = k
+            case DiagonalOpenDirection.SW: // N+E walls
+                // Corner at (1,1). Blocking line is u + v = k
                 a = 1f; b = 1f; c = k;
                 break;
-            case DiagonalOpenDirection.SE:
-                // Corner at (1,0). Blocking line is u - v = 1 - k
-                a = 1f; b = -1f; c = 1f - k;
+            case DiagonalOpenDirection.SE: // N+W walls
+                // Corner at (1,0). Blocking line is u - v = k
+                a = 1f; b = -1f; c = k;
                 break;
-            case DiagonalOpenDirection.NW:
+            case DiagonalOpenDirection.NW: // S+E walls
                 // Corner at (0,1). Blocking line is u - v = -(1 - k)
                 a = 1f; b = -1f; c = -(1f - k);
                 break;
@@ -485,38 +484,53 @@ public partial class Player : MonoBehaviour
         // Ray/line intersection in WORLD units.
         // Let u = (x - xMin)/s, v = (z - zMin)/s.
         // Solve a*u + b*v = c for T where x = x0 + dir.x*T, z = z0 + dir.z*T.
-        //Vector2 xz0 = new Vector2(startWorld.x, startWorld.z);
-        Vector2 xz0 = new Vector2((startWorld.x % 1f) * cellSize, (startWorld.z % 1f) * cellSize);
+        //Vector2 xz0 = new Vector2(startWorld.x, startWorld.z);    // world coords of start
+        Vector2 xz0 = new Vector2((startWorld.x - Mathf.Floor(startWorld.x)) * cellSize, (startWorld.z - Mathf.Floor(startWorld.z)) * cellSize); // local coords in cell
+        //Cleanup(ref xz0, true);
+        //Vector2 xz0 = new Vector2((startWorld.x - cellXY.x) * cellSize, (startWorld.z - cellXY.y) * cellSize); // same as local coords in cell
+
         Vector2 d = new Vector2(dirWorld.x, dirWorld.z);
 
         // Denominator: a*(dx/s) + b*(dz/s) -> simplified into world units:
         float denom = a * d.x + b * d.y;
-        if (Mathf.Abs(denom) < 1e-6f) return false; // ray parallel to diagonal
-
+        if (Mathf.Abs(denom) < 1e-6f)
+        {
+            distance = 999;
+            Debug.Log($"   Diagonal wall line parallel to ray, denom={denom}");
+            return false; // ray parallel to diagonal
+        }
         // Numerator: s*c - [a*(x0 - xMin) + b*(z0 - zMin)]
         float num = cellSize * c - (a * (xz0.x) + b * (xz0.y));
 
         float T = num / denom;         // distance along 'dirWorld' (since 'denom' is in world units)
-        //if (T <= 0f) return false;     // intersection behind start or at start
 
         // Intersection point
-        Vector2 hitXZ = xz0 + d * T;
+        Vector2 hitXZ = xz0 + (d * T);
         Debug.Log($"   Diagonal wall line hit at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
 
+        if (T <= 0f)
+        {
+            distance = T;     // a negative nummer means intersection behind start
+            Debug.Log($"   Diagonal wall line hit behind start. at T={T}, world=({hitXZ.x},{hitXZ.y}), xz0=({xz0.x},{xz0.y}), dir=({d.x},{d.y})");
+            //return false;     // intersection behind start or at start, back up the player
+        }
+
         // Must lie within the cell’s square [xMin,xMax] x [zMin,zMax]
-        xMin = 0f; zMin = 0f;
+        float xMin = 0f;
+        float zMin = 0f;
         float xMax = xMin + cellSize;
         float zMax = zMin + cellSize;
         Debug.Log($"   Cell bounds: x={xMin}-{xMax}, z={zMin}-{zMax}, hitXZ=({hitXZ.x},{hitXZ.y})");
 
         if (hitXZ.x < xMin - 1e-4f || hitXZ.x > xMax + 1e-4f ||
             hitXZ.y < zMin - 1e-4f || hitXZ.y > zMax + 1e-4f)
-            {
-                Debug.Log($"   Diagonal wall hit outside cell bounds -- use it anyway");
-                //return false; // The infinite line was hit, but not the segment inside the cell
-            }
+        {
+            Debug.Log($"   Diagonal wall hit outside cell bounds -- use it anyway");
+            distance = T;
+            //return false; // The infinite line was hit, but not the segment inside the cell
+        }
 
-            distance = T; // Already accounts for playerRadius via 'k'
+        distance = T; // Already accounts for playerRadius via 'k'
         Debug.Log($"   Diagonal wall hit confirmed at distance {distance}");
         return true;
     }
