@@ -59,9 +59,9 @@ public partial class Agent : MonoBehaviour
     public float yCorrection = 0.5f;
     public float yawCorrection = 90f;
     public float heightCorrection = 1f;
-    
+
     // Tuning internal parameters
-    
+
     public bool useXZPlane = true;      // false = XY floor (tilemap), true = XZ floor (3D)
 
     protected virtual void Awake()
@@ -95,7 +95,7 @@ public partial class Agent : MonoBehaviour
 
         while (true)
         {
-            anim.SetInteger("AnimationID", UnityEngine.Random.Range(0,15));
+            anim.SetInteger("AnimationID", UnityEngine.Random.Range(0, 15));
             yield return new WaitForSeconds(2);
         }
     }
@@ -321,9 +321,26 @@ public partial class Agent : MonoBehaviour
     }
 
     // Convert from map location to world location and apply that to the agent's ojbect
-    public void TransformPosition(Agent agent)
+    public bool TransformPosition(Agent agent)
     {
+        // 1) Hard guards with precise logs
+        if (!DungeonGenerator.Check(agent, "agent", this)) return false;
+
+        var tr = (agent as MonoBehaviour)?.transform ?? null;
+        if (!DungeonGenerator.Check(tr, "agent.transform", agent as MonoBehaviour)) return false;
+
+        // if you keep a generator / grid on Agent:
+        if (!DungeonGenerator.Check(pack.gen, "gen", this)) return false;
+        if (!DungeonGenerator.Check(pack.gen.cellGrid, "gen.cellGrid", this)) return false;
+        if (!DungeonGenerator.Check(pack.gen.rooms, "gen.rooms", this)) return false;
+
+
         Cleanup(ref agent.pos2);
+        Cell cell = pack.gen.cellGrid[Mathf.FloorToInt(agent.pos2.x), Mathf.FloorToInt(agent.pos2.y)];
+        if (!DungeonGenerator.Check(cell, "cell", this)) return false;
+        if (!DungeonGenerator.Check(pack.gen.cfg, "cfg", this)) return false;
+        agent.height = pack.gen.cfg.unitHeight * cell.height;
+        //agent.height = SampleAgentHeight(agent.pos2, pack.gen.cellGrid, cfg.unitHeight);
 
         if (useXZPlane)
         {
@@ -357,6 +374,7 @@ public partial class Agent : MonoBehaviour
             }                                                                                       //pack.player.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
 
         }
+        return true;
     }
 
     // apply offset from map coordinates to world coordinates
@@ -390,4 +408,49 @@ public partial class Agent : MonoBehaviour
         CleanupFloat(ref vect.x, same_tile);
         CleanupFloat(ref vect.y, same_tile);
     }
+    
+    // Assumptions:
+    // - agentPos is in tile/grid coordinates (1 unit per cell) on the XZ plane → (x,z) == (agentPos.x, agentPos.y)
+    // - cellGrid[x,y] gives you the Room.Cell that contains:
+    //     int height;                // base floor height at the cell center
+    //     Quaternion tiltFloor;      // tilt of the floor plane
+    // - Y is world up.
+    // cellGrid dimensions are W x H
+    public static float SampleAgentHeight(Vector2 agentPos, Cell[,] cellGrid, float unitHeight)
+    {
+        int W = cellGrid.GetLength(0);
+        int H = cellGrid.GetLength(1);
+
+        int cx = Mathf.FloorToInt(agentPos.x);
+        int cz = Mathf.FloorToInt(agentPos.y);
+
+        // Out-of-bounds guard (return 0 or whatever default you prefer)
+        if (cx < 0 || cz < 0 || cx >= W || cz >= H)
+            return 0f;
+
+        var cell = cellGrid[cx, cz];
+
+        // Plane normal from the tilt (rotate "up" by tilt)
+        Quaternion q = cell.tiltFloor;
+        Vector3 n = (q * Vector3.up).normalized;
+
+        // Reference point P0: cell center at base height
+        // (center is (cx+0.5, cz+0.5) in tile units; height is along world Y)
+        Vector3 P0 = new Vector3(cx + 0.5f, cell.height, cz + 0.5f);
+
+        // Point X we want: (agentPos.x, y, agentPos.y). Solve n · (X - P0) = 0 for y.
+        // n.x*(x - P0.x) + n.y*(y - P0.y) + n.z*(z - P0.z) = 0
+        // => y = P0.y - (n.x*(x-P0.x) + n.z*(z-P0.z)) / n.y
+        float x = agentPos.x;
+        float z = agentPos.y;
+
+        // Avoid division by ~0 if someone gave an extreme tilt
+        float ny = Mathf.Abs(n.y) < 1e-5f ? Mathf.Sign(n.y) * 1e-5f : n.y;
+
+        float y =
+            P0.y - (n.x * (x - P0.x) + n.z * (z - P0.z)) / ny;
+
+        return y * unitHeight; // convert from height units to world units
+    }
+
 }

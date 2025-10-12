@@ -58,6 +58,11 @@ public partial class Player : MonoBehaviour
 
         // 3) Commit position & rotation to Transform
         agent.pos2 = p_new;
+        //agent.height = gen.cfg.unitHeight * gen.cellGrid[Mathf.FloorToInt(agent.pos2.x), Mathf.FloorToInt(agent.pos2.y)].height;
+        if (gen == null) Debug.LogError("Move_Update: gen is null!");
+        if (gen.cellGrid == null) Debug.LogError("Move_Update: gen.cellGrid is null!");
+        if (gen.cfg == null) Debug.LogError("Move_Update: gen.cfg is null!");
+        agent.height = Agent.SampleAgentHeight(agent.pos2, gen.cellGrid, gen.cfg.unitHeight);
 
         TransformPosition(agent);
     }

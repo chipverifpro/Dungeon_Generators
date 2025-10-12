@@ -40,6 +40,10 @@ public partial class DungeonGenerator : MonoBehaviour
     // Future use by Door capability...
     Dictionary<int, Door> doorById; // partner lookup and save/load
 
+    // global perlin seed
+    public float perlinSeedX = 0;
+    public float perlinSeedY = 0;
+
     // global variables for return of success and failure results (some functions only)
     [HideInInspector] public bool success;    // global generic return value from various tasks
     [HideInInspector] public string failure;    // global failure description string

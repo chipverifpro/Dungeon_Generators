@@ -149,7 +149,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = false;
                     cfg.usePackedRooms = true;
-                    cfg.useDiagonalCorners = false;
+                    cfg.useDiagonalCorners = true;  /// Allow diagonals for packed rooms
                     break;
             }
 
@@ -226,9 +226,12 @@ public partial class DungeonGenerator : MonoBehaviour
                 yield return tm.YieldOrDelay(cfg.stepDelay); // depends on cfg.showBuildProcess
             }
 
-            if (cfg.useCellularAutomata || cfg.useScatterRooms)
+            if (cfg.useCellularAutomata || cfg.useScatterRooms || cfg.usePackedRooms)
             {
                 // Optionally add Perlin noise to floor heights
+                perlinSeedX = cfg.GlobalPerlinSeed ? UnityEngine.Random.Range(0f, 9999f) : 0f;
+                perlinSeedY = cfg.GlobalPerlinSeed ? UnityEngine.Random.Range(0f, 9999f) : 0f;
+                
                 if (cfg.perlinFloorHeights > 0)
                 {
                     for (int r = 0; r < rooms.Count; r++)
@@ -994,6 +997,17 @@ public partial class DungeonGenerator : MonoBehaviour
         merged.Sort((a, b) => b.Size.CompareTo(a.Size));
         return merged;
     }
+
+    public static bool Check(object o, string name, UnityEngine.Object ctx = null)
+    {
+        if (o == null)
+        {
+            Debug.LogError($"[Agent] Null reference: {name}", ctx);
+            return false;
+        }
+        return true;
+    }
+
 
     public IEnumerator ScentDecayOnIntervals()
     {

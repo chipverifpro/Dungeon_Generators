@@ -37,6 +37,7 @@ public class DungeonSettings : ScriptableObject
     [Header("Room Floor Bumpiness Settings")]
     public int perlinFloorHeights = 3;  // Height range of added ripple to the floor.
     public float perlinFloorWavelength = 0.05f;  // Frequency of ripple to the floor.
+    public bool GlobalPerlinSeed = true; // If true, use same random seed for all rooms.  If false, each room gets its own random seed.
 
     [Header("Tilt Entire Rooms Settings")]
     public int slopeRoomMaxAngle = 10;  // If > 0, tilt room floors by up to this angle in degrees.

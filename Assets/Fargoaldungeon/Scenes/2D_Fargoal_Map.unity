@@ -1730,6 +1730,8 @@ MonoBehaviour:
   doorClosedPrefab: {fileID: 0}
   doorOpenPrefab: {fileID: 0}
   root: {fileID: 1448055485}
+  perlinSeedX: 0
+  perlinSeedY: 0
   success: 0
   failure: 
   directions_xy:
@@ -3099,7 +3101,12 @@ MonoBehaviour:
   yawDeg: 0
   DogPrefab: {fileID: 1880613839}
   anim: {fileID: 1880613837}
-  next_crumb:
+  next_actualCrumb:
+    valid: 0
+    position: {x: 0, y: 0, z: 0}
+    yawDeg: 0
+    whichFollowersArrived: 
+  next_formationCrumb:
     valid: 0
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0
@@ -3184,6 +3191,8 @@ MonoBehaviour:
   inFollowFormation: 1
   inGroupFormation: 0
   soloMode: 0
+  formation: 3
+  formationSpacing: 1.5
   squadSize: 4
   initialSpacing: 1.5
   PlayerAgent1: {fileID: 1159626742}
@@ -3372,7 +3381,12 @@ MonoBehaviour:
   yawDeg: 0
   DogPrefab: {fileID: 464182955}
   anim: {fileID: 464182953}
-  next_crumb:
+  next_actualCrumb:
+    valid: 0
+    position: {x: 0, y: 0, z: 0}
+    yawDeg: 0
+    whichFollowersArrived: 
+  next_formationCrumb:
     valid: 0
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0
@@ -3646,7 +3660,12 @@ MonoBehaviour:
   yawDeg: 0
   DogPrefab: {fileID: 1651296779}
   anim: {fileID: 1651296777}
-  next_crumb:
+  next_actualCrumb:
+    valid: 0
+    position: {x: 0, y: 0, z: 0}
+    yawDeg: 0
+    whichFollowersArrived: 
+  next_formationCrumb:
     valid: 0
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0
@@ -4064,7 +4083,12 @@ MonoBehaviour:
   yawDeg: 0
   DogPrefab: {fileID: 6544990386685219093}
   anim: {fileID: 5475111281846579140}
-  next_crumb:
+  next_actualCrumb:
+    valid: 0
+    position: {x: 0, y: 0, z: 0}
+    yawDeg: 0
+    whichFollowersArrived: 
+  next_formationCrumb:
     valid: 0
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0
@@ -6327,7 +6351,7 @@ Transform:
   m_GameObject: {fileID: 1653904421}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.5, y: 0, z: -0.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7111,6 +7135,11 @@ MonoBehaviour:
   player: {fileID: 556401679}
   height: 20
   playerVisible: 1
+  zoomStep: 2
+  minZoom: 2
+  maxZoom: 50
+  minFOV: 30
+  maxFOV: 60
 --- !u!114 &1815589289
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8658,7 +8687,12 @@ MonoBehaviour:
   yawDeg: 0
   DogPrefab: {fileID: 160131188}
   anim: {fileID: 160131186}
-  next_crumb:
+  next_actualCrumb:
+    valid: 0
+    position: {x: 0, y: 0, z: 0}
+    yawDeg: 0
+    whichFollowersArrived: 
+  next_formationCrumb:
     valid: 0
     position: {x: 0, y: 0, z: 0}
     yawDeg: 0

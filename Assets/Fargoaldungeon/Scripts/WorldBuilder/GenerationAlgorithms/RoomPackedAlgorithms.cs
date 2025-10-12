@@ -2412,7 +2412,25 @@ public partial class DungeonGenerator : MonoBehaviour
             Debug.Log($"Cell {a.pos}: doors {a.doors} vs Grid {b.doors}");
             diffs++;
         }
+        // Door sides matching.
+        foreach (DirFlags dir in Enum.GetValues(typeof(DirFlags)))
+        {
+            DirFlags opp_dir = DirFlagsEx.Opposite(dir);
+            Vector2Int dirVec = DirFlagsEx.ToVector2Int(opp_dir);
+            if (dirVec == Vector2Int.zero) continue; // skip None
+            if (!In(a.pos.x + dirVec.x, a.pos.y + dirVec.y)) continue; // skip off-map  
 
+            if (a.doors.HasFlag(dir) != cellGrid[a.pos.x + dirVec.x, a.pos.y + dirVec.y].doors.HasFlag(opp_dir))
+            {
+                Debug.LogError($"Grid {a.pos}: door {dir} has no match in Grid {a.pos.x + dirVec.x},{a.pos.y + dirVec.y} door {opp_dir}");
+                diffs++;
+            }
+            if (a.walls.HasFlag(dir) != cellGrid[a.pos.x + dirVec.x, a.pos.y + dirVec.y].walls.HasFlag(opp_dir))
+            {
+                Debug.LogError($"Grid {a.pos}: wall {dir} has no match in Grid {a.pos.x + dirVec.x},{a.pos.y + dirVec.y}: wall {opp_dir}");
+                diffs++;
+            }
+        }
         // Color (tolerant)
         if (!ColorApprox(a.colorFloor, b.colorFloor))
         {

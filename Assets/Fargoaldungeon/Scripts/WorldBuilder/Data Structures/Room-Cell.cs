@@ -409,6 +409,7 @@ public class Room
         return bounds;
     }
 
+
     // ==================== Color Helper functions...
 
     //setColorFloor sets all floors of a room to a color.
@@ -478,8 +479,8 @@ public partial class DungeonGenerator : MonoBehaviour
         if (cfg.perlinFloorHeights == 0) return room;
 
         int perlin_floor;
-        float seedX = UnityEngine.Random.Range(0f, 9999f);
-        float seedY = UnityEngine.Random.Range(0f, 9999f);
+        float seedX = cfg.GlobalPerlinSeed ? perlinSeedX : UnityEngine.Random.Range(0f, 9999f);
+        float seedY = cfg.GlobalPerlinSeed ? perlinSeedY : UnityEngine.Random.Range(0f, 9999f);
         foreach (Cell cell in room.cells)
         {
             perlin_floor = (int)(Mathf.PerlinNoise((cell.x + seedX) * cfg.perlinFloorWavelength,

@@ -105,7 +105,10 @@ public partial class Player : MonoBehaviour
         }
         agent.pos2.x = x + 0.5f;  // center of cell
         agent.pos2.y = y + 0.5f;
-        agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
+
+        //agent.height = gen.cellGrid[x, y].height + (int)heightCorrection;  // height of current cell floor.
+        agent.height = Agent.SampleAgentHeight(agent.pos2, gen.cellGrid, gen.cfg.unitHeight);
+         //Debug.Log($"Start pos = {agent.pos2.x}, {agent.pos2.y}, height={agent.height}");
         agent.TransformPosition(agent);    // move the player's agent
         
         agent.camera_refresh_needed=true;
