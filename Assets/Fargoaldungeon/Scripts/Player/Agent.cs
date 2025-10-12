@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Unity.Collections;
 using UnityEngine;
 
 
@@ -85,7 +86,8 @@ public partial class Agent : MonoBehaviour
         if (trailFollower)
         {
             //FollowTrail();
-            FollowTrailInFormation();
+            if (pack.gen.buildComplete)
+                FollowTrailInFormation();
         }
     }
 
@@ -323,24 +325,100 @@ public partial class Agent : MonoBehaviour
     // Convert from map location to world location and apply that to the agent's ojbect
     public bool TransformPosition(Agent agent)
     {
-        // 1) Hard guards with precise logs
-        if (!DungeonGenerator.Check(agent, "agent", this)) return false;
+        if (pack.gen.buildComplete == false)
+        {
+            Debug.LogWarning("TransformPosition: Dungeon generation not complete yet.");
+            return false;
+        }
+        Cell cell = new(0,0);
+        bool skipHeight = false;
+        while (true)
+        {
+            if (agent == null)
+            {
+                Debug.LogError("TransformPosition: agent is null");
+                skipHeight = true;
+                break;
+            }
+            else
+            {
+                if (agent.transform == null)
+                {
+                    Debug.LogError("TransformPosition: agent.transform is null");
+                    skipHeight = true;
+                    break;
+                }
 
-        var tr = (agent as MonoBehaviour)?.transform ?? null;
-        if (!DungeonGenerator.Check(tr, "agent.transform", agent as MonoBehaviour)) return false;
+                if (agent.pos2 == null)
+                {
+                    Debug.LogError("TransformPosition: agent.pos2 is null");
+                    skipHeight = true;
+                    break;
+                }
+            }
+            if (pack == null)
+            {
+                Debug.LogError("TransformPosition: pack is null");
+                skipHeight = true;
+                break;
+            }
+            else if (pack.gen == null)
+            {
+                Debug.LogError("TransformPosition: pack.gen is null");
+                skipHeight = true;
+                break;
+            }
+            else
+            {
+                if (pack.gen.cellGrid == null)
+                {
+                    Debug.LogError("TransformPosition: pack.gen.cellGrid is null");
+                    skipHeight = true;
+                    break;
+                }
+                if (pack.gen.cfg == null)
+                {
+                    Debug.LogError("TransformPosition: pack.gen.cfg is null");
+                    skipHeight = true;
+                    break;
+                }
+                if (pack.gen.rooms == null)
+                {
+                    Debug.LogError("TransformPosition: pack.gen.rooms is null");
+                    skipHeight = true;
+                    break;
+                }
+            }
+            break;  // break from while loop 
+        }
+        
+        // 1) Hard guards with precise logs
+        //if (!DungeonGenerator.Check(agent, "agent", this)) skipHeight = true;
+
+        //var tr = (agent as MonoBehaviour)?.transform ?? null;
+        //if (!DungeonGenerator.Check(tr, "agent.transform", agent as MonoBehaviour)) skipHeight = true;
 
         // if you keep a generator / grid on Agent:
-        if (!DungeonGenerator.Check(pack.gen, "gen", this)) return false;
-        if (!DungeonGenerator.Check(pack.gen.cellGrid, "gen.cellGrid", this)) return false;
-        if (!DungeonGenerator.Check(pack.gen.rooms, "gen.rooms", this)) return false;
+        //if (!DungeonGenerator.Check(pack.gen, "gen", this)) skipHeight = true;
+        //if (!DungeonGenerator.Check(pack.gen.cellGrid, "gen.cellGrid", this)) skipHeight = true;
+        //if (!DungeonGenerator.Check(pack.gen.rooms, "gen.rooms", this)) skipHeight = true;
 
+
+        //if (!DungeonGenerator.Check(pack.gen.cfg, "cfg", this)) skipHeight = true;
+
+        if (!skipHeight)
+        {
+            int xx = Mathf.FloorToInt(agent.pos2.x);
+            int yy = Mathf.FloorToInt(agent.pos2.y);
+            cell = pack.gen.cellGrid[xx, yy];
+            if (cell != null)
+            {
+                agent.height = pack.gen.cfg.unitHeight * cell.height;
+                //agent.height = SampleAgentHeight(agent.pos2, pack.gen.cellGrid, pack.gen.cfg.unitHeight);
+            }
+        }
 
         Cleanup(ref agent.pos2);
-        Cell cell = pack.gen.cellGrid[Mathf.FloorToInt(agent.pos2.x), Mathf.FloorToInt(agent.pos2.y)];
-        if (!DungeonGenerator.Check(cell, "cell", this)) return false;
-        if (!DungeonGenerator.Check(pack.gen.cfg, "cfg", this)) return false;
-        agent.height = pack.gen.cfg.unitHeight * cell.height;
-        //agent.height = SampleAgentHeight(agent.pos2, pack.gen.cellGrid, cfg.unitHeight);
 
         if (useXZPlane)
         {

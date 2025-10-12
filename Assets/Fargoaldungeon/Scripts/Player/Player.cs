@@ -81,6 +81,8 @@ public partial class Player : MonoBehaviour
 
     void Update()
     {
+        if (!gen.buildComplete) return; // wait until build is complete
+
         Input_Update();  // this is the update for inputs and resulting movement
                          // Input_Update will call Move_Update with the appropriate parameters.
     }
@@ -128,7 +130,7 @@ public partial class Player : MonoBehaviour
         pack.PackLeader = agent;
         pack.trail.leader = agent;
         agent.TransformPosition(agent);    // move the player's agent
-        Move_Update(0f, 0f);    // screen refresh
+        //Move_Update(0f, 0f);    // screen refresh
         BottomBanner.ShowFor($"New leader = {agent.name}", 5f);
     }
 

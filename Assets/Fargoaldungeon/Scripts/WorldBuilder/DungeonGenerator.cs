@@ -231,7 +231,7 @@ public partial class DungeonGenerator : MonoBehaviour
                 // Optionally add Perlin noise to floor heights
                 perlinSeedX = cfg.GlobalPerlinSeed ? UnityEngine.Random.Range(0f, 9999f) : 0f;
                 perlinSeedY = cfg.GlobalPerlinSeed ? UnityEngine.Random.Range(0f, 9999f) : 0f;
-                
+
                 if (cfg.perlinFloorHeights > 0)
                 {
                     for (int r = 0; r < rooms.Count; r++)
@@ -297,13 +297,14 @@ public partial class DungeonGenerator : MonoBehaviour
             DrawMapByRooms(rooms);  // update the 2D map before finishing.
             DrawWalls();
 
-            yield return tm.YieldOrDelay(cfg.stepDelay);
-
+            UpdateCellGridFromRooms(rooms);  // update the master cellGrid from the rooms list
+            // Build the heightfield hf if it doesn't exist yet
+            if (hf == null) PrepareHeightfield();
+            
             BottomBanner.ShowFor("Dungeon generation complete!", 5f);
+            buildComplete = true;
         }
         finally { if (local_tm) tm.End(); }
-
-        buildComplete = true;
         TimeManager.Instance.DumpStats();
     }
 
