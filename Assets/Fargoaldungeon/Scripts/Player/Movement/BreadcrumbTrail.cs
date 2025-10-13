@@ -9,7 +9,7 @@ public class Crumb
 {
     public bool valid = false;
     public Vector3 position;        // point creator was at
-    public float yawDeg;       // angle player wasw at: helps followers turn?
+    public float yawDeg;       // angle player was at: helps followers turn?
     public List<int> whichFollowersArrived;
 }
 

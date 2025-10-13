@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66e31e87dc1d940368e65604dddcac77, type: 3}
   m_Name: DungeonSettings
   m_EditorClassIdentifier: 
-  RoomAlgorithm: 5
+  RoomAlgorithm: 2
   TunnelsAlgorithm: 1
   showBuildProcess: 0
   stepDelay: 0.1
   randomizeSeed: 1
-  seed: 1084048370
+  seed: -455885522
   useThinWalls: 1
   mapWidth: 100
   mapHeight: 100
@@ -49,7 +49,7 @@ MonoBehaviour:
   allowVerticalStacking: 1
   minVerticalStackHeight: 5
   ovalRooms: 0
-  useCellularAutomata: 0
+  useCellularAutomata: 1
   cellularFillPercent: 45
   CellularGrowthSteps: 5
   usePerlin: 0
@@ -80,7 +80,7 @@ MonoBehaviour:
   roomGrowAlgo: 0
   scrapAlgo: 1
   doorAlgo: 0
-  usePackedRooms: 1
+  usePackedRooms: 0
   useRoundPen: 0
   corridor:
     corridorWidth: 2

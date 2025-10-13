@@ -53,7 +53,7 @@ public partial class Player : MonoBehaviour
 
         // 2) Integrate and resolve against grid edges
         Vector2 p_from = agent.pos2;  // pos2 is the Vector2 of the player location
-        Vector2 p_to = p_from + desiredDir2 * speed * Time.deltaTime;
+        Vector2 p_to = p_from + desiredDir2 * (speed * Time.deltaTime);
         Vector2 p_new = ResolveGridConstraints(p_from, p_to, agent.radius, constraintIters);
 
         // 3) Commit position & rotation to Transform

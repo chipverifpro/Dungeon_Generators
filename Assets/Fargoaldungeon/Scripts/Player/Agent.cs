@@ -83,12 +83,12 @@ public partial class Agent : MonoBehaviour
         {
             trail.RecordIfNeeded();
         }
-        if (trailFollower)
-        {
+        //if (trailFollower)
+        //{
             //FollowTrail();
             if (pack.gen.buildComplete)
                 FollowTrailInFormation();
-        }
+        //}
     }
 
     IEnumerator CycleAnimations()

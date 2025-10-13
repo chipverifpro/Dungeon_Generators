@@ -5,9 +5,9 @@ using UnityEngine.AI;
 using UnityEngine.UIElements;
 
 // TODO list:
-//   add movement on diagonal walls
+//   DONE: add movement on diagonal walls
 //   DONE add start on map floor tile
-//   add height to movement
+//   DONE: add height to movement
 //   switch to heightmap instead of grid to allow movement with vertical stacking
 //   move all params into this file.
 
@@ -28,6 +28,8 @@ public partial class Player : MonoBehaviour
     //public Vector2 pos2;          // XY or XZ (depending on useXZPlane)
     //public float yawDeg;          // facing yaw in degrees (around Z for XY, around Y for XZ)
     //public int floorHeight = 1;   // height of current tile.
+
+    public Vector3 destination;      // world position we are moving toward
 
     [Header("Unique Agent Parameters")]
     public float baseSpeed = 6.0f;       // W/S movement world units per second
@@ -94,10 +96,8 @@ public partial class Player : MonoBehaviour
         yield return new WaitUntil(() => gen.buildComplete);
 
         // randomly pick a start location.
-        int x = Mathf.FloorToInt(agent.pos2.x);
-        int y = Mathf.FloorToInt(agent.pos2.y);
-        x = -1; // Debug: Force a move
-        y = -1;
+        int x = -1;
+        int y = -1;
         //TODO fix this to use Heightmap instead of cellGrid
         while ((!gen.In(x, y)) || (gen.cellGrid[x, y].room_number < 0))
         {
