@@ -28,6 +28,7 @@ public partial class Player : MonoBehaviour
         //MoveTowardMouseTarget();   // move toward clicked location
     }
 
+/*
     // Move this function into the moving.cs file.
     void MoveTowardMouseTarget()
     {
@@ -72,7 +73,7 @@ public partial class Player : MonoBehaviour
             }
         }
     }
-
+*/
 
 
     //[Header("Leader & Routing")]

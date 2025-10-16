@@ -299,8 +299,10 @@ public partial class Agent : MonoBehaviour
                 if (dist_to_target < .01)
                 {
                     use_crumb_yaw = true;
-                    Debug.LogWarning($"Two sequential crumbs on top of each other.  Should not happen.");
-                    break; // we are also at the next crumb???? not supposed to happen.
+                    //if (next_formationCrumb.yawDeg == pack.PackLeader.yawDeg)
+                        //return;
+                    //Debug.LogWarning($"Two sequential crumbs on top of each other.  At leader, who isn't moving.");
+                    break; // we are also at the next crumb. This happens when fallback was to leader position, but leader didn't move.
                 }
             }
 

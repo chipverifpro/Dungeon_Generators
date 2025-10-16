@@ -31,7 +31,7 @@ public class BreadcrumbTrail : MonoBehaviour
 
 
     public List<Crumb> crumbs = new List<Crumb>(256);
-    public Vector3 lastDropPos;
+    public Vector2 lastDropPos;
     public bool hasAny = false;
 
     void Awake()
@@ -43,7 +43,7 @@ public class BreadcrumbTrail : MonoBehaviour
 
     void Update()
     {
-        //RecordIfNeeded();
+        RecordIfNeeded();
     }
 
     /// Call once per frame by the owner to record position if moved enough.
@@ -57,22 +57,22 @@ public class BreadcrumbTrail : MonoBehaviour
         if (!hasAny)
         {
             AddCrumb();
-            lastDropPos = leader_pos3;
+            lastDropPos = leader.pos2;
             hasAny = true;
             return;
         }
 
-        if (forceDrop && (leader_pos3 != lastDropPos))
+        if (forceDrop && (leader.pos2 != lastDropPos))
         {
             AddCrumb();
-            lastDropPos = leader_pos3;
+            lastDropPos = leader.pos2;
             return;
         }
         //Debug.Log($"RecordIfNeeded: leader.pos3={leader_pos3}, lastDropPos={lastDropPos}, distSquared = {(leader_pos3 - lastDropPos).sqrMagnitude}");
-        if ((leader_pos3 - lastDropPos).sqrMagnitude >= dropDistance * dropDistance)
+        if ((leader.pos2 - lastDropPos).sqrMagnitude >= dropDistance * dropDistance)
         {
             AddCrumb();
-            lastDropPos = leader_pos3;
+            lastDropPos = leader.pos2;
         }
     }
 
@@ -85,18 +85,20 @@ public class BreadcrumbTrail : MonoBehaviour
             // Drop oldest when full
             crumbs.RemoveAt(0);
         }
-        Vector3 agent_pos_3 = new(leader.pos2.x, leader.height, leader.pos2.y);
+        //Vector3 agent_pos_3 = new(leader.pos2.x, leader.height, leader.pos2.y);
         Crumb new_crumb = new() { pos2 = leader.pos2, height = leader.height, yawDeg = leader.yawDeg, valid = true };
         new_crumb.whichFollowersArrived = new();
         crumbs.Add(new_crumb);
     }
 
-    /// Returns the newest crumb if any; else returns current transform position.
-    public Vector2 GetLatestPositionFallback()
-    {
-        if (crumbs.Count > 0) return crumbs[crumbs.Count - 1].pos2;
-        return leader.pos2;
-    }
+    /*
+        /// Returns the newest crumb if any; else returns current transform position.
+        public Vector2 GetLatestPositionFallback()
+        {
+            if (crumbs.Count > 0) return crumbs[crumbs.Count - 1].pos2;
+            return leader.pos2;
+        }
+    */
 
     public void AddFollower(Agent agent)
     {
@@ -150,8 +152,8 @@ public class BreadcrumbTrail : MonoBehaviour
 
     public Crumb GetNextCrumb(Agent agent)
     {
-        //int eater_index;
-        //int crumb_index;
+        int eater_index;
+        int crumb_index;
         // for returning an invalid crumb
         Crumb invalid_crumb = new()
         {
@@ -159,6 +161,7 @@ public class BreadcrumbTrail : MonoBehaviour
             pos2 = new(999f, 999f),
             height = 999f
         };
+        
         Crumb leader_pos_crumb = new()
         {
             valid = true,
@@ -167,13 +170,14 @@ public class BreadcrumbTrail : MonoBehaviour
             yawDeg = leader.yawDeg
         };
         agent.next_actualCrumb = leader_pos_crumb; // default to leader position if no crumbs
-        return agent.next_actualCrumb;
-        /*
+        //return agent.next_actualCrumb;
+        
 
         eater_index = FindFollowerIndex(agent);
         if (eater_index < 0) return invalid_crumb;
         // scan through the crumb list to find the first one that the eater has not eaten
-        for (crumb_index = crumbs.Count-1; crumb_index >=0; crumb_index--)
+        //for (crumb_index = crumbs.Count-1; crumb_index >=0; crumb_index--)
+        for (crumb_index = 0; crumb_index < crumbs.Count; crumb_index++)
         {
             ///if (crumbs[crumb_index].position == lastEaten[eater_index])
             //if (crumbs == null) return invalid_crumb;
@@ -184,24 +188,29 @@ public class BreadcrumbTrail : MonoBehaviour
 
             if (!crumbs[crumb_index].whichFollowersArrived.Contains(eater_index))
             {
-                if (crumb_index < crumbs.Count - 1)
+                if (crumb_index == 0) // this was most recent crumb
                 {
-                    crumb_index++;   // not off end of list
+                    return leader_pos_crumb;  // next would be off end of list
+                    //return invalid_crumb;  // next would be off end of list
                 }
+
                 // we located the last crumb this follower ate.  Now give follower the next one    
+                crumb_index--;
                 agent.next_actualCrumb = crumbs[crumb_index];
+
                 // update the crumb to know it was eaten.
                 crumbs[crumb_index].whichFollowersArrived.Add(eater_index);
+
                 // if every follower has eaten here, remove crumb from trail.
                 if (crumbs[crumb_index].whichFollowersArrived.Count == followers.Count)
                 {
+                    Debug.Log($"Follower {agent.name} ate crumb {crumb_index}, all followers have eaten it, removing crumb.");
                     crumbs.RemoveAt(crumb_index);
                 }
                 // return that position
                 return agent.next_actualCrumb;
             }
         }
-        return invalid_crumb;
-        */
+        return invalid_crumb;   // did not find an uneaten crumb.
     }
 }
