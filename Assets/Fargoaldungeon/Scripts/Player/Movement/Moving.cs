@@ -27,6 +27,7 @@ public partial class Player : MonoBehaviour
             agent.yawDeg += turn * turnSpeedDegPerSec * Time.deltaTime;
             CleanupFloat(ref agent.yawDeg);
 
+            //leaderTravelling = false; // if player is turning, stop travelling to click target
             // commit rotation ALWAYS (even if thrust == 0)
             //if (useXZPlane) agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f);
             //else agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection);
@@ -36,6 +37,8 @@ public partial class Player : MonoBehaviour
             if (Math.Abs(thrust) > 1e-5f)    // only snap if turning=false but moving=true
             {
                 agent.yawDeg = SnapToCardinals(agent.yawDeg, snapToCardinalDegrees);
+                //leaderTravelling = false; // if player is moving, stop travelling to click target
+
                 //if (useXZPlane) agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f);
                 //else agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection);
             }
@@ -82,6 +85,7 @@ public partial class Player : MonoBehaviour
             //agent.height = gen.cfg.unitHeight * gen.cellGrid[Mathf.FloorToInt(agent.pos2.x), Mathf.FloorToInt(agent.pos2.y)].height;
             agent.height = Agent.SampleAgentHeight(agent.pos2, gen.cellGrid, gen.cfg.unitHeight);
         }
+        //leaderTravelling = false; // if player is moving, stop travelling to click target
         TransformPosition(agent);
     }
 

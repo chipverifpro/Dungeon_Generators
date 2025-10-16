@@ -41,7 +41,7 @@ public class BreadcrumbTrail : MonoBehaviour
 
     void Update()
     {
-        RecordIfNeeded();
+        //RecordIfNeeded();
     }
 
     /// Call once per frame by the owner to record position if moved enough.

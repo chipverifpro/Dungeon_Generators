@@ -81,14 +81,15 @@ public partial class Agent : MonoBehaviour
     {
         if (trailLeader) // Leave crumbs
         {
-            trail.RecordIfNeeded();
+            if (pack.gen.buildComplete)
+                FollowTrailInFormation();
         }
-        //if (trailFollower)
-        //{
+        if (trailFollower)
+        {
             //FollowTrail();
             if (pack.gen.buildComplete)
                 FollowTrailInFormation();
-        //}
+        }
     }
 
     IEnumerator CycleAnimations()
@@ -196,6 +197,84 @@ public partial class Agent : MonoBehaviour
         }
     */
 
+    void LeaderTravelToTarget()
+    {
+        Vector3 originalPos;
+        Vector3 agentPos3;
+        Vector3 loc_clamped;
+
+        float dist_to_next_crumb;
+        Vector3 target_pos;
+        float dist_to_target;
+        float move_credit;
+        bool use_crumb_yaw = false;
+
+        originalPos = new(pos2.x, pos2.y, height);  // current agent position
+
+        // if we have no valid destination, see if we can get a new crumb, else abort
+        if (next_formationCrumb.valid == false)
+        {
+            return; // no target to follow, do nothing
+        }
+
+        // calculate the move_credit;
+        move_credit = baseSpeed * Time.deltaTime;
+        //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
+
+        //loop until move_credit is gone
+        while (move_credit > 0.0001)
+        {
+            Debug.Log($"Leader {name} following target towards {next_formationCrumb.position}, move_credit={move_credit}");
+            use_crumb_yaw = false;
+            agentPos3 = new(pos2.x, pos2.y, height);
+            dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
+            if (dist_to_next_crumb < .0001)
+            {
+                next_formationCrumb.valid = false;
+                use_crumb_yaw = true;
+                break;  // arrived at destination
+            }
+
+            dist_to_target = dist_to_next_crumb;
+            target_pos = next_formationCrumb.position;
+
+            // move up to target, maximum move is move_credit.
+
+            // do the move.  Travel dist towards target position
+            if (move_credit < dist_to_target)
+            {
+                // cannot go all the way, so travel by move_credit distance
+                loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
+                pos2.x = loc_clamped.x;
+                pos2.y = loc_clamped.y;
+                height = loc_clamped.z;
+                move_credit = 0;
+            }
+            else
+            {
+                // we have enough move_credit to go all the way.  Do it and repeat the loop.
+                pos2.x = target_pos.x;
+                pos2.y = target_pos.y;
+                height = target_pos.z;
+                move_credit -= dist_to_target;    // continue while loop getting next crumb
+                //use_crumb_yaw = true;
+            }
+        } // continue while credits remain
+
+        Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
+        Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
+        if (use_crumb_yaw)
+        {
+            yawDeg = pack.PackLeader.yawDeg; // face the right direction on arrival
+        } else
+        {
+            yawDeg = UnitVectorToYaw(unit_vector);
+        }
+
+        TransformPosition(this);    // move the agent object to it's new location.
+    }
+
+
     void FollowTrailInFormation()
     {
         Vector3 originalPos;
@@ -283,7 +362,7 @@ public partial class Agent : MonoBehaviour
         if (use_crumb_yaw)
         {
             if (pack.formation == FormationsEnum.Circle) // face outwards
-                yawDeg = 180 + Mathf.Atan2(pos2.x - pack.PackLeader.pos2.x, pos2.y - pack.PackLeader.pos2.y) * Mathf.Rad2Deg + 180f - yawCorrection; // face outwards
+                yawDeg = Mathf.Atan2(pos2.x - pack.PackLeader.pos2.x, pos2.y - pack.PackLeader.pos2.y) * Mathf.Rad2Deg - yawCorrection; // face outwards
             else
                 yawDeg = pack.PackLeader.yawDeg; // face the right direction on arrival
         }
@@ -443,7 +522,6 @@ public partial class Agent : MonoBehaviour
             t.x = t_World.x; t.y = t_World.y; // XY location
             t.z = agent.height + 1;
             agent.transform.position = t;
-            //pack.player.transform.position = t;
             agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
             if (pack.player.agent == agent)
             {
@@ -453,6 +531,11 @@ public partial class Agent : MonoBehaviour
 
         }
         return true;
+    }
+
+    public float UnitVectorToYaw(Vector2 unit_vector)
+    {
+        return Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
     }
 
     // apply offset from map coordinates to world coordinates

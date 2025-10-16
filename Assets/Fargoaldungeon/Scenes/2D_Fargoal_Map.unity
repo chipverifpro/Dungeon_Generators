@@ -2323,11 +2323,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcdc0a2c1733d440881cfeeedb6fbcf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  origin: {x: 0, y: 0, z: 0}
+  cellSize: 1
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  rayMaxDistance: 200
+  sampleTiltedFloorY: 0
+  player: {fileID: 556401679}
+  turnSpeed: 1
+  smooth: 0
+  smoothTime: 4
   gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
   PackGameObject: {fileID: 766807146}
   pack: {fileID: 766807147}
   agent: {fileID: 1159626742}
+  destination: {x: 0, y: 0, z: 0}
   baseSpeed: 6
   turnSpeedDegPerSec: 180
   radius: 0.4
@@ -7035,8 +7047,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1815589282}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.33100697, y: -0.000000046003645, z: 0.000000016137209, w: 0.9436283}
-  m_LocalPosition: {x: -52.989567, y: 5.0699325, z: -36.708233}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: -52.989567, y: 17.069933, z: -26.708233}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

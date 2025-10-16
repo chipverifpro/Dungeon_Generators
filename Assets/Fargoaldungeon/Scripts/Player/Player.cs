@@ -69,6 +69,7 @@ public partial class Player : MonoBehaviour
             bottomBanner = FindAnyObjectByType<BottomBanner>();
         //if (agent == null)
         //ChangePlayerAgent(pack.PackLeader);
+        AwakeMouseInput();
     }
 
     void Start()
