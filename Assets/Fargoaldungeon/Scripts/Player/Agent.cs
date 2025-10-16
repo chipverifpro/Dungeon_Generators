@@ -82,7 +82,7 @@ public partial class Agent : MonoBehaviour
         if (trailLeader) // Leave crumbs
         {
             if (pack.gen.buildComplete)
-                FollowTrailInFormation();
+                LeaderTravelToTarget();
         }
         if (trailFollower)
         {
@@ -199,77 +199,51 @@ public partial class Agent : MonoBehaviour
 
     void LeaderTravelToTarget()
     {
-        Vector3 originalPos;
-        Vector3 agentPos3;
-        Vector3 loc_clamped;
+        Vector2 originalPos;   // starting position of this call
+        Vector2 targetPos;    // where we want to go (from crumb)
+        Vector2 loc_clamped;    // location we can get to limited by move_credit
+        Vector2 final_dest_pos; // where we ended up
+        Vector2 unit_vector;    // for converting into yawDeg
 
-        float dist_to_next_crumb;
-        Vector3 target_pos;
-        float dist_to_target;
-        float move_credit;
-        bool use_crumb_yaw = false;
+        float dist_to_target;   // oringinal position -> target_pos
+        float move_credit;      // how far we can move this frame
 
-        originalPos = new(pos2.x, pos2.y, height);  // current agent position
 
-        // if we have no valid destination, see if we can get a new crumb, else abort
+        // if we have no valid destination, abort
         if (next_formationCrumb.valid == false)
         {
             return; // no target to follow, do nothing
         }
 
-        // calculate the move_credit;
+        originalPos = pos2;
         move_credit = baseSpeed * Time.deltaTime;
-        //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
-
-        //loop until move_credit is gone
-        while (move_credit > 0.0001)
+        targetPos = new(next_formationCrumb.position.x, next_formationCrumb.position.z);
+        dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+        
+        if (dist_to_target < .001)
         {
-            Debug.Log($"Leader {name} following target towards {next_formationCrumb.position}, move_credit={move_credit}");
-            use_crumb_yaw = false;
-            agentPos3 = new(pos2.x, pos2.y, height);
-            dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
-            if (dist_to_next_crumb < .0001)
-            {
-                next_formationCrumb.valid = false;
-                use_crumb_yaw = true;
-                break;  // arrived at destination
-            }
-
-            dist_to_target = dist_to_next_crumb;
-            target_pos = next_formationCrumb.position;
-
-            // move up to target, maximum move is move_credit.
-
-            // do the move.  Travel dist towards target position
-            if (move_credit < dist_to_target)
-            {
-                // cannot go all the way, so travel by move_credit distance
-                loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
-                pos2.x = loc_clamped.x;
-                pos2.y = loc_clamped.y;
-                height = loc_clamped.z;
-                move_credit = 0;
-            }
-            else
-            {
-                // we have enough move_credit to go all the way.  Do it and repeat the loop.
-                pos2.x = target_pos.x;
-                pos2.y = target_pos.y;
-                height = target_pos.z;
-                move_credit -= dist_to_target;    // continue while loop getting next crumb
-                //use_crumb_yaw = true;
-            }
-        } // continue while credits remain
-
-        Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
-        Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
-        if (use_crumb_yaw)
-        {
-            yawDeg = pack.PackLeader.yawDeg; // face the right direction on arrival
-        } else
-        {
-            yawDeg = UnitVectorToYaw(unit_vector);
+            next_formationCrumb.valid = false;
+            return;  // already arrived at destination.  No move necessary.
         }
+        else if (move_credit < dist_to_target)
+        {
+            // cannot go all the way, so travel by move_credit distance and continue next frame.
+            loc_clamped = LerpVector2(pos2, targetPos, move_credit / dist_to_target);
+            pos2.x = loc_clamped.x;
+            pos2.y = loc_clamped.y;
+        }
+        else
+        {
+            // we have enough move_credit to go all the way.  Do it.
+            pos2.x = targetPos.x;
+            pos2.y = targetPos.y;
+            next_formationCrumb.valid = false; // arrived
+        }
+
+        // turn to correct angle of movement.
+        final_dest_pos = new(pos2.x, pos2.y);
+        unit_vector = (final_dest_pos - originalPos).normalized;
+        yawDeg = UnitVectorToYaw(unit_vector);
 
         TransformPosition(this);    // move the agent object to it's new location.
     }
@@ -380,6 +354,14 @@ public partial class Agent : MonoBehaviour
         result.x = Mathf.Lerp(a.x, b.x, t);
         result.y = Mathf.Lerp(a.y, b.y, t);
         result.z = Mathf.Lerp(a.z, b.z, t);
+        return result;
+    }
+
+    Vector3 LerpVector2(Vector2 a, Vector2 b, float t)
+    {
+        Vector2 result;
+        result.x = Mathf.Lerp(a.x, b.x, t);
+        result.y = Mathf.Lerp(a.y, b.y, t);
         return result;
     }
 

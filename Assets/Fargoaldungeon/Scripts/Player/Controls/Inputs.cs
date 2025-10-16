@@ -25,7 +25,7 @@ public partial class Player : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha5)) ChangePlayerAgentById(4);
 
         UpdateMouseInput();  // Click/tap to move
-        MoveTowardMouseTarget();   // move toward clicked location
+        //MoveTowardMouseTarget();   // move toward clicked location
     }
 
     // Move this function into the moving.cs file.
