@@ -8,7 +8,9 @@ using UnityEngine;
 public class Crumb
 {
     public bool valid = false;
-    public Vector3 position;        // point creator was at
+    //public Vector3 position;        // point creator was at
+    public Vector2 pos2;
+    public float height;
     public float yawDeg;       // angle player was at: helps followers turn?
     public List<int> whichFollowersArrived;
 }
@@ -48,7 +50,7 @@ public class BreadcrumbTrail : MonoBehaviour
     /// Can be forced in the case of a sharp turn that we want included.
     public void RecordIfNeeded(bool forceDrop = false)
     {
-        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
+        Vector3 leader_pos3 = new(leader.pos2.x, leader.height, leader.pos2.y);
         //Debug.Log($"RecordIfNeeded: numFollowers = {numFollowers}, numCrumbs = {crumbs.Count}, hasAny={hasAny}, forceDrop={forceDrop}");
         if (numFollowers == 0) return;
 
@@ -83,18 +85,17 @@ public class BreadcrumbTrail : MonoBehaviour
             // Drop oldest when full
             crumbs.RemoveAt(0);
         }
-        Vector3 agent_pos_3 = new(leader.pos2.x, leader.pos2.y, leader.height);
-        Crumb new_crumb = new() { position = agent_pos_3, yawDeg = leader.yawDeg, valid = true };
+        Vector3 agent_pos_3 = new(leader.pos2.x, leader.height, leader.pos2.y);
+        Crumb new_crumb = new() { pos2 = leader.pos2, height = leader.height, yawDeg = leader.yawDeg, valid = true };
         new_crumb.whichFollowersArrived = new();
         crumbs.Add(new_crumb);
     }
 
     /// Returns the newest crumb if any; else returns current transform position.
-    public Vector3 GetLatestPositionFallback()
+    public Vector2 GetLatestPositionFallback()
     {
-        if (crumbs.Count > 0) return crumbs[crumbs.Count - 1].position;
-        Vector3 leader_pos3 = new(leader.pos2.x, leader.pos2.y, leader.height);
-        return leader_pos3;
+        if (crumbs.Count > 0) return crumbs[crumbs.Count - 1].pos2;
+        return leader.pos2;
     }
 
     public void AddFollower(Agent agent)
@@ -155,12 +156,14 @@ public class BreadcrumbTrail : MonoBehaviour
         Crumb invalid_crumb = new()
         {
             valid = false,
-            position = new(999f, 999f, 999f)
+            pos2 = new(999f, 999f),
+            height = 999f
         };
         Crumb leader_pos_crumb = new()
         {
             valid = true,
-            position = new(leader.pos2.x, leader.pos2.y, leader.height),
+            pos2 = new(leader.pos2.x, leader.pos2.y),
+            height = leader.height,
             yawDeg = leader.yawDeg
         };
         agent.next_actualCrumb = leader_pos_crumb; // default to leader position if no crumbs

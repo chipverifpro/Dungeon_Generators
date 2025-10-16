@@ -110,7 +110,7 @@ public partial class Agent
         Vector2 normalized = Vector2.zero;
 
         FormationsEnum formation = pack.formation;
-        Vector2 crumbPos2 = crumb.position;
+        Vector2 crumbPos2 = crumb.pos2;
         float crumbYawDeg = crumb.yawDeg;
         int position_in_pack = pack.packList.FindIndex(a => a.id == agent_id);
         int number_in_pack = pack.packList.Count;
@@ -127,7 +127,7 @@ public partial class Agent
         Vector2 offset = GetOffsetForFormation(formation, position_in_pack, number_in_pack);
         Vector2 rotated_offset = RotateAndScaleOffset(offset, crumbYawDeg, scale);
 
-        agent.next_formationCrumb.position = crumbPos2 + rotated_offset;
+        agent.next_formationCrumb.pos2 = crumbPos2 + rotated_offset;
         agent.next_formationCrumb.yawDeg = crumbYawDeg; // todo: for circle formation, face outwards.
         agent.next_formationCrumb.valid = true;
         return agent.next_formationCrumb;

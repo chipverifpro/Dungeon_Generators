@@ -40,7 +40,7 @@ public partial class Player : MonoBehaviour
         if (agent.next_formationCrumb.valid)
         {
             //Vector3 pos3 = new(agent.pos2.x, agent.height, agent.pos2.y);
-            Vector2 crumbpos2 = new(agent.next_formationCrumb.position.x, agent.next_formationCrumb.position.z);
+            Vector2 crumbpos2 = agent.next_formationCrumb.pos2;
             float dist = Vector2.Distance(agent.pos2, crumbpos2);
             Debug.Log($"LeaderTargetCrumb = {crumbpos2}, dist = {dist}");
             if (dist < 0.1f)
@@ -322,11 +322,12 @@ public partial class Player : MonoBehaviour
         // Route the leader
         var crumb = new Crumb
         {
-            position = dest,
+            pos2 = new(centerX, centerZ),
+            height = y,
             valid = true
         };
-        Vector2 crumbpos2 = new(crumb.position.x, crumb.position.z);
-        Vector2 dir = (agent.pos2 - crumbpos2).normalized;
+        //Vector2 crumbpos2 = crumb.pos2;
+        Vector2 dir = (agent.pos2 - crumb.pos2).normalized;
         crumb.yawDeg = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg - yawCorrection; // face target
         agent.yawDeg = crumb.yawDeg;
         agent.next_formationCrumb = crumb;

@@ -217,7 +217,7 @@ public partial class Agent : MonoBehaviour
 
         originalPos = pos2;
         move_credit = baseSpeed * Time.deltaTime;
-        targetPos = new(next_formationCrumb.position.x, next_formationCrumb.position.z);
+        targetPos = next_formationCrumb.pos2;
         dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
         
         if (dist_to_target < .001)
@@ -251,21 +251,16 @@ public partial class Agent : MonoBehaviour
 
     void FollowTrailInFormation()
     {
-        Vector3 originalPos;
-        Vector3 agentPos3;
-        Vector3 loc_clamped;
-        //Crumb next_actualCrumb;
+        Vector2 originalPos;
+        Vector2 targetPos;
+        Vector2 loc_clamped;
 
-        //Vector3 next_crumb_pos;
-        float dist_to_next_crumb;
-        //Vector3 agent_ahead_pos;
-        //float dist_to_next_agent;
-        Vector3 target_pos;
+        Vector2 final_dest_pos; // where we ended up
+        Vector2 unit_vector;    // for converting into yawDeg
+
         float dist_to_target;
         float move_credit;
         bool use_crumb_yaw = false;
-
-        originalPos = new(pos2.x, pos2.y, height);  // current agent position
 
         // if we have no valid destination, see if we can get a new crumb, else abort
         if (next_formationCrumb.valid == false)
@@ -275,38 +270,41 @@ public partial class Agent : MonoBehaviour
             if (next_formationCrumb.valid == false) return; // no trail to follow, do nothing
         }
 
+        originalPos = pos2;  // current agent position
         // calculate the move_credit;
         move_credit = baseSpeed * Time.deltaTime;
+        targetPos = next_formationCrumb.pos2;
         //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
 
         //loop until move_credit is gone
-        while (move_credit > 0.0001)
+        while (move_credit > 0.001)
         {
             //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
             use_crumb_yaw = false;
-            agentPos3 = new(pos2.x, pos2.y, height);
-            dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
-            if (dist_to_next_crumb < .0001)
+
+            targetPos = next_formationCrumb.pos2;
+            dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+            if (dist_to_target < .001)
             {
-                // arrived, get next crumb
-                next_actualCrumb = trail.GetNextCrumb(this);
-                next_formationCrumb = GetFormationPosition(pack, id, next_actualCrumb);
+                // arrived at crumb target, get next crumb
+                next_actualCrumb = trail.GetNextCrumb(this);    // this is the leader crumb
+                next_formationCrumb = GetFormationPosition(pack, id, next_actualCrumb); // shift it by follower offset
                 if (next_formationCrumb.valid == false)
                 {
                     use_crumb_yaw = true;
                     break;  // arrived at last available crumb.
                 }
-                dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_formationCrumb.position).sqrMagnitude);
+                dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
 
-                if (dist_to_next_crumb < .01)
+                if (dist_to_target < .01)
                 {
                     use_crumb_yaw = true;
-                    break; // we are also at the next crumb, stop for now.???? not supposed to happen.
+                    Debug.LogWarning($"Two sequential crumbs on top of each other.  Should not happen.");
+                    break; // we are also at the next crumb???? not supposed to happen.
                 }
             }
 
-            dist_to_target = dist_to_next_crumb;
-            target_pos = next_formationCrumb.position;
+            targetPos = next_formationCrumb.pos2;
 
             // move up to target, maximum move is move_credit.
 
@@ -314,34 +312,40 @@ public partial class Agent : MonoBehaviour
             if (move_credit < dist_to_target)
             {
                 // cannot go all the way, so travel by move_credit distance
-                loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
-                pos2.x = loc_clamped.x;
-                pos2.y = loc_clamped.y;
-                height = loc_clamped.z;
+                loc_clamped = LerpVector2(pos2, targetPos, move_credit / dist_to_target);
+                pos2 = loc_clamped;
                 move_credit = 0;
+                use_crumb_yaw = false;
+                break;
             }
             else
             {
                 // we have enough move_credit to go all the way.  Do it and repeat the loop.
-                pos2.x = target_pos.x;
-                pos2.y = target_pos.y;
-                height = target_pos.z;
+                pos2 = targetPos;
                 move_credit -= dist_to_target;    // continue while loop getting next crumb
-                //use_crumb_yaw = true;
+                use_crumb_yaw = true;   // just in case we break from loop.
             }
         } // continue while credits remain
 
-        Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
-        Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
+        final_dest_pos = pos2;
+        unit_vector = (final_dest_pos - originalPos).normalized;
         if (use_crumb_yaw)
         {
-            if (pack.formation == FormationsEnum.Circle) // face outwards
-                yawDeg = Mathf.Atan2(pos2.x - pack.PackLeader.pos2.x, pos2.y - pack.PackLeader.pos2.y) * Mathf.Rad2Deg - yawCorrection; // face outwards
+            if (pack.formation == FormationsEnum.Circle) // face outwards only in this formation
+            {
+                unit_vector = (pos2 - pack.PackLeader.pos2).normalized;
+                yawDeg = UnitVectorToYaw(unit_vector);
+            }
             else
-                yawDeg = pack.PackLeader.yawDeg; // face the right direction on arrival
+            {
+                yawDeg = pack.PackLeader.yawDeg; // face the leader's direction on arrival
+            }
         }
         else
-            yawDeg = Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
+        {
+            // on-the-way, use the current motion direction
+            yawDeg = UnitVectorToYaw(unit_vector);
+        }
 
         TransformPosition(this);    // move the agent object to it's new location.
     }
@@ -378,8 +382,9 @@ public partial class Agent : MonoBehaviour
             //ahead_id = pack.packList[i].id;
         }
         ahead_pos.x = pack.packList[i - 1].pos2.x;
-        ahead_pos.y = pack.packList[i - 1].pos2.y;
-        ahead_pos.z = pack.packList[i - 1].height;
+        ahead_pos.y = pack.packList[i - 1].height;
+        ahead_pos.z = pack.packList[i - 1].pos2.y;
+
         return ahead_pos;
     }
 
