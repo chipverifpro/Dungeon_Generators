@@ -190,13 +190,13 @@ public class BreadcrumbTrail : MonoBehaviour
             {
                 if (crumb_index == 0) // this was most recent crumb
                 {
-                    return leader_pos_crumb;  // next would be off end of list
+                    //return leader_pos_crumb;  // next would be off end of list
                     //return invalid_crumb;  // next would be off end of list
                 }
 
                 // we located the last crumb this follower ate.  Now give follower the next one    
-                crumb_index--;
-                agent.next_actualCrumb = crumbs[crumb_index];
+                //crumb_index--;
+                //agent.next_actualCrumb = crumbs[crumb_index];
 
                 // update the crumb to know it was eaten.
                 crumbs[crumb_index].whichFollowersArrived.Add(eater_index);
