@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public sealed class TimeManager : MonoBehaviour
 {
@@ -83,6 +84,41 @@ public sealed class TimeManager : MonoBehaviour
             _alphaDt = Mathf.Log(2f) / Mathf.Max(1, smoothingHalfLifeFrames);
         }
         else _alphaDt = 1f; // no smoothing → directly follow dt
+
+        InitializeConnections();
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        InitializeConnections();
+    }
+
+    void InitializeConnections()
+    {
+        // Try to find DungeonSettings if not assigned
+        if (!cfg)
+        {
+            cfg = FindFirstObjectByType<DungeonSettings>();
+            if (!cfg)
+            {
+                cfg = Resources.Load<DungeonSettings>("DungeonSettings");
+                if (!cfg)
+                    Debug.LogWarning("[TimeManager] No DungeonSettings found in scene or Resources!");
+                else
+                    Debug.Log("[TimeManager] Loaded DungeonSettings from Resources.");
+            }
+            else
+            {
+                Debug.Log($"[TimeManager] Connected to DungeonSettings: {cfg.name}");
+            }
+        }
     }
 
     void Update()

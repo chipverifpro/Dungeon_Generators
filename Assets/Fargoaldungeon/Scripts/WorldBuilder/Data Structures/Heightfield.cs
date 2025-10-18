@@ -9,6 +9,8 @@ using System.Runtime.CompilerServices;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
+    public static object Instance { get; internal set; }
+
     // Public "cell" shape used by the builder. Adapt to your own types below.
     public struct RoomCell
     {

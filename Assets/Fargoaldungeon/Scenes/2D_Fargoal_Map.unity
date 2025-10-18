@@ -1264,7 +1264,6 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1448055485}
   - {fileID: 1653904422}
   - {fileID: 572427360}
   - {fileID: 2088328819}
@@ -1739,6 +1738,11 @@ MonoBehaviour:
   - {x: 0, y: -1}
   - {x: -1, y: 0}
   - {x: 1, y: 0}
+  rootName: DungeonRoot
+  floorsName: Floors3D
+  wallsName: Walls3D
+  doorsName: Doors3D
+  rngSeed: 0
 --- !u!1 &428731488
 GameObject:
   m_ObjectHideFlags: 0
@@ -2334,6 +2338,7 @@ MonoBehaviour:
   turnSpeed: 1
   smooth: 0
   smoothTime: 4
+  leaderTravelling: 0
   gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
   PackGameObject: {fileID: 766807146}
@@ -3115,12 +3120,14 @@ MonoBehaviour:
   anim: {fileID: 1880613837}
   next_actualCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   next_formationCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   color1: {r: 0, g: 0, b: 0, a: 0}
@@ -3395,12 +3402,14 @@ MonoBehaviour:
   anim: {fileID: 464182953}
   next_actualCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   next_formationCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   color1: {r: 0, g: 0, b: 0, a: 0}
@@ -3674,12 +3683,14 @@ MonoBehaviour:
   anim: {fileID: 1651296777}
   next_actualCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   next_formationCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   color1: {r: 0, g: 0, b: 0, a: 0}
@@ -4097,12 +4108,14 @@ MonoBehaviour:
   anim: {fileID: 5475111281846579140}
   next_actualCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   next_formationCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   color1: {r: 0, g: 0, b: 0, a: 0}
@@ -5448,12 +5461,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1448055481}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 367847098}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1449767932
 GameObject:
@@ -5670,7 +5683,7 @@ MonoBehaviour:
   - {fileID: 2142269743}
   - {fileID: 766135307}
   crumbs: []
-  lastDropPos: {x: 0, y: 0, z: 0}
+  lastDropPos: {x: 0, y: 0}
   hasAny: 0
 --- !u!1 &1485730646
 GameObject:
@@ -7047,8 +7060,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1815589282}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -52.989567, y: 17.069933, z: -26.708233}
+  m_LocalRotation: {x: 0.33100697, y: -0.000000046003645, z: 0.000000016137209, w: 0.9436283}
+  m_LocalPosition: {x: -52.989567, y: 5.0699325, z: -36.708233}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8701,12 +8714,14 @@ MonoBehaviour:
   anim: {fileID: 160131186}
   next_actualCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   next_formationCrumb:
     valid: 0
-    position: {x: 0, y: 0, z: 0}
+    pos2: {x: 0, y: 0}
+    height: 0
     yawDeg: 0
     whichFollowersArrived: 
   color1: {r: 0, g: 0, b: 0, a: 0}
@@ -8847,3 +8862,4 @@ SceneRoots:
   - {fileID: 367847098}
   - {fileID: 556401679}
   - {fileID: 766807148}
+  - {fileID: 1448055485}

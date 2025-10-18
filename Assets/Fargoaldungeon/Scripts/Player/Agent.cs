@@ -72,7 +72,6 @@ public partial class Agent : MonoBehaviour
 
     protected virtual void Start()
     {
-
         StartCoroutine(CycleAnimations());
     }
 

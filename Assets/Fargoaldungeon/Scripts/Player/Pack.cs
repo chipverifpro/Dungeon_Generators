@@ -37,6 +37,70 @@ public class Pack : MonoBehaviour
         //    CreatePackAgent();
     }
 
+    void Awake()
+    {
+        InitializeConnections();
+    }
+
+    public void InitializeConnections()
+    {
+        // --- Player ---
+        if (!player)
+        {
+            player = FindFirstObjectByType<Player>();
+            if (!player)
+                Debug.LogError("[Pack] Could not find Player in scene!");
+            else
+                Debug.Log($"[Pack] Connected to Player: {player.name}");
+        }
+
+        // --- Dungeon Generator ---
+        if (!gen)
+        {
+            gen = FindFirstObjectByType<DungeonGenerator>();
+            if (!gen)
+                Debug.LogError("[Pack] Could not find DungeonGenerator in scene!");
+            else
+                Debug.Log($"[Pack] Connected to DungeonGenerator: {gen.name}");
+        }
+
+        // --- Breadcrumb Trail ---
+        if (!trail)
+        {
+            trail = FindFirstObjectByType<BreadcrumbTrail>();
+            if (!trail)
+                Debug.LogWarning("[Pack] No BreadcrumbTrail found — trail tracking disabled.");
+            else
+                Debug.Log($"[Pack] Connected to BreadcrumbTrail: {trail.name}");
+        }
+
+        // --- Parent object for agents ---
+        if (!PackParentObject)
+        {
+            var parent = GameObject.Find("PackParent");
+            if (parent)
+            {
+                PackParentObject = parent.transform;
+                Debug.Log($"[Pack] Found PackParentObject: {PackParentObject.name}");
+            }
+            else
+            {
+                // Create one if missing
+                GameObject newParent = new GameObject("PackParent");
+                PackParentObject = newParent.transform;
+                Debug.Log($"[Pack] Created PackParentObject: {PackParentObject.name}");
+            }
+        }
+
+        // --- Optional: find a default visual prefab ---
+        if (!agentVisual)
+        {
+            agentVisual = Resources.Load<GameObject>("Prefabs/AgentVisual");
+            if (agentVisual)
+                Debug.Log("[Pack] Loaded agentVisual prefab from Resources/Prefabs/AgentVisual");
+        }
+    }
+    
     public Agent PlayerAgent1;
 
 /*

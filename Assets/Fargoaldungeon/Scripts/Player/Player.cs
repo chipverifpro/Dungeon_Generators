@@ -63,6 +63,7 @@ public partial class Player : MonoBehaviour
     public void Awake()
     {
         // if references are missing, find them.
+        InitializeConnections();
         if (!gen)
             gen = FindAnyObjectByType<DungeonGenerator>();
         if (!bottomBanner)
@@ -70,6 +71,80 @@ public partial class Player : MonoBehaviour
         //if (agent == null)
         //ChangePlayerAgent(pack.PackLeader);
         AwakeMouseInput();
+    }
+
+    void InitializeConnections()
+    {
+        // --- DungeonGenerator ---
+        if (!gen)
+        {
+            gen = FindAnyObjectByType<DungeonGenerator>();
+            if (!gen)
+                Debug.LogError("[Player] Could not find DungeonGenerator in scene!");
+            else
+                Debug.Log($"[Player] Connected to DungeonGenerator: {gen.name}");
+        }
+
+        // --- BottomBanner (UI) ---
+        if (!bottomBanner)
+        {
+            bottomBanner = FindAnyObjectByType<BottomBanner>();
+            if (!bottomBanner)
+                Debug.LogWarning("[Player] BottomBanner not found — UI updates will be skipped.");
+            else
+                Debug.Log($"[Player] Connected to BottomBanner: {bottomBanner.name}");
+        }
+
+        // --- Pack GameObject ---
+        if (!PackGameObject)
+        {
+            // Try to find an existing Pack object in the scene
+            var foundPackGO = GameObject.Find("PackParent") ??
+                              GameObject.Find("Pack") ??
+                              GameObject.FindWithTag("Pack");
+
+            if (foundPackGO)
+            {
+                PackGameObject = foundPackGO;
+                Debug.Log($"[Player] Found Pack GameObject: {PackGameObject.name}");
+            }
+            else
+            {
+                // Create one if it doesn’t exist yet
+                PackGameObject = new GameObject("PackParent");
+                Debug.Log("[Player] Created new PackParent GameObject.");
+            }
+        }
+
+        // --- Pack component ---
+        if (!pack)
+        {
+            // Try to find one in scene or on the PackGameObject
+            pack = FindAnyObjectByType<Pack>();
+            if (!pack && PackGameObject)
+                pack = PackGameObject.GetComponent<Pack>();
+
+            // Create one if still missing
+            if (!pack && PackGameObject)
+            {
+                pack = PackGameObject.AddComponent<Pack>();
+                Debug.Log("[Player] Created new Pack component on PackParent.");
+            }
+
+            if (pack)
+            {
+                pack.player = this;   // link player reference
+                if (gen && !pack.gen)
+                    pack.gen = gen;       // link generator
+                pack.PackParentObject = PackGameObject.transform;
+                //pack.InitializeConnections?.Invoke(); // optional if Pack has its own init
+                Debug.Log($"[Player] Linked Pack: {pack.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[Player] Pack could not be found or created!");
+            }
+        }
     }
 
     void Start()

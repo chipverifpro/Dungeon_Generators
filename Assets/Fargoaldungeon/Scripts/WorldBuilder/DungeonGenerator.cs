@@ -4,6 +4,7 @@ using UnityEngine.Tilemaps;
 using System.Collections;
 using System;
 using Unity.Mathematics;
+using UnityEngine.SceneManagement;
 
 
 /* DONE list...
@@ -46,15 +47,113 @@ using Unity.Mathematics;
 // Master Dungeon Generation Class...
 public partial class DungeonGenerator : MonoBehaviour
 {
-
     // Reference to external classes is maintained here
     public Door doorclass;
     public DungeonSettings cfg;
     public BottomBanner bottomBanner;
-    public TimeManager timeManager;
+    //public TimeManager timeManager;
 
     public bool buildComplete = false;
     public Time lastScentTime;
+
+    void Awake()
+    {
+        InitializeConnections();
+        SceneManager.sceneLoaded += OnSceneLoaded;
+        Awake_Tilemap();
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        OnDestroy_Tilemap();
+    }
+
+    void OnSceneLoaded(Scene s, LoadSceneMode m)
+    {
+        InitializeConnections();   // rebind after scene changes
+    }
+
+    void InitializeConnections()
+    {
+        // --- DungeonSettings (ScriptableObject) ---
+        if (!cfg)
+        {
+            // Prefer a scene instance if you have one
+            cfg = FindFirstObjectByType<DungeonSettings>(FindObjectsInactive.Include);
+            if (!cfg)
+                cfg = Resources.Load<DungeonSettings>("DungeonSettings"); // put an asset in Resources/
+            if (!cfg)
+                Debug.LogWarning("[DungeonGenerator] No DungeonSettings found (scene or Resources).");
+            else
+                Debug.Log($"[DungeonGenerator] cfg = {cfg.name}");
+        }
+
+        // --- BottomBanner (scene UI) ---
+        if (!bottomBanner)
+        {
+            bottomBanner = FindFirstObjectByType<BottomBanner>(FindObjectsInactive.Include);
+            if (!bottomBanner)
+                Debug.LogWarning("[DungeonGenerator] BottomBanner not found in scene (UI updates will be skipped).");
+            else
+                Debug.Log($"[DungeonGenerator] bottomBanner = {bottomBanner.name}");
+        }
+
+        // --- TimeManager (singleton/persistent) ---
+        //        if (!timeManager)
+        //        {
+        //            timeManager = TimeManager.Instance ?? FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+        //            if (!timeManager)
+        //                Debug.LogWarning("[DungeonGenerator] TimeManager not found; using Time.time as fallback.");
+        //            else
+        //                Debug.Log($"[DungeonGenerator] timeManager = {timeManager.name}");
+        //        }
+
+
+/*
+        // --- TimeManager hookup ---
+        if (!timeManager)
+        {
+            // Try singleton first (preferred design)
+            timeManager = TimeManager.Instance;
+
+            // Fallback to find any TimeManager in the scene (persistent or active)
+            if (!timeManager)
+            {
+                timeManager = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+                Debug.Log($"timeManager found.");
+            }
+            else
+            {
+                Debug.Log("timeManager singleton successful.");
+            }
+
+            // Optionally create one if none exists
+            if (!timeManager)
+            {
+                GameObject go = new GameObject("TimeManager (Auto)");
+                timeManager = go.AddComponent<TimeManager>();
+                Debug.Log("[DungeonGenerator] No TimeManager found; auto-created one.");
+            }
+            else
+            {
+                Debug.Log($"[DungeonGenerator] Connected to TimeManager: {timeManager.name}");
+            }
+        }
+*/
+        // --- Door reference ---
+        // If Door is a prefab reference, keep assigning it in the Inspector.
+        // If it’s a scene object type, try to find one:
+        /*        if (!doorclass)
+                {
+                    doorclass = FindFirstObjectByType<Door>(FindObjectsInactive.Include);
+                    // It's okay if still null; many generators spawn doors from a prefab.
+                    if (doorclass)
+                        Debug.Log($"[DungeonGenerator] doorclass = {doorclass.name}");
+                }
+                */
+    }
+    
     // ------------------------------------- //
     // Start is called by Unity before the first frame update
     public void Start()

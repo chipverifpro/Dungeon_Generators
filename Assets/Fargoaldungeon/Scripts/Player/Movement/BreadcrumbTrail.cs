@@ -204,7 +204,7 @@ public class BreadcrumbTrail : MonoBehaviour
                 // if every follower has eaten here, remove crumb from trail.
                 if (crumbs[crumb_index].whichFollowersArrived.Count == followers.Count)
                 {
-                    Debug.Log($"Follower {agent.name} ate crumb {crumb_index}, all followers have eaten it, removing crumb.");
+                    Debug.Log($"Follower {agent.name} ate crumb {crumb_index} at {crumbs[crumb_index].pos2}, all followers have eaten it, removing crumb.");
                     crumbs.RemoveAt(crumb_index);
                 }
                 // return that position

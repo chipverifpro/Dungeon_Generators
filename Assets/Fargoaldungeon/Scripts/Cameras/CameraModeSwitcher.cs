@@ -1,6 +1,7 @@
 using System.Collections;
 using Cinemachine;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class CameraModeSwitcher : MonoBehaviour
 {
@@ -15,6 +16,64 @@ public class CameraModeSwitcher : MonoBehaviour
     public bool playerVisible = true;
 
     private Coroutine waiter = null;
+
+
+
+
+
+    void Awake()
+    {
+        // Try to auto-find on first load
+        InitializeConnections();
+
+        // Re-connect whenever a new scene is loaded
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        InitializeConnections();
+    }
+
+    void InitializeConnections()
+    {
+        // --- Find the CinemachineBrain on the main camera ---
+        if (!brain)
+        {
+            var mainCam = Camera.main;
+            if (mainCam)
+                brain = mainCam.GetComponent<CinemachineBrain>();
+        }
+
+        // --- Find all virtual cameras in the scene by name ---
+        if (!vcamFP)
+            vcamFP = GameObject.Find("vcamFP")?.GetComponent<CinemachineVirtualCamera>();
+
+        if (!vcamTop)
+            vcamTop = GameObject.Find("vcamTop")?.GetComponent<CinemachineVirtualCamera>();
+
+        if (!vcamOverhead)
+            vcamOverhead = GameObject.Find("vcamOverhead")?.GetComponent<CinemachineVirtualCamera>();
+
+        // --- Find the player model ---
+        if (!playerModel)
+            playerModel = GameObject.Find("PlayerModel");
+
+        // --- Verify everything was found ---
+        Debug.Log(
+            $"[CameraModeSwitcher] Initialized in scene '{SceneManager.GetActiveScene().name}'\n" +
+            $"Brain: {(brain ? brain.name : "❌ None")}\n" +
+            $"FP: {(vcamFP ? vcamFP.name : "❌ None")}\n" +
+            $"Top: {(vcamTop ? vcamTop.name : "❌ None")}\n" +
+            $"Overhead: {(vcamOverhead ? vcamOverhead.name : "❌ None")}\n" +
+            $"Player: {(playerModel ? playerModel.name : "❌ None")}"
+        );
+    }
 
     void Start()
     {

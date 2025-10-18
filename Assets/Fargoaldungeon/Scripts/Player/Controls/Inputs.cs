@@ -93,6 +93,9 @@ public partial class Player : MonoBehaviour
 
     void AwakeMouseInput()
     {
+        if (!player)
+            player = transform;  // Fallback to self
+    
         dragging = false;
         startTimeMouseDown = 0f;
         // if (leader && !player) player = leader.GetComponent<Player>(); // not necessary
