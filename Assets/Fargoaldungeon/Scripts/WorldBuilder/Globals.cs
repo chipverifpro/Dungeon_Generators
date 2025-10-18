@@ -131,19 +131,19 @@ public partial class DungeonGenerator : MonoBehaviour
         TryLoadIfNull(ref diagonalWallPrefab,  "Prefabs/Terrain/PF_Diagonal");
         TryLoadIfNull(ref triangleFloorPrefab, "Prefabs/Terrain/PF_Triangle_Floor");
         TryLoadIfNull(ref doorClosedPrefab,    "Prefabs/Terrain/PF_DoorClosed");
-        TryLoadIfNull(ref doorOpenPrefab, "Prefabs/Terrain/PF_DoorOpen");
+        TryLoadIfNull(ref doorOpenPrefab,      "Prefabs/Terrain/PF_DoorOpen");
 
-        TryLoadTileIfNull(ref floorTile, "Tiles/floorTile");
-        TryLoadTileIfNull(ref wallTile, "Tiles/wallTile");
-        TryLoadTileIfNull(ref doorClosedTile, "Tiles/doorClosedTile");
-        TryLoadTileIfNull(ref doorOpenTile, "Tiles/doorOpenTile");
+        TryLoadTileIfNull(ref floorTile,       "Tiles/floorTile");
+        TryLoadTileIfNull(ref wallTile,        "Tiles/wallTile");
+        TryLoadTileIfNull(ref doorClosedTile,  "Tiles/doorClosedTile");
+        TryLoadTileIfNull(ref doorOpenTile,    "Tiles/doorOpenTile");
 
         // --- Root parent for spawned meshes ---
         if (!root)
         {
             var go = GameObject.Find(rootName);
-            //if (!go) go = new GameObject(rootName);
-            //root = go.transform;
+            if (!go) go = new GameObject(rootName);
+            root = go.transform;
         }
         root.gameObject.SetActive(true);
     }

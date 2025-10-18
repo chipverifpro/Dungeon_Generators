@@ -5,13 +5,14 @@ using UnityEngine;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-    [Header("3D Build Settings")]
-//    public float unitHeight = 0.1f;             // world Y per step
-//    public bool useDiagonalCorners = true;
-//    public bool skipOrthogonalWhenDiagonal = true;
-//    public int perimeterWallSteps = 30; // height of perimeter walls in steps
+    //[Header("3D Build Settings")]
+    //    public float unitHeight = 0.1f;             // world Y per step
+    //    public bool useDiagonalCorners = true;
+    //    public bool skipOrthogonalWhenDiagonal = true;
+    //    public int perimeterWallSteps = 30; // height of perimeter walls in steps
 
-    public Dictionary<Vector2Int, int> idx;  // Build once at the top of Build3DFromOneRoom
+    // what is this used for?  0 references.
+    //public Dictionary<Vector2Int, int> idx;  // Build once at the top of Build3DFromOneRoom
 
     // If your ramp mesh "forward" is +Z, map directions to rotations:
     static readonly Vector2Int[] Dir4 = { new(0, 1), new(1, 0), new(0, -1), new(-1, 0) };
@@ -373,31 +374,6 @@ public partial class DungeonGenerator : MonoBehaviour
             }
         }
         finally { if (local_tm) tm.End(); }
-    }
-
-    // UNUSED
-    public void BuildRoomHeightsLookup_OLD(int room_number)
-    {
-        // Build once at the top of Build3DFromOneRoom:
-        idx = new Dictionary<Vector2Int, int>(rooms[room_number].cells.Count);
-        for (int i = 0; i < rooms[room_number].cells.Count; i++)
-            idx[rooms[room_number].cells[i].pos] = rooms[room_number].heights[i];
-    }
-
-    // UNUSED
-    public int GetHeightFromRoom_OLD(Vector2Int pos)
-        => idx.TryGetValue(pos, out var v) ? v : 999;
-
-    // UNUSED
-    bool IsTileFromRoom_OLD(int room_number, Vector2Int pos, byte tile_type)
-    {
-        if (tile_type == FLOOR)
-            if (rooms[room_number].IsTileInRoom(pos))
-                return true;
-        if (tile_type == WALL)
-            if (!rooms[room_number].IsTileInRoom(pos))
-                return true;
-        return false;
     }
     
 } // End class HeightMap3DBuilder

@@ -51,10 +51,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public ObjectDirectory dir;
 
     // Reference to external classes is maintained here
-    public Door doorclass;
-    public DungeonSettings cfg;
-    public BottomBanner bottomBanner;
-    //public TimeManager timeManager;
+    public DungeonSettings cfg;     // This is used lots of places!
 
     public bool buildComplete = false;
     public Time lastScentTime;
@@ -72,7 +69,7 @@ public partial class DungeonGenerator : MonoBehaviour
 
     void OnDestroy()
     {
-        Debug.LogWarning($"[DG] OnDestroy in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
+        Debug.LogError($"[DG] OnDestroy in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
         SceneManager.sceneLoaded -= OnSceneLoaded;
         OnDestroy_Tilemap();
     }
@@ -84,82 +81,18 @@ public partial class DungeonGenerator : MonoBehaviour
 
     void InitializeConnections()
     {
+        if (!dir)
+        {
+            dir = FindFirstObjectByType<ObjectDirectory>(FindObjectsInactive.Include);
+            if (!dir) Debug.LogError($"[DungeonGenerator.InitializeConnections] dir not found!");
+        }
+
         // --- DungeonSettings (ScriptableObject) ---
         if (!cfg)
         {
-            // Prefer a scene instance if you have one
-            cfg = FindFirstObjectByType<DungeonSettings>(FindObjectsInactive.Include);
-            if (!cfg)
-                cfg = Resources.Load<DungeonSettings>("DungeonSettings"); // put an asset in Resources/
-            if (!cfg)
-                Debug.LogWarning("[DungeonGenerator] No DungeonSettings found (scene or Resources).");
-            else
-                Debug.Log($"[DungeonGenerator] cfg = {cfg.name}");
+            cfg = dir.cfg;
+            if (!cfg) Debug.LogError($"[DungeonGenerator.InitializeConnections] cfg not valid from dir!");
         }
-
-        // --- BottomBanner (scene UI) ---
-        if (!bottomBanner)
-        {
-            bottomBanner = FindFirstObjectByType<BottomBanner>(FindObjectsInactive.Include);
-            if (!bottomBanner)
-                Debug.LogWarning("[DungeonGenerator] BottomBanner not found in scene (UI updates will be skipped).");
-            else
-                Debug.Log($"[DungeonGenerator] bottomBanner = {bottomBanner.name}");
-        }
-
-        // --- TimeManager (singleton/persistent) ---
-        //        if (!timeManager)
-        //        {
-        //            timeManager = TimeManager.Instance ?? FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
-        //            if (!timeManager)
-        //                Debug.LogWarning("[DungeonGenerator] TimeManager not found; using Time.time as fallback.");
-        //            else
-        //                Debug.Log($"[DungeonGenerator] timeManager = {timeManager.name}");
-        //        }
-
-
-/*
-        // --- TimeManager hookup ---
-        if (!timeManager)
-        {
-            // Try singleton first (preferred design)
-            timeManager = TimeManager.Instance;
-
-            // Fallback to find any TimeManager in the scene (persistent or active)
-            if (!timeManager)
-            {
-                timeManager = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
-                Debug.Log($"timeManager found.");
-            }
-            else
-            {
-                Debug.Log("timeManager singleton successful.");
-            }
-
-            // Optionally create one if none exists
-            if (!timeManager)
-            {
-                GameObject go = new GameObject("TimeManager (Auto)");
-                timeManager = go.AddComponent<TimeManager>();
-                Debug.Log("[DungeonGenerator] No TimeManager found; auto-created one.");
-            }
-            else
-            {
-                Debug.Log($"[DungeonGenerator] Connected to TimeManager: {timeManager.name}");
-            }
-        }
-*/
-        // --- Door reference ---
-        // If Door is a prefab reference, keep assigning it in the Inspector.
-        // If it’s a scene object type, try to find one:
-        /*        if (!doorclass)
-                {
-                    doorclass = FindFirstObjectByType<Door>(FindObjectsInactive.Include);
-                    // It's okay if still null; many generators spawn doors from a prefab.
-                    if (doorclass)
-                        Debug.Log($"[DungeonGenerator] doorclass = {doorclass.name}");
-                }
-                */
     }
     
     // ------------------------------------- //
@@ -177,29 +110,9 @@ public partial class DungeonGenerator : MonoBehaviour
         StartCoroutine(ScentDecayOnIntervals());
 
         EnableSplash();
-        /*
-        GameObject splash = FindSplash();
-        if (splash != null)
-            Debug.Log("Found Splash! (active or inactive)");
-        else
-            Debug.LogWarning("Splash not found in the scene!");
-        splash.SetActive(true);
-        */
     }
 
-    public static GameObject FindSplash()
-    {
-        Scene scene = SceneManager.GetActiveScene();
-        GameObject[] roots = scene.GetRootGameObjects();
-
-        foreach (var go in roots)
-        {
-            if (go.name == "Splash")
-                return go;
-        }
-
-        return null;
-    }
+    // Enables the Splash screen in front of DungeonGenerator so start menu hides building process.
     public static void EnableSplash()
     {
         Scene scene = SceneManager.GetActiveScene();
@@ -217,7 +130,7 @@ public partial class DungeonGenerator : MonoBehaviour
         Debug.LogWarning("Did not find object Splash to enable Splash Screen in DungeonGenerator.");
         return; // didn't find it.
     }
-    
+
     // RegenerateDungeon is the main coroutine that handles dungeon generation.
     // It orchestrates the various steps involved in creating the dungeon layout.
     // Step 0: Select settings
@@ -1320,5 +1233,4 @@ public partial class DungeonGenerator : MonoBehaviour
         return return_color;
     }
 
-}
-//} // End class DungeonGenerator
+} // End class DungeonGenerator

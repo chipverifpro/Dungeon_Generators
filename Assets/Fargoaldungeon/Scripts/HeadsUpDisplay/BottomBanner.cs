@@ -15,7 +15,7 @@ public class BottomBanner : MonoBehaviour
     [SerializeField] float sidePadding = 24f;      // left/right padding
     [SerializeField] bool useSafeArea = true;      // respect phone notches, etc.
 
-    public Canvas BottomBannerCanvas;              // Otional
+    public Canvas BottomBannerCanvas;              // Optional
     GameObject panel;
     RectTransform panelRT;
     TextMeshProUGUI label;

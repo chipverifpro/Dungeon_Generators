@@ -7,8 +7,8 @@ public class ObjectDirectory : MonoBehaviour
     // modules to share.  They only need a single reference to Directory to find
     // any other object.
 
-    public bool AllReady = false;   // anyone can hold off their start until this is true.
-    private int pass_num;               // debug message indicating if object was found first try or later.
+    public bool AllReady = false;   // anyone should hold off their start until this is true.
+    private int pass_num;           // debug message indicating if object was found first try or later.
     private int failures;           // tracks how many objects not found.
 
     [Header("World Builder Objects")]
@@ -93,6 +93,14 @@ public class ObjectDirectory : MonoBehaviour
             if (!bottomBanner) failures++;
         }
 
+        if (!pack) Debug.LogWarning($"[Directory{pass_num}] pack not assigned.");
+        if (!player) Debug.LogWarning($"[Directory{pass_num}] player not assigned.");
+        if (!brain) Debug.LogWarning($"[Directory{pass_num}] brain not assigned.");
+        if (!vcamFP) Debug.LogWarning($"[Directory{pass_num}] vcamFP not assigned.");
+        if (!vcamTop) Debug.LogWarning($"[Directory{pass_num}] vcamTop not assigned.");
+        if (!vcamOverhead) Debug.LogWarning($"[Directory{pass_num}] vcamOverhead not assigned.");
+        if (!menuManager) Debug.LogWarning($"[Directory{pass_num}] menuManager not assigned.");
+        if (!sceneFader) Debug.LogWarning($"[Directory{pass_num}] sceneFader not assigned.");
 
         // ------------------ 
         if (failures == 0)
