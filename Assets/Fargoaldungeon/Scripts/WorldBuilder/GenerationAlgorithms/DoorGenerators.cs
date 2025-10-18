@@ -4,9 +4,6 @@ using UnityEngine;
 
 public partial class DungeonGenerator : MonoBehaviour
 {
-    // Direction flags you already use (adjust names if needed)
-    //[System.Flags]
-    //public enum DirFlags { None=0, N=1<<0, E=1<<1, S=1<<2, W=1<<3 }
 
     // === MAIN ENTRY ===
     public IEnumerator PlaceDoors()

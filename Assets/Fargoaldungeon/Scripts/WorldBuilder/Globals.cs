@@ -6,7 +6,7 @@ public partial class DungeonGenerator : MonoBehaviour
 {
     public System.Random rng;
 
-    // 2D assets defined in Unity
+    // 2D assets defined in Unity.  These are verified and re-connected if necessary.
     public Tilemap tilemap; // floors
     public Tilemap tilemap_walls;
     public Tilemap tilemap_doors;
@@ -15,7 +15,7 @@ public partial class DungeonGenerator : MonoBehaviour
     public TileBase doorClosedTile;
     public TileBase doorOpenTile;
 
-    // 3D assets defined in Unity
+    // 3D assets defined in Unity.  These are verified and re-connected if necessary.
     public Grid grid;                         // same Grid as the 2D Tilemap
     public GameObject floorPrefab;
     public GameObject rampPrefab;             // oriented to face +Z
@@ -118,25 +118,25 @@ public partial class DungeonGenerator : MonoBehaviour
             foreach (var tm in tms)
             {
                 var name = tm.name.ToLowerInvariant();
-                if (!tilemap       && (name.Contains("floor") || name.Contains("ground"))) tilemap = tm;
-                if (!tilemap_walls && name.Contains("wall"))                             tilemap_walls = tm;
-                if (!tilemap_doors && name.Contains("door"))                             tilemap_doors = tm;
+                if (!tilemap && (name.Contains("floor") || name.Contains("ground"))) tilemap = tm;
+                if (!tilemap_walls && name.Contains("wall")) tilemap_walls = tm;
+                if (!tilemap_doors && name.Contains("door")) tilemap_doors = tm;
             }
         }
 
         // --- Prefabs (optional Resources fallback) ---
-        TryLoadIfNull(ref floorPrefab,         "Prefabs/Terrain/PF_Floor");
-        TryLoadIfNull(ref rampPrefab,          "Prefabs/Terrain/PF_Ramp");
-        TryLoadIfNull(ref cliffPrefab,         "Prefabs/Terrain/PF_Cliff");
-        TryLoadIfNull(ref diagonalWallPrefab,  "Prefabs/Terrain/PF_Diagonal");
+        TryLoadIfNull(ref floorPrefab, "Prefabs/Terrain/PF_Floor");
+        TryLoadIfNull(ref rampPrefab, "Prefabs/Terrain/PF_Ramp");
+        TryLoadIfNull(ref cliffPrefab, "Prefabs/Terrain/PF_Cliff");
+        TryLoadIfNull(ref diagonalWallPrefab, "Prefabs/Terrain/PF_Diagonal");
         TryLoadIfNull(ref triangleFloorPrefab, "Prefabs/Terrain/PF_Triangle_Floor");
-        TryLoadIfNull(ref doorClosedPrefab,    "Prefabs/Terrain/PF_DoorClosed");
-        TryLoadIfNull(ref doorOpenPrefab,      "Prefabs/Terrain/PF_DoorOpen");
+        TryLoadIfNull(ref doorClosedPrefab, "Prefabs/Terrain/PF_DoorClosed");
+        TryLoadIfNull(ref doorOpenPrefab, "Prefabs/Terrain/PF_DoorOpen");
 
-        TryLoadTileIfNull(ref floorTile,       "Tiles/floorTile");
-        TryLoadTileIfNull(ref wallTile,        "Tiles/wallTile");
-        TryLoadTileIfNull(ref doorClosedTile,  "Tiles/doorClosedTile");
-        TryLoadTileIfNull(ref doorOpenTile,    "Tiles/doorOpenTile");
+        TryLoadTileIfNull(ref floorTile, "Tiles/floorTile");
+        TryLoadTileIfNull(ref wallTile, "Tiles/wallTile");
+        TryLoadTileIfNull(ref doorClosedTile, "Tiles/doorClosedTile");
+        TryLoadTileIfNull(ref doorOpenTile, "Tiles/doorOpenTile");
 
         // --- Root parent for spawned meshes ---
         if (!root)
@@ -151,8 +151,8 @@ public partial class DungeonGenerator : MonoBehaviour
     void BuildRuntimeParents()
     {
         floors3D = EnsureChild(root, floorsName);
-        walls3D  = EnsureChild(root, wallsName);
-        doors3D  = EnsureChild(root, doorsName);
+        walls3D = EnsureChild(root, wallsName);
+        doors3D = EnsureChild(root, doorsName);
     }
 
     void InitRng()
@@ -170,7 +170,8 @@ public partial class DungeonGenerator : MonoBehaviour
             {
                 field = loaded;
                 Debug.Log($"Success");
-            } else
+            }
+            else
             {
                 Debug.Log($"Failure");
             }
@@ -200,100 +201,18 @@ public partial class DungeonGenerator : MonoBehaviour
         return t;
     }
 
-#if UNITY_EDITOR
-    void OnValidate()
-    {
-        if (!Application.isPlaying)
+    /*
+    #if UNITY_EDITOR
+        void OnValidate()
         {
-            // light-touch editor wiring
-            if (!grid) grid = FindFirstObjectByType<Grid>(FindObjectsInactive.Include);
-            if (root && root.parent != null) root.SetParent(null); // keep root at top level
+            if (!Application.isPlaying)
+            {
+                // light-touch editor wiring
+                if (!grid) grid = FindFirstObjectByType<Grid>(FindObjectsInactive.Include);
+                if (root && root.parent != null) root.SetParent(null); // keep root at top level
+            }
         }
-    }
-#endif
+    #endif
+    */
 
-    // ----------------- Helpers to place content aligned to Grid -----------------
-
-    // Get world center of a cell (x,y) where y is grid Y (mapped to world Z)
-    public Vector3 CellCenter(int x, int y, float unitHeight = 1f, float h = 0f)
-    {
-        // Use Grid to convert cell → world (assumes XY layout; if your Grid uses XZ, adjust accordingly)
-        var cell = new Vector3Int(x, y, 0);
-        Vector3 world = grid ? grid.CellToWorld(cell) : new Vector3(x, 0f, y);
-        // If your vertical height is separate (e.g., cell.height * unitHeight), pass via 'h'
-        return new Vector3(world.x + 0.5f, h * unitHeight, world.z + 0.5f);
-    }
-
-    // Place a flat floor tile at (x,y) with given height
-    public GameObject PlaceFloor(int x, int y, float height = 0f, float unitHeight = 1f)
-    {
-        if (!floorPrefab) return null;
-        var pos = CellCenter(x, y, unitHeight, height);
-        var go = Instantiate(floorPrefab, pos, Quaternion.identity, floors3D);
-        go.name = $"Floor_{x}_{y}";
-        return go;
-    }
-
-    // Place a ramp that rises +unitHeight facing +Z (your note) from (x,y)
-    public GameObject PlaceRamp(int x, int y, float baseHeight, bool facePlusZ = true, float unitHeight = 1f)
-    {
-        if (!rampPrefab) return null;
-        var pos = CellCenter(x, y, unitHeight, baseHeight);
-        var rot = facePlusZ ? Quaternion.identity : Quaternion.Euler(0f, 180f, 0f);
-        var go = Instantiate(rampPrefab, pos, rot, floors3D);
-        go.name = $"Ramp_{x}_{y}";
-        return go;
-    }
-
-    // Place a cliff/pillar centered in the cell; scale in Y to match (height)
-    public GameObject PlaceCliff(int x, int y, float heightWorld)
-    {
-        if (!cliffPrefab) return null;
-        var pos = CellCenter(x, y, 1f, 0f);
-        var go = Instantiate(cliffPrefab, pos, Quaternion.identity, walls3D);
-        go.name = $"Cliff_{x}_{y}";
-        var s = go.transform.localScale;
-        go.transform.localScale = new Vector3(s.x, heightWorld, s.z);
-        return go;
-    }
-
-    // Place a diagonal wall running corner-to-corner inside the cell.
-    // If NE true: runs SW↔NE (u+v=1). If false: runs NW↔SE (u−v axis).
-    public GameObject PlaceDiagonalWall(int x, int y, bool NE_Diagonal, float heightWorld = 2f)
-    {
-        if (!diagonalWallPrefab) return null;
-        var pos = CellCenter(x, y, 1f, 0f);
-        // default prefab oriented along +Z; rotate 45° to match diagonal and scale
-        float yaw = NE_Diagonal ? 45f : -45f;
-        var rot = Quaternion.Euler(0f, yaw, 0f);
-        var go = Instantiate(diagonalWallPrefab, pos, rot, walls3D);
-        go.name = $"DiagWall_{(NE_Diagonal ? "NE" : "NW")}_{x}_{y}";
-        // scale height if the prefab expects it on Y:
-        var s = go.transform.localScale;
-        go.transform.localScale = new Vector3(s.x, heightWorld, s.z);
-        return go;
-    }
-
-    // Place a door (closed/open) at a cell edge, oriented by cardinal direction.
-    public GameObject PlaceDoor(int x, int y, DirFlags edge, bool open, float height = 0f, float unitHeight = 1f)
-    {
-        var prefab = open ? doorOpenPrefab : doorClosedPrefab;
-        if (!prefab) return null;
-
-        var center = CellCenter(x, y, unitHeight, height);
-
-        // Offset to the edge center and rotate to face across the edge
-        Vector3 offset = Vector3.zero;
-        float yaw = 0f;
-        const float half = 0.5f;
-
-        if (edge.HasFlag(DirFlags.N)) { offset = new Vector3(0f, 0f, +half); yaw = 0f; }
-        else if (edge.HasFlag(DirFlags.S)) { offset = new Vector3(0f, 0f, -half); yaw = 180f; }
-        else if (edge.HasFlag(DirFlags.E)) { offset = new Vector3(+half, 0f, 0f); yaw = 90f; }
-        else if (edge.HasFlag(DirFlags.W)) { offset = new Vector3(-half, 0f, 0f); yaw = -90f; }
-
-        var go = Instantiate(prefab, center + offset, Quaternion.Euler(0f, yaw, 0f), doors3D);
-        go.name = $"Door_{edge}_{x}_{y}";
-        return go;
-    }
 }
