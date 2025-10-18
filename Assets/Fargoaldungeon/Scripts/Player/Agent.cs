@@ -15,7 +15,7 @@ public partial class Agent : MonoBehaviour
     //public String name;   // already inherited from MonoBehavior
     //public bool enabled;  // already inherited from MonoBehavior
 
-    DungeonSettings cfg;
+    //DungeonSettings cfg;
 
     public int id;                          // unique id number
 

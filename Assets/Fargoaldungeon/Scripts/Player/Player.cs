@@ -134,8 +134,8 @@ public partial class Player : MonoBehaviour
             if (pack)
             {
                 pack.player = this;   // link player reference
-                if (gen && !pack.gen)
-                    pack.gen = gen;       // link generator
+                //if (gen && !pack.gen)
+                //    pack.gen = gen;       // link generator
                 pack.PackParentObject = PackGameObject.transform;
                 //pack.InitializeConnections?.Invoke(); // optional if Pack has its own init
                 Debug.Log($"[Player] Linked Pack: {pack.name}");

@@ -142,8 +142,8 @@ public partial class DungeonGenerator : MonoBehaviour
         if (!root)
         {
             var go = GameObject.Find(rootName);
-            if (!go) go = new GameObject(rootName);
-            root = go.transform;
+            //if (!go) go = new GameObject(rootName);
+            //root = go.transform;
         }
         root.gameObject.SetActive(true);
     }

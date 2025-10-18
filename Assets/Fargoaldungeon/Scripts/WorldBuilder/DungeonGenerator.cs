@@ -47,6 +47,9 @@ using UnityEngine.SceneManagement;
 // Master Dungeon Generation Class...
 public partial class DungeonGenerator : MonoBehaviour
 {
+    [Header("Directory Object")]
+    public ObjectDirectory dir;
+
     // Reference to external classes is maintained here
     public Door doorclass;
     public DungeonSettings cfg;
@@ -56,22 +59,27 @@ public partial class DungeonGenerator : MonoBehaviour
     public bool buildComplete = false;
     public Time lastScentTime;
 
+    void OnEnable()  => Debug.Log($"[DG] OnEnable in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
+    void OnDisable() => Debug.Log($"[DG] OnDisable in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
+    //void OnDestroy() => Debug.LogWarning($"[DG] OnDestroy in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
+
     void Awake()
     {
-        InitializeConnections();
-        SceneManager.sceneLoaded += OnSceneLoaded;
+        //InitializeConnections();
+        //SceneManager.sceneLoaded += OnSceneLoaded;
         Awake_Tilemap();
     }
 
     void OnDestroy()
     {
+        Debug.LogWarning($"[DG] OnDestroy in scene '{gameObject.scene.name}' (id {GetInstanceID()})");
         SceneManager.sceneLoaded -= OnSceneLoaded;
         OnDestroy_Tilemap();
     }
 
     void OnSceneLoaded(Scene s, LoadSceneMode m)
     {
-        InitializeConnections();   // rebind after scene changes
+        //InitializeConnections();   // rebind after scene changes
     }
 
     void InitializeConnections()
@@ -167,8 +175,49 @@ public partial class DungeonGenerator : MonoBehaviour
 
         StartCoroutine(RegenerateDungeon(null));
         StartCoroutine(ScentDecayOnIntervals());
+
+        EnableSplash();
+        /*
+        GameObject splash = FindSplash();
+        if (splash != null)
+            Debug.Log("Found Splash! (active or inactive)");
+        else
+            Debug.LogWarning("Splash not found in the scene!");
+        splash.SetActive(true);
+        */
     }
 
+    public static GameObject FindSplash()
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        GameObject[] roots = scene.GetRootGameObjects();
+
+        foreach (var go in roots)
+        {
+            if (go.name == "Splash")
+                return go;
+        }
+
+        return null;
+    }
+    public static void EnableSplash()
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        GameObject[] roots = scene.GetRootGameObjects();
+
+        foreach (var go in roots)
+        {
+            if (go.name == "Splash")
+            {
+                Debug.Log("Enabling Splash while DungeonGenerator running in background.");
+                go.SetActive(true);
+                return;
+            }
+        }
+        Debug.LogWarning("Did not find object Splash to enable Splash Screen in DungeonGenerator.");
+        return; // didn't find it.
+    }
+    
     // RegenerateDungeon is the main coroutine that handles dungeon generation.
     // It orchestrates the various steps involved in creating the dungeon layout.
     // Step 0: Select settings
@@ -399,7 +448,7 @@ public partial class DungeonGenerator : MonoBehaviour
             UpdateCellGridFromRooms(rooms);  // update the master cellGrid from the rooms list
             // Build the heightfield hf if it doesn't exist yet
             if (hf == null) PrepareHeightfield();
-            
+
             BottomBanner.ShowFor("Dungeon generation complete!", 5f);
             buildComplete = true;
         }

@@ -5,6 +5,8 @@ using UnityEngine.SceneManagement;
 
 public class MenuManager : MonoBehaviour
 {
+    public SceneFader fader;
+
     [Header("Panels")]
     //public GameObject splashPanel;
     //public GameObject menuPanel;
@@ -52,7 +54,10 @@ public class MenuManager : MonoBehaviour
     public void OnNewMap()
     {
         BottomBanner.Show("🐾 Digging a brand new hole...");
-        SceneManager.LoadScene("2D_Fargoal_Map");  // your map gen scene
+        StartCoroutine(fader.FadeToGame());
+        //SceneManager.LoadScene("2D_Fargoal_Map");  // your map gen scene
+        
+        
         //generator.Start();
         // You can also call generator.NewMap() if you keep it same-scene
     }

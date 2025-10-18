@@ -32,9 +32,15 @@ public class Pack : MonoBehaviour
             Debug.LogError("Pack (parent) is not assigned.");
             return;
         }
-        //PackLeader.pack = this;
-        //for (int i = 0; i < 4; i++)
-        //    CreatePackAgent();
+        // --- Dungeon Generator ---
+        if (!gen)
+        {
+            gen = FindFirstObjectByType<DungeonGenerator>();
+            if (!gen)
+                Debug.LogError("[Start:Pack] Could not find DungeonGenerator in scene!");
+            else
+                Debug.Log($"[Start:Pack] Connected to DungeonGenerator: {gen.name}");
+        }
     }
 
     void Awake()

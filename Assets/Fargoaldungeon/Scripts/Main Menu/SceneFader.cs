@@ -23,7 +23,7 @@ public class SceneFader : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            //DontDestroyOnLoad(gameObject);
         }
         else
         {
@@ -51,8 +51,30 @@ public class SceneFader : MonoBehaviour
         StartCoroutine(Fade(splashCanvasGroup, 1f, 0f));
         // Simultaneously fade in menu...
         yield return StartCoroutine(Fade(menuCanvasGroup, 0f, 1f));
-
     }
+
+    public IEnumerator FadeToGame()
+    {
+        BottomBanner.Show("🐾 Welcome, Pup! On the way to Adventure...");
+
+        // Display just the menu screen.
+        //splashCanvasGroup.alpha = 0;
+        menuCanvasGroup.alpha = 1;
+
+        // display splash screen for a bit.  Press any key to skip.
+        //yield return StartCoroutine(WaitAllowSkip(minSplashSeconds));
+
+        // Fade out splash
+        //StartCoroutine(Fade(splashCanvasGroup, 1f, 0f));
+        // Simultaneously fade in menu...
+        yield return StartCoroutine(Fade(menuCanvasGroup, 1f, 0f));
+
+        GameObject splashObject;
+        splashObject = GameObject.Find("Splash");
+        Debug.Log($"Disabling object Splash.");
+        splashObject.SetActive(false);
+    }
+
     public IEnumerator WaitAllowSkip(float minSplashSeconds)
     {
         float t = 0f;
