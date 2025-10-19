@@ -1973,35 +1973,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e8ae2607ef234a90bf3971761052f8b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dir: {fileID: 0}
-  doorclass:
-    id: 0
-    ownerRoomIndex: 0
-    anchor:
-      type: 0
-      aEntry: {x: 0, y: 0}
-      bEntry: {x: 0, y: 0}
-      normal: 0
-      wallStart: {x: 0, y: 0}
-      throughDepthTiles: 0
-      spanTiles: 0
-    cell: {x: 0, y: 0}
-    openDir: 0
-    partnerDoorId: -1
-    neighborRoomIndex: -1
-    flags: 0
-    material: 0
-    style: 0
-    hinge: 0
-    openAngleDeg: 100
-    openSpeed: 1
-    color: {r: 0, g: 0, b: 0, a: 0}
-    keyTag: 
-    lockDifficulty: 0
-    trapDifficulty: 0
-    note: 
+  dir: {fileID: 1920128612}
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
-  bottomBanner: {fileID: 409665912}
   buildComplete: 0
   room_rects: []
   room_rects_heights: 
@@ -2366,7 +2339,7 @@ MonoBehaviour:
   m_Lens:
     FieldOfView: 60.000004
     OrthographicSize: 100
-    NearClipPlane: 0.3
+    NearClipPlane: 0.01
     FarClipPlane: 1000
     Dutch: 0
     ModeOverride: 0
@@ -2761,18 +2734,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcdc0a2c1733d440881cfeeedb6fbcf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  origin: {x: 0, y: 0, z: 0}
-  cellSize: 1
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  rayMaxDistance: 200
-  sampleTiltedFloorY: 0
-  player: {fileID: 556401679}
-  turnSpeed: 1
-  smooth: 0
-  smoothTime: 4
-  leaderTravelling: 0
+  dir: {fileID: 1920128612}
   gen: {fileID: 409665914}
   bottomBanner: {fileID: 409665912}
   PackGameObject: {fileID: 766807146}
@@ -2795,6 +2757,18 @@ MonoBehaviour:
   camera_refresh_needed: 1
   useXZPlane: 1
   constraintIters: 3
+  origin: {x: 0, y: 0, z: 0}
+  cellSize: 1
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  rayMaxDistance: 200
+  sampleTiltedFloorY: 0
+  player: {fileID: 556401679}
+  turnSpeed: 1
+  smooth: 0
+  smoothTime: 4
+  leaderTravelling: 0
 --- !u!1 &572427359
 GameObject:
   m_ObjectHideFlags: 0
@@ -3764,6 +3738,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df48c49c381934d7da627bac6a5eeee5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   player: {fileID: 556401680}
   gen: {fileID: 409665914}
   PackParentObject: {fileID: 766807148}
@@ -4025,7 +4000,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fader: {fileID: 836622445}
-  bottomBanner: {fileID: 0}
+  bottomBanner: {fileID: 409665912}
   menuMusic: 
   btnNewMap: {fileID: 1119592449}
   btnEditMap: {fileID: 1020557427}
@@ -4033,7 +4008,7 @@ MonoBehaviour:
   btnFlyover: {fileID: 1178410576}
   btnSettings: {fileID: 269541724}
   btnQuit: {fileID: 59175230}
-  generator: {fileID: 0}
+  generator: {fileID: 409665914}
 --- !u!114 &836622447
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8710,11 +8685,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 614839eaeba7546c3820fa79bb58be19, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
   roomAlgorithmDropdown: {fileID: 1690343032}
   tunnelsAlgorithmDropdown: {fileID: 428731491}
   regenerateButton: {fileID: 1210548553}
-  generator: {fileID: 0}
+  generator: {fileID: 409665914}
 --- !u!1 &1696308465
 GameObject:
   m_ObjectHideFlags: 0
@@ -9145,7 +9121,6 @@ GameObject:
   - component: {fileID: 1815589284}
   - component: {fileID: 1815589283}
   - component: {fileID: 1815589286}
-  - component: {fileID: 1815589287}
   - component: {fileID: 1815589289}
   - component: {fileID: 1815589288}
   m_Layer: 0
@@ -9273,34 +9248,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!114 &1815589287
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1815589282}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6254d3f6019024f28b4150208a70962b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cam: {fileID: 1815589284}
-  tilemap: {fileID: 409665906}
-  cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
-  flyDuration: 1.5
-  padding: 0.06
-  startTiltDeg: 180
-  endTiltDeg: 90
-  yawDeg: 0
-  autoStart: 1
-  loopFlyover: 1
-  hops: 12
-  hopDuration: 1.6
-  holdDuration: 0.5
-  pitchDeg: -50
-  viewRadiusWorld: 20
-  edgeMargin: 2
 --- !u!114 &1815589288
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9317,9 +9264,9 @@ MonoBehaviour:
   vcamFP: {fileID: 445485060}
   vcamTop: {fileID: 1801122503}
   vcamOverhead: {fileID: 705631742}
-  playerModel: {fileID: 0}
+  playerModel: {fileID: 556401678}
   toggleKey: 9
-  player: {fileID: 556401679}
+  player: {fileID: 0}
   height: 20
   playerVisible: 1
   zoomStep: 2
@@ -9741,7 +9688,7 @@ GameObject:
   - component: {fileID: 1920128613}
   - component: {fileID: 1920128612}
   m_Layer: 0
-  m_Name: Directory
+  m_Name: ObjectDirectory
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -10465,6 +10412,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 614839eaeba7546c3820fa79bb58be19, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 0}
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
   roomAlgorithmDropdown: {fileID: 1690343032}
   tunnelsAlgorithmDropdown: {fileID: 428731491}
