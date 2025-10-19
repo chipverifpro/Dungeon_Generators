@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class BottomBanner : MonoBehaviour
 {
@@ -170,4 +171,5 @@ public class BottomBanner : MonoBehaviour
         var go = new GameObject("BottomBanner");
         go.AddComponent<BottomBanner>(); // Awake builds the UI
     }
+
 }

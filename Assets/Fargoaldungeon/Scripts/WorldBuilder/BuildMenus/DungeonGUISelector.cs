@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class DungeonGUISelector : MonoBehaviour
 {
@@ -239,4 +240,52 @@ public class DungeonGUISelector : MonoBehaviour
     //     dd.value = 0;
     //     dd.RefreshShownValue();
     // }
+}
+
+public partial class DungeonGenerator : MonoBehaviour
+{
+
+    public void EnableGeneratorCanvas(bool enable)
+    {
+        GameObject generatorCanvas = FindInActiveScene("GeneratorCanvas");
+        if (generatorCanvas != null)
+        {
+            Debug.Log("Found GeneratorCanvas: " + generatorCanvas.name);
+            generatorCanvas.SetActive(enable);
+        }
+        else
+        {
+            Debug.LogWarning("GeneratorCanvas not found in scene.");
+        }
+    }
+    
+    public static GameObject FindInActiveScene(string name)
+    {
+        // Get all root objects (active AND inactive)
+        GameObject[] rootObjects = SceneManager.GetActiveScene().GetRootGameObjects();
+
+        foreach (var root in rootObjects)
+        {
+            GameObject found = FindInChildrenRecursive(root, name);
+            if (found != null)
+                return found;
+        }
+
+        return null; // Not found
+    }
+
+    private static GameObject FindInChildrenRecursive(GameObject obj, string name)
+    {
+        if (obj.name == name)
+            return obj;
+
+        foreach (Transform child in obj.transform)
+        {
+            GameObject result = FindInChildrenRecursive(child.gameObject, name);
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
 }

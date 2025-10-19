@@ -1,9 +1,12 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Analytics;
 using UnityEngine.SceneManagement;
 
 public class SceneFader : MonoBehaviour
 {
+    public ObjectDirectory dir;
+
     public static SceneFader Instance;
 
     [Header("UI (optional)")]
@@ -71,7 +74,8 @@ public class SceneFader : MonoBehaviour
 
         GameObject splashObject;
         splashObject = GameObject.Find("Splash");
-        Debug.Log($"Disabling object Splash.");
+        Debug.Log($"Disabling object Splash, enabling object GeneratorCanvas.");
+        dir.gen.EnableGeneratorCanvas(true);
         splashObject.SetActive(false);
     }
 
