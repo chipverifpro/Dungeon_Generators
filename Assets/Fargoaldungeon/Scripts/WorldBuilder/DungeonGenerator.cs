@@ -210,7 +210,7 @@ public partial class DungeonGenerator : MonoBehaviour
                     cfg.useCellularAutomata = false;
                     cfg.useScatterRooms = false;
                     cfg.usePackedRooms = true;
-                    cfg.useDiagonalCorners = true;  /// Allow diagonals for packed rooms
+                    cfg.useDiagonalCorners = false;  /// Allow diagonals for packed rooms
                     break;
             }
 
@@ -364,6 +364,8 @@ public partial class DungeonGenerator : MonoBehaviour
 
             BottomBanner.ShowFor("Dungeon generation complete!", 5f);
             buildComplete = true;
+
+            yield return StartCoroutine(dir.player.DetermineStartPosition());
         }
         finally { if (local_tm) tm.End(); }
         TimeManager.Instance.DumpStats();

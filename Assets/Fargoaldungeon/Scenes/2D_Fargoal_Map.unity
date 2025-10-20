@@ -2717,7 +2717,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   dir: {fileID: 1920128612}
   gen: {fileID: 409665914}
-  bottomBanner: {fileID: 0}
+  bottomBanner: {fileID: 669106355}
   PackGameObject: {fileID: 766807146}
   pack: {fileID: 766807147}
   agent: {fileID: 1159626742}
@@ -2744,7 +2744,6 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   rayMaxDistance: 200
-  sampleTiltedFloorY: 0
   player: {fileID: 556401679}
   turnSpeed: 1
   smooth: 0
@@ -3804,6 +3803,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d00ea15eef6456fa7f11e2af2422f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   id: 4
   baseSpeed: 6
   turnSpeedDegPerSec: 180
@@ -3825,6 +3825,7 @@ MonoBehaviour:
     height: 0
     yawDeg: 0
     whichFollowersArrived: 
+  routeWaypoints: []
   color1: {r: 0, g: 0, b: 0, a: 0}
   color2: {r: 0, g: 0, b: 0, a: 0}
   healthPoints: 0
@@ -3908,9 +3909,6 @@ MonoBehaviour:
   soloMode: 0
   formation: 3
   formationSpacing: 1.5
-  squadSize: 4
-  initialSpacing: 1.5
-  PlayerAgent1: {fileID: 1159626742}
 --- !u!4 &766807148
 Transform:
   m_ObjectHideFlags: 0
@@ -4364,6 +4362,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d00ea15eef6456fa7f11e2af2422f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   id: 2
   baseSpeed: 6
   turnSpeedDegPerSec: 180
@@ -4385,6 +4384,7 @@ MonoBehaviour:
     height: 0
     yawDeg: 0
     whichFollowersArrived: 
+  routeWaypoints: []
   color1: {r: 0, g: 0, b: 0, a: 0}
   color2: {r: 0, g: 0, b: 0, a: 0}
   healthPoints: 0
@@ -4645,6 +4645,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d00ea15eef6456fa7f11e2af2422f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   id: 1
   baseSpeed: 6
   turnSpeedDegPerSec: 180
@@ -4666,6 +4667,7 @@ MonoBehaviour:
     height: 0
     yawDeg: 0
     whichFollowersArrived: 
+  routeWaypoints: []
   color1: {r: 0, g: 0, b: 0, a: 0}
   color2: {r: 0, g: 0, b: 0, a: 0}
   healthPoints: 0
@@ -5312,6 +5314,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d00ea15eef6456fa7f11e2af2422f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   id: 0
   baseSpeed: 6
   turnSpeedDegPerSec: 180
@@ -5333,6 +5336,7 @@ MonoBehaviour:
     height: 0
     yawDeg: 0
     whichFollowersArrived: 
+  routeWaypoints: []
   color1: {r: 0, g: 0, b: 0, a: 0}
   color2: {r: 0, g: 0, b: 0, a: 0}
   healthPoints: 0
@@ -7524,6 +7528,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1480059013}
   - component: {fileID: 1480059014}
+  - component: {fileID: 1480059015}
   m_Layer: 0
   m_Name: PackTrail
   m_TagString: Untagged
@@ -7569,6 +7574,19 @@ MonoBehaviour:
   crumbs: []
   lastDropPos: {x: 0, y: 0}
   hasAny: 0
+--- !u!114 &1480059015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1480059012}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7cf0fe4b64e84d6f9d720eec854b533, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
 --- !u!1 &1485730646
 GameObject:
   m_ObjectHideFlags: 0
@@ -9789,13 +9807,15 @@ MonoBehaviour:
   cfg: {fileID: 11400000, guid: 2050485d3f2754bfcb547b81523f9099, type: 2}
   gen: {fileID: 409665914}
   dungeonGUISelector: {fileID: 2032406100}
+  dungeonBuildSettingsUI: {fileID: 2015256706}
+  pathfinding: {fileID: 1480059015}
   pack: {fileID: 766807147}
   player: {fileID: 556401680}
   brain: {fileID: 1815589289}
   vcamFP: {fileID: 445485060}
   vcamTop: {fileID: 1801122503}
   vcamOverhead: {fileID: 705631742}
-  bottomBanner: {fileID: 0}
+  bottomBanner: {fileID: 669106355}
   menuManager: {fileID: 836622446}
   sceneFader: {fileID: 836622445}
 --- !u!4 &1920128613
@@ -11258,6 +11278,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 44d00ea15eef6456fa7f11e2af2422f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dir: {fileID: 1920128612}
   id: 3
   baseSpeed: 6
   turnSpeedDegPerSec: 180
@@ -11279,6 +11300,7 @@ MonoBehaviour:
     height: 0
     yawDeg: 0
     whichFollowersArrived: 
+  routeWaypoints: []
   color1: {r: 0, g: 0, b: 0, a: 0}
   color2: {r: 0, g: 0, b: 0, a: 0}
   healthPoints: 0

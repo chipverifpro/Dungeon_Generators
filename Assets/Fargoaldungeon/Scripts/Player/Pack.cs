@@ -22,9 +22,6 @@ public class Pack : MonoBehaviour
     public FormationsEnum formation = FormationsEnum.Wedge;
     public float formationSpacing = 1.5f;  // spacing between members in formation
     
-    [Header("Pack Members Object Creation")]
-    public int squadSize = 4;       // 1 leader + (squadSize - 1) followers
-    public float initialSpacing = 1.5f;
 
     void Start()
     {
@@ -107,123 +104,40 @@ public class Pack : MonoBehaviour
                 Debug.Log("[Pack] Loaded agentVisual prefab from Resources/Prefabs/AgentVisual");
         }
     }
+
+    public void TeleportToLeader()
+    {
+        if (PackLeader == null)
+        {
+            Debug.LogWarning("PackLeader is null; cannot teleport pack members.");
+            return;
+        }
+
+        Vector2 leaderPos2 = PackLeader.pos2;
+        float leaderHeight = PackLeader.height;
+        Crumb leaderCrumb = new Crumb()
+        {
+            pos2 = leaderPos2,
+            height = leaderHeight,
+            valid = true,
+            yawDeg = PackLeader.yawDeg
+        };
+
+        foreach (var member in packList)
+        {
+            if (member != PackLeader)
+            {
+                member.pos2 = leaderPos2;
+                member.height = leaderHeight;
+                member.camera_refresh_needed = true;
+                member.next_formationCrumb.valid = false; // clear formation target
+                Debug.Log($"Teleported {member.name} to leader at {leaderPos2.x}, {leaderPos2.y}, {leaderHeight}");
+            }
+        }
+        trail.ClearCrumbs();
+        trail.RecordIfNeeded(true); // force record after teleport
+
+    }
     
-    public Agent PlayerAgent1;
-
-/*
-    // This version copies the PlayerAgent1 already created in the GUI.
-    public void CreatePackAgent()
-    {
-
-        // Make a copy at the same position/rotation
-        Agent clone = Instantiate(PlayerAgent1);
-        gen.GetNewAgentId(clone);
-        clone.name = "Player_Clone_" + clone.id;
-        trail.AddFollower(clone);
-        clone.trailLeader = false;
-        clone.trailFollower = true;
-        clone.pack = this;
-        // Optional: parent under something
-        clone.transform.SetParent(PackParentObject, false);
-
-        // Optional: move it a little so you can see both
-        clone.transform.position += Vector3.right * 2f * packList.Count;
-
-        // set the player location to match.
-        var p = clone.transform.position;   // grab object position and set it in variable
-        if (player.useXZPlane) clone.pos2 = player.World_to_Map(new Vector2(p.x, p.z));
-        else clone.pos2 = player.World_to_Map(new Vector2(p.x, p.y));
-
-        // Initialize yaw from current rotation
-        clone.yawDeg = player.useXZPlane ? clone.transform.eulerAngles.y - player.yawCorrection : clone.transform.eulerAngles.z - player.yawCorrection;
-
-
-        // remove the old prefab.
-        // Find the child named "PlayerArrow" and remove it
-        Transform arrow = clone.transform.Find("PlayerArrow");
-        if (arrow != null)
-        {
-            Destroy(arrow.gameObject);
-        }
-
-        // clone the visible prefab and attach it.  Since future prefabs will be unique per agent.
-        GameObject prefabClone = Instantiate(PlayerAgent1.DogPrefab);
-        prefabClone.name = "Dog_Clone_" + (packList.Count + 1);
-        prefabClone.transform.SetParent(clone.transform, false);
-        clone.DogPrefab = prefabClone;
-
-        // add it to the list
-        packList.Add(clone);
-    }
-
-    // old function builds from scratch.  Other version above copies one already created which is much simpler to manage.
-    public void CreatePackObjects()
-    {
-        if (squadSize < 1) squadSize = 1;
-
-        // --- Create leader ---
-        // Create leader object
-        GameObject leaderObj = CreateAgentGO("LeaderObj", PackParentObject, agentVisual);
-
-        // Create and attach a BreadcrumTrail class to the leaderObj
-        //BreadcrumbTrail trail = leaderObj.AddComponent<BreadcrumbTrail>();
-
-        // try creating the trail as a component of Pack
-        BreadcrumbTrail trail = PackParentObject.gameObject.AddComponent<BreadcrumbTrail>();
-        trail.name = "Pack_Breadcrumb_Trail_Component";
-
-        // Create and attach a PlayerAgent class to the LeaderObj
-        PlayerAgent leader = leaderObj.AddComponent<PlayerAgent>();
-        leader.name = "Pack_Leader_Agent";
-
-        // Add references to the PlayerAgent class
-        packList.Add(leader);           // Add it to packList
-        trail.leader = leader;    // Add it to BreadCrumbTrail
-
-        // Pick a starting location for the leader object.
-        leaderObj.transform.localPosition = Vector3.zero;
-
-        // --- Create Followers ---
-        for (int i = 1; i < squadSize; i++)
-        {
-            // create a follower object
-            GameObject followerObj = CreateAgentGO($"FollowerObj_{i}", PackParentObject, agentVisual);
-
-            // Create and attach a PlayerAgent class to the FollowerObj.
-            PlayerAgent follower = followerObj.AddComponent<PlayerAgent>();
-            follower.name = $"Follower_Agent_{i}" + i;
-
-            // Add references to the PlayerAgent class
-            packList.Add(follower);
-            trail.AddFollower(follower);
-
-            // give a starting location for the follower object.
-            followerObj.transform.localPosition = new Vector3(0f, 0f, -i * initialSpacing);
-        }
-    }
-
-
-    private GameObject CreateAgentGO(string name, Transform parent, GameObject visualPrefab)
-    {
-        GameObject go;
-        if (visualPrefab != null)
-        {
-            go = Instantiate(visualPrefab, parent);
-            go.name = name;
-        }
-        else
-        {
-            go = new GameObject(name);
-            go.transform.SetParent(parent, false);
-
-            // Give a simple visible shape if none provided
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(go.transform, false);
-            body.transform.localPosition = Vector3.zero;
-        }
-        return go;
-    }
-*/
 }
 

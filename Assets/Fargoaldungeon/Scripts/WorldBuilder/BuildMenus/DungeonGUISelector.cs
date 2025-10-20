@@ -242,9 +242,11 @@ public class DungeonGUISelector : MonoBehaviour
     // }
 }
 
+// The following fuction is added to DungeonGenerator to enable or disable the
+// GeneratorCanvas, which contains the buttons and pulldowns to change build settings.
+// They need to be hidden during splash/main menu, because they stick out the top.
 public partial class DungeonGenerator : MonoBehaviour
 {
-
     public void EnableGeneratorCanvas(bool enable)
     {
         GameObject generatorCanvas = FindInActiveScene("GeneratorCanvas");
@@ -258,7 +260,7 @@ public partial class DungeonGenerator : MonoBehaviour
             Debug.LogWarning("GeneratorCanvas not found in scene.");
         }
     }
-    
+
     public static GameObject FindInActiveScene(string name)
     {
         // Get all root objects (active AND inactive)

@@ -192,6 +192,7 @@ public partial class Player : MonoBehaviour
         
         agent.camera_refresh_needed=true;
         Debug.Log($"Set StartPosition to {agent.pos2.x}, {agent.pos2.y}, {agent.height}");
+        pack.TeleportToLeader();
     }
 
     // Change which agent the player is controlling...

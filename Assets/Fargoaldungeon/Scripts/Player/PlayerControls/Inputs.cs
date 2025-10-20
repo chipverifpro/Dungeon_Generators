@@ -4,6 +4,52 @@ using UnityEngine.EventSystems; // to ignore UI clicks
 
 public partial class Player : MonoBehaviour
 {
+
+
+    //[Header("Leader & Routing")]
+    //public Transform leader;                    // your leader's Transform
+    //public Player player;              // optional: your routing component with SetDestination(Vector3)
+
+    [Header("Grid / Map")]
+    public Vector3 origin = Vector3.zero;       // world-space origin of cell (0,0)
+    public float cellSize = 1f;                 // world units per cell
+
+    [Header("Raycast")]
+    public LayerMask groundMask = ~0;           // set to your Ground layer(s)
+    public float rayMaxDistance = 200f;
+
+    //[Header("Height Sampling (optional)")]
+    private bool sampleTiltedFloorY = true; // don't change
+
+
+    [Header("Input Control Settings")]
+    public Transform player;        // the object to rotate
+    public float turnSpeed = 1f;    // sensitivity multiplier
+    public bool smooth = true;
+    public float smoothTime = 4f;
+
+    //private float currentYaw;
+    private float targetYaw;
+    private bool dragging = false;
+    public bool leaderTravelling = false;
+    private Vector2 lastPos;
+
+
+
+    void AwakeMouseInput()
+    {
+        if (!player)
+            player = transform;  // Fallback to self
+    
+        dragging = false;
+        startTimeMouseDown = 0f;
+        // if (leader && !player) player = leader.GetComponent<Player>(); // not necessary
+    }
+
+    private float startTimeMouseDown;
+    private float durationMouseDown;
+    private EventSystem initialDownEvent;
+
     void Input_Update()
     {
         // 1) Input: A/D rotate, W/S move forward/back
@@ -28,142 +74,16 @@ public partial class Player : MonoBehaviour
         //MoveTowardMouseTarget();   // move toward clicked location
     }
 
-/*
-    // Move this function into the moving.cs file.
-    void MoveTowardMouseTarget()
-    {
-        //if (leaderTravelling && (agent == pack.PackLeader))
-        //{
-        //    agent.next_formationCrumb.valid = true;
-        //    //leaderTravelling = true;
-        //}
-
-        if (agent.next_formationCrumb.valid)
-        {
-            //Vector3 pos3 = new(agent.pos2.x, agent.height, agent.pos2.y);
-            Vector2 crumbpos2 = agent.next_formationCrumb.pos2;
-            float dist = Vector2.Distance(agent.pos2, crumbpos2);
-            Debug.Log($"LeaderTargetCrumb = {crumbpos2}, dist = {dist}");
-            if (dist < 0.1f)
-            {
-                //destination = Vector3.zero; // reached
-                agent.next_formationCrumb.valid = false;
-                //agent.next_formationCrumb.position = Vector3.zero;
-            }
-            else
-            {
-                Vector2 dir = (crumbpos2 - agent.pos2).normalized;
-                //agent.yawDeg = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg - yawCorrection; // face target
-                agent.yawDeg = agent.UnitVectorToYaw(dir);
-                Vector3 startpos = new(agent.pos2.x, agent.height, agent.pos2.y);
-                Move_Update(0, 1); // always forward
-                Vector3 endpos = new(agent.pos2.x, agent.height, agent.pos2.y);
-                float movedist = Vector3.Distance(startpos, endpos);    // how far we moved this frame
-                if (movedist < 0.01f)
-                {
-                    // we are stuck, so cancel the move order.
-                    agent.next_formationCrumb.valid = false;
-                    //agent.next_formationCrumb.position = Vector3.zero;
-                    //agent.next_formationCrumb.yawDeg = agent.yawDeg;
-                }
-                else
-                {
-                    TransformPosition(agent);
-                }
-            }
-        }
-    }
-*/
-
-
-    //[Header("Leader & Routing")]
-    //public Transform leader;                    // your leader's Transform
-    //public Player player;              // optional: your routing component with SetDestination(Vector3)
-
-    [Header("Grid / Map")]
-    public Vector3 origin = Vector3.zero;       // world-space origin of cell (0,0)
-    public float cellSize = 1f;                 // world units per cell
-
-    [Header("Raycast")]
-    public LayerMask groundMask = ~0;           // set to your Ground layer(s)
-    public float rayMaxDistance = 200f;
-
-    [Header("Height Sampling (optional)")]
-    public bool sampleTiltedFloorY = true;
-
-    void AwakeMouseInput()
-    {
-        if (!player)
-            player = transform;  // Fallback to self
-    
-        dragging = false;
-        startTimeMouseDown = 0f;
-        // if (leader && !player) player = leader.GetComponent<Player>(); // not necessary
-    }
-
-    private float startTimeMouseDown;
-    private float durationMouseDown;
-    private EventSystem initialDownEvent;
-
-/*    void UpdateMouseInput_old()
-    {
-        // --- Mouse or touch start ---
-        if (Input.GetMouseButtonDown(0) && !dragging)
-        {
-            startTimeMouseDown = Time.time;
-            dragging = true;
-            lastPos = Input.mousePosition;
-            initialDownEvent = EventSystem.current;
-        }
-        
-        if (Input.GetMouseButtonUp(0))
-        {
-            dragging = false;
-            durationMouseDown = Time.time - startTimeMouseDown;
-            if (durationMouseDown < 0.2f)
-            {
-                Debug.Log($"Mouse click duration: {durationMouseDown} @ {lastPos}");
-                startTimeMouseDown = 0f;
-                //UpdateMouseClick(initialDownEvent, lastPos); // only treat as click if short press
-                UpdateMouseClick(lastPos); // only treat as click if short press
-            }
-            return;
-        }
-
-        // --- While dragging ---
-        if (dragging)
-        {
-            durationMouseDown = Time.time - startTimeMouseDown;
-            if (durationMouseDown < 0.2f)
-            {
-                return; // button remains down, but still too short to be a counted as a drag
-            }
-
-            Vector2 currentPos = Input.mousePosition;
-            float deltaX = currentPos.x - lastPos.x;
-
-            // Update target yaw
-            targetYaw += deltaX * turnSpeed * Time.deltaTime;
-
-            lastPos = currentPos;
-        }
-
-        // --- Apply rotation ---
-        if (agent.yawDeg != targetYaw)
-        {
-            if (smooth)
-                currentYaw = Mathf.LerpAngle(agent.yawDeg, targetYaw, Time.deltaTime * smoothTime);
-            else
-                currentYaw = targetYaw;
-
-            agent.yawDeg = currentYaw;// Quaternion.Euler(0f, currentYaw, 0f);
-        }
-    }
-*/
     void UpdateMouseInput()
     {
         bool turning = false;
         // mouse/touch start
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            //dragging = false;
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0) && !dragging)
         {
             startTimeMouseDown = Time.time;
@@ -172,7 +92,7 @@ public partial class Player : MonoBehaviour
 
             // seed yaw targets
             targetYaw = agent.yawDeg;
-            currentYaw = agent.yawDeg;
+            //currentYaw = agent.yawDeg;
 
             initialDownEvent = EventSystem.current;
         }
@@ -226,60 +146,6 @@ public partial class Player : MonoBehaviour
             TransformPosition(agent);
         }
     }
-
-
-/*    void UpdateMouseClick_old(EventSystem clickEvent, Vector3 clickPosition)
-    {
-        // Left click / primary tap
-
-        // Ignore if pointer is over UI
-        if (!clickEvent.IsPointerOverGameObject()) return;
-
-        // Raycast to ground
-        //Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        Ray ray = Camera.main.ScreenPointToRay(clickPosition);
-        if (!Physics.Raycast(ray, out var hit, rayMaxDistance, groundMask)) return;
-
-        // Convert world → cell
-        Vector3 p = hit.point;
-        int cx = Mathf.FloorToInt((p.x - origin.x) / cellSize);
-        int cz = Mathf.FloorToInt((p.z - origin.z) / cellSize);
-
-        // Bounds check
-        if (cx < 0 || cz < 0 || cx >= gen.cfg.mapWidth || cz >= gen.cfg.mapHeight) return;
-
-        // Cell center (X,Z)
-        float centerX = origin.x + (cx + 0.5f) * cellSize;
-        float centerZ = origin.z + (cz + 0.5f) * cellSize;
-
-        // Height Y
-        float y = agent.height * gen.cfg.unitHeight;
-        // y = hit.point.y; // fallback if no height sampling
-        if (sampleTiltedFloorY && gen.cellGrid != null)
-        {
-            // Sample your tilted floor plane at the clicked tile center
-            y = SampleTiltedFloorY(new Vector2(centerX, centerZ), gen.cellGrid);
-        }
-
-        Vector3 dest = new Vector3(centerX, y, centerZ);
-
-        // Route the player's leader to that cell by reusing the breadcrumb trail system.
-        // leaders don't generally follow breadcrumbs, but this is a convenient way to
-        // send them to a target location.
-        Crumb crumb = new Crumb();
-        crumb.position = dest;
-        crumb.valid = true;
-        Vector2 crumbpos2 = new(crumb.position.x, crumb.position.z);
-        Vector2 dir = (agent.pos2 - crumbpos2).normalized;
-        crumb.yawDeg = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg - yawCorrection; // face target
-        agent.yawDeg = crumb.yawDeg;
-        agent.next_formationCrumb = crumb;
-
-        // (Optional) visual debug
-        //Debug.DrawLine(Camera.main.transform.position, hit.point, Color.cyan, 0.5f);
-        //Debug.DrawRay(dest, Vector3.up * 1.5f, Color.yellow, 0.75f);
-        Debug.Log($"Clicked cell: ({cx},{cz}) world: {dest}");
-    } */
 
     void UpdateMouseClick(Vector3 screenPosition)
     {
@@ -376,51 +242,4 @@ public partial class Player : MonoBehaviour
         return y;
     }
 
-
-    [Header("Settings")]
-    public Transform player;        // the object to rotate
-    public float turnSpeed = 1f;    // sensitivity multiplier
-    public bool smooth = true;
-    public float smoothTime = 4f;
-
-    private float currentYaw;
-    private float targetYaw;
-    private bool dragging = false;
-    public bool leaderTravelling = false;
-    private Vector2 lastPos;
-
-/*    void Update()
-    {
-        // --- Mouse or touch start ---
-        if (Input.GetMouseButtonDown(0))
-        {
-            dragging = true;
-            lastPos = Input.mousePosition;
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            dragging = false;
-        }
-
-        // --- While dragging ---
-        if (dragging)
-        {
-            Vector2 currentPos = Input.mousePosition;
-            float deltaX = currentPos.x - lastPos.x;
-
-            // Update target yaw
-            targetYaw += deltaX * turnSpeed * Time.deltaTime;
-
-            lastPos = currentPos;
-        }
-
-        // --- Apply rotation ---
-        if (smooth)
-            currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, Time.deltaTime * smoothTime);
-        else
-            currentYaw = targetYaw;
-
-        player.rotation = Quaternion.Euler(0f, currentYaw, 0f);
-    }
-    */
 }

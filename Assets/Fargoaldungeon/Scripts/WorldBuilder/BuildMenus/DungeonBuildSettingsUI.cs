@@ -74,6 +74,17 @@ public class DungeonBuildSettingsUI : MonoBehaviour
             return;
         }
 
+        LoadMapSettingsByName(name);
+    }
+
+    public void LoadMapSettingsByName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            ShowStatus("Preset name is empty.");
+            return;
+        }
+
         bool ok = currentSettings.LoadFromJsonFileOverwrite(name, subFolder);
         ShowStatus(ok ? $"Loaded: {name}" : $"Load failed: {name}");
 

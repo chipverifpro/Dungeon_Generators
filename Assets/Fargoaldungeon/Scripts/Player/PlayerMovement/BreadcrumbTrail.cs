@@ -46,6 +46,12 @@ public class BreadcrumbTrail : MonoBehaviour
         RecordIfNeeded();
     }
 
+    public void ClearCrumbs()
+    {
+        crumbs.Clear();
+        hasAny = false;
+    }
+
     /// Call once per frame by the owner to record position if moved enough.
     /// Can be forced in the case of a sharp turn that we want included.
     public void RecordIfNeeded(bool forceDrop = false)

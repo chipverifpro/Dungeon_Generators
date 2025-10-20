@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using Unity.Collections;
 using UnityEngine;
 
 
@@ -16,6 +15,7 @@ public partial class Agent : MonoBehaviour
     //public bool enabled;  // already inherited from MonoBehavior
 
     //DungeonSettings cfg;
+    public ObjectDirectory dir;
 
     public int id;                          // unique id number
 
@@ -42,6 +42,9 @@ public partial class Agent : MonoBehaviour
     // next crumb in trail we are following
     public Crumb next_actualCrumb;
     public Crumb next_formationCrumb;
+
+    // for routing to destination around obstacles.
+    public System.Collections.Generic.List<Vector2Int> routeWaypoints;
 
     // add other properties...
     public Color color1;// = Color.black;  // top color
@@ -72,6 +75,8 @@ public partial class Agent : MonoBehaviour
 
     protected virtual void Start()
     {
+        if (!dir) dir = FindFirstObjectByType<ObjectDirectory>();
+        if (!dir) Debug.LogWarning($"[Agent {name}] ObjectDirectory not found.");
         StartCoroutine(CycleAnimations());
     }
 
@@ -102,100 +107,7 @@ public partial class Agent : MonoBehaviour
         }
     }
 
-    /*
-        void FollowTrail()
-        {
-            Vector3 originalPos;
-            Vector3 agentPos3;
-            Vector3 loc_clamped;
-
-            //Vector3 next_crumb_pos;
-            float dist_to_next_crumb;
-            Vector3 agent_ahead_pos;
-            float dist_to_next_agent;
-            Vector3 target_pos;
-            float dist_to_target;
-            float move_credit;
-
-            originalPos = new(pos2.x, pos2.y, height);
-
-            // if we have no valid destination, see if we can get a new crumb, else abort
-            if (next_crumb.valid == false)
-            {
-                next_crumb = trail.GetNextCrumb(this);
-                if (next_crumb.valid == false) return; // no trail to follow
-            }
-
-            // calculate the move_credit;
-            move_credit = baseSpeed * Time.deltaTime;
-            //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
-
-            //loop until move_credit is gone
-            while (move_credit > 0.0001)
-            {
-                //Debug.Log($"Player {name} following trail towards {next_crumb.position}, move_credit={move_credit}");
-
-                agentPos3 = new(pos2.x, pos2.y, height);
-                dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
-                if (dist_to_next_crumb < .0001)
-                {
-                    // arrived, get next crumb
-                    next_crumb = trail.GetNextCrumb(this);
-                    if (next_crumb.valid == false) return;  // arrived at last available crumb.
-                    dist_to_next_crumb = Mathf.Sqrt((agentPos3 - next_crumb.position).sqrMagnitude);
-
-                    if (dist_to_next_crumb < .01) return; // we are also at the next crumb, stop for now.???? not supposed to happen.
-                }
-
-                agent_ahead_pos = GetPositionOfAgentBeforeMe(id);
-                dist_to_next_agent = Mathf.Sqrt((agent_ahead_pos - agentPos3).sqrMagnitude);
-                if (dist_to_next_agent <= 3 * radius)
-                {
-                    // bumped into agent ahead, stop here.
-                    return;
-                }
-
-                // we have two limits, choose the closer one.
-                if (dist_to_next_crumb < dist_to_next_agent)
-                {
-                    dist_to_target = dist_to_next_crumb;
-                    target_pos = next_crumb.position;
-                }
-                else
-                {
-                    dist_to_target = dist_to_next_agent;
-                    target_pos = agent_ahead_pos;
-                }
-
-                // move up to target, maximum move is move_credit.
-
-                // do the move.  Travel dist towards target position
-                if (move_credit < dist_to_target)
-                {
-                    // cannot go all the way, so travel by move_credit distance
-                    loc_clamped = LerpVector3(agentPos3, target_pos, move_credit / dist_to_target);
-                    pos2.x = loc_clamped.x;
-                    pos2.y = loc_clamped.y;
-                    height = loc_clamped.z;
-                    move_credit = 0;
-                }
-                else
-                {
-                    // we have enough move_credit to go all the way.  Do it and repeat the loop.
-                    pos2.x = target_pos.x;
-                    pos2.y = target_pos.y;
-                    height = target_pos.z;
-                    move_credit -= dist_to_target;    // continue while loop getting next crumb
-                }
-                Vector3 final_dest_pos = new(pos2.x, pos2.y, height);
-                Vector3 unit_vector = (final_dest_pos - originalPos).normalized;
-                yawDeg = Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
-
-                TransformPosition(this);    // move the agent object to it's new location.
-            }
-        }
-    */
-
+    
     void LeaderTravelToTarget()
     {
         Vector2 originalPos;   // starting position of this call
@@ -218,35 +130,67 @@ public partial class Agent : MonoBehaviour
         move_credit = baseSpeed * Time.deltaTime;
         targetPos = next_formationCrumb.pos2;
         dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
-        
-        if (dist_to_target < .001)
+
+        if (dist_to_target < .01)
         {
+            //Debug.Log("EE");
             next_formationCrumb.valid = false;
             return;  // already arrived at destination.  No move necessary.
         }
-        else if (move_credit < dist_to_target)
+        
+        Vector2Int pos2Int = VectFloat2Int(pos2);
+        Vector2Int targetPosInt = VectFloat2Int(targetPos);
+        if (pos2Int != targetPosInt)
         {
-            // cannot go all the way, so travel by move_credit distance and continue next frame.
-            loc_clamped = LerpVector2(pos2, targetPos, move_credit / dist_to_target);
-            pos2.x = loc_clamped.x;
-            pos2.y = loc_clamped.y;
-        }
-        else
-        {
-            // we have enough move_credit to go all the way.  Do it.
-            pos2.x = targetPos.x;
-            pos2.y = targetPos.y;
-            next_formationCrumb.valid = false; // arrived
+            //Debug.Log("DD");
+            // create a route and follow it...
+            routeWaypoints = dir.pathfinding.FindPath(pos2Int, targetPosInt);
+            routeWaypoints.RemoveAt(0); // remove start position
+            Debug.Log($"pos2 {pos2} -> target {targetPos}, routeWaypoints = {routeWaypoints.Count}");
+            dir.pathfinding.TrySkippingWaypoints(this);
+            move_credit = FollowWaypoints(move_credit);
+            pos2Int = VectFloat2Int(pos2);
         }
 
-        // turn to correct angle of movement.
-        final_dest_pos = new(pos2.x, pos2.y);
-        unit_vector = (final_dest_pos - originalPos).normalized;
-        yawDeg = UnitVectorToYaw(unit_vector);
+        if (pos2Int - targetPosInt == Vector2Int.zero)
+        {
+            // we are in target tile, but maybe not at exact target position.
+            dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+            if ((move_credit > .01))// && (dist_to_target > .01))
+            {
+                Debug.Log($"Distance to target: {dist_to_target}, Move credit: {move_credit}");
+                if (move_credit < dist_to_target)
+                {
+                    //Debug.Log("AA");
+                    // cannot go all the way, so travel by move_credit distance and continue next frame.
+                    loc_clamped = LerpVector2(pos2, targetPos, move_credit / dist_to_target);
+                    pos2.x = loc_clamped.x;
+                    pos2.y = loc_clamped.y;
+                }
+                else
+                {
+                    //Debug.Log("BB");
+                    // we have enough move_credit to go all the way.  Do it.
+                    pos2.x = targetPos.x;
+                    pos2.y = targetPos.y;
+                    next_formationCrumb.valid = false; // arrived
+                }
 
-        TransformPosition(this);    // move the agent object to it's new location.
+                //Debug.Log("CC");
+                // turn to correct angle of movement.
+                final_dest_pos = new(pos2.x, pos2.y);
+                unit_vector = (final_dest_pos - originalPos).normalized;
+                yawDeg = UnitVectorToYaw(unit_vector);
+
+                TransformPosition(this);    // move the agent object to it's new location.
+            }
+        }
     }
 
+    Vector2Int VectFloat2Int(Vector2 vect)
+    {
+        return new Vector2Int(Mathf.FloorToInt(vect.x), Mathf.FloorToInt(vect.y));
+    }
 
     void FollowTrailInFormation()
     {
@@ -349,6 +293,78 @@ public partial class Agent : MonoBehaviour
         }
 
         TransformPosition(this);    // move the agent object to it's new location.
+    }
+
+
+    public float FollowWaypoints(float move_credit) // returns remaining move_credit if any
+    {
+        Vector2 originalPos;    // starting position of this call
+        Vector2 targetPos;      // where we want to go (from waypoints)
+        Vector2 loc_clamped;    // location we can get to limited by move_credit
+        Vector2 final_dest_pos; // where we ended up
+        Vector2 unit_vector;    // for converting into yawDeg
+
+        float dist_to_target;   // oringinal position -> target_pos
+        //float move_credit;      // how far we can move this frame
+
+        // if we have no valid destination, abort
+        if (routeWaypoints.Count == 0) return move_credit;
+
+        originalPos = pos2;
+        //move_credit = baseSpeed * Time.deltaTime;
+        targetPos = routeWaypoints[0];
+        dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+
+        Debug.Log($"FollowWaypoints({move_credit}), dist_to_target = {dist_to_target}, waypoints = {routeWaypoints.Count}");
+
+        if (dist_to_target < .001)
+        {
+            if (routeWaypoints.Count == 0) return move_credit;
+            //Debug.Log("A");
+            routeWaypoints.RemoveAt(0);
+            if (routeWaypoints.Count == 0) return move_credit;
+            targetPos = routeWaypoints[0];
+            //Debug.Log("B");
+            dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+            if (dist_to_target < .001) return move_credit;
+            //Debug.Log("C");
+        }
+
+        while (move_credit > 0.001)
+        {
+            //Debug.Log("D");
+            if (move_credit < dist_to_target)
+            {
+                //Debug.Log("E");
+                // cannot go all the way, so travel by move_credit distance and continue next frame.
+                loc_clamped = LerpVector2(pos2, targetPos, move_credit / dist_to_target);
+                pos2.x = loc_clamped.x;
+                pos2.y = loc_clamped.y;
+                move_credit = 0;
+            }
+            else
+            {
+                //Debug.Log("F");
+                // we have enough move_credit to go all the way.  Do it and continue to next waypoint
+                pos2.x = targetPos.x;
+                pos2.y = targetPos.y;
+                move_credit -= dist_to_target;
+
+                // advance to the next waypoint
+                routeWaypoints.RemoveAt(0);
+                if (routeWaypoints.Count == 0) break; // no more waypoints
+                targetPos = routeWaypoints[0];
+                dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
+            }
+        }
+        //Debug.Log("G");
+        // turn to correct angle of movement.
+        final_dest_pos = new(pos2.x, pos2.y);
+        unit_vector = (final_dest_pos - originalPos).normalized;
+        yawDeg = UnitVectorToYaw(unit_vector);
+
+        TransformPosition(this);    // move the agent object to it's new location.
+        return move_credit;
     }
 
     // Apply Lerp to all 3 dimensions of a vector.
