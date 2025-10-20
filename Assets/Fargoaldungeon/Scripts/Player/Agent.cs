@@ -145,6 +145,12 @@ public partial class Agent : MonoBehaviour
             //Debug.Log("DD");
             // create a route and follow it...
             routeWaypoints = dir.pathfinding.FindPath(pos2Int, targetPosInt);
+            if (routeWaypoints.Count == 0)
+            {
+                Debug.Log("No path to target found.");
+                next_formationCrumb.valid = false;
+                return; // No path to target found.
+            }
             routeWaypoints.RemoveAt(0); // remove start position
             Debug.Log($"pos2 {pos2} -> target {targetPos}, routeWaypoints = {routeWaypoints.Count}");
             dir.pathfinding.TrySkippingWaypoints(this);
@@ -312,7 +318,14 @@ public partial class Agent : MonoBehaviour
 
         originalPos = pos2;
         //move_credit = baseSpeed * Time.deltaTime;
+        dir.pathfinding.TrySkippingWaypoints(this);
         targetPos = routeWaypoints[0];
+        targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+        // if there is exactly one waypoint, skip it and go to exact target (next_formationCrumb)
+        if (routeWaypoints.Count == 1)
+        {
+            targetPos = next_formationCrumb.pos2;
+        }
         dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
 
         Debug.Log($"FollowWaypoints({move_credit}), dist_to_target = {dist_to_target}, waypoints = {routeWaypoints.Count}");
@@ -323,7 +336,10 @@ public partial class Agent : MonoBehaviour
             //Debug.Log("A");
             routeWaypoints.RemoveAt(0);
             if (routeWaypoints.Count == 0) return move_credit;
+            dir.pathfinding.TrySkippingWaypoints(this);
             targetPos = routeWaypoints[0];
+            targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+            Debug.Log($"(1) waypoint targetPos = {targetPos}");
             //Debug.Log("B");
             dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
             if (dist_to_target < .001) return move_credit;
@@ -352,8 +368,14 @@ public partial class Agent : MonoBehaviour
 
                 // advance to the next waypoint
                 routeWaypoints.RemoveAt(0);
-                if (routeWaypoints.Count == 0) break; // no more waypoints
+                if (routeWaypoints.Count == 0)
+                {
+                    break; // no more waypoints
+                }
+                dir.pathfinding.TrySkippingWaypoints(this);
                 targetPos = routeWaypoints[0];
+                targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+                Debug.Log($"(2) waypoint targetPos = {targetPos}");
                 dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
             }
         }
@@ -493,7 +515,9 @@ public partial class Agent : MonoBehaviour
         {
             int xx = Mathf.FloorToInt(agent.pos2.x);
             int yy = Mathf.FloorToInt(agent.pos2.y);
-            cell = pack.gen.cellGrid[xx, yy];
+            cell = null;
+            if (pack.gen.In(xx,yy))
+                cell = pack.gen.cellGrid[xx, yy];
             if (cell != null)
             {
                 agent.height = pack.gen.cfg.unitHeight * cell.height;
