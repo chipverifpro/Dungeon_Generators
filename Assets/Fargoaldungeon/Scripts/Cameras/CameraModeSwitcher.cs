@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 public class CameraModeSwitcher : MonoBehaviour
 {
     public CinemachineBrain brain;
-    public CinemachineVirtualCamera vcamFP, vcamTop, vcamOverhead;
+    public CinemachineVirtualCamera vcamFP, vcamPerspective, vcamOverhead;
     public GameObject playerModel;
     public KeyCode toggleKey = KeyCode.Tab;
     int current_camera;
@@ -54,8 +54,8 @@ public class CameraModeSwitcher : MonoBehaviour
         if (!vcamFP)
             vcamFP = GameObject.Find("vcamFP")?.GetComponent<CinemachineVirtualCamera>();
 
-        if (!vcamTop)
-            vcamTop = GameObject.Find("vcamTop")?.GetComponent<CinemachineVirtualCamera>();
+        if (!vcamPerspective)
+            vcamPerspective = GameObject.Find("vcamPerspective")?.GetComponent<CinemachineVirtualCamera>();
 
         if (!vcamOverhead)
             vcamOverhead = GameObject.Find("vcamOverhead")?.GetComponent<CinemachineVirtualCamera>();
@@ -69,7 +69,7 @@ public class CameraModeSwitcher : MonoBehaviour
             $"[CameraModeSwitcher] Initialized in scene '{SceneManager.GetActiveScene().name}'\n" +
             $"Brain: {(brain ? brain.name : "❌ None")}\n" +
             $"FP: {(vcamFP ? vcamFP.name : "❌ None")}\n" +
-            $"Top: {(vcamTop ? vcamTop.name : "❌ None")}\n" +
+            $"Top: {(vcamPerspective ? vcamPerspective.name : "❌ None")}\n" +
             $"Overhead: {(vcamOverhead ? vcamOverhead.name : "❌ None")}\n" +
             $"Player: {(playerModel ? playerModel.name : "❌ None")}"
         );
@@ -87,7 +87,7 @@ public class CameraModeSwitcher : MonoBehaviour
         if (Input.GetKeyDown(toggleKey))
         {
             current_camera = (current_camera + 1) % 3;
-            vcamTop.Priority = 0;
+            vcamPerspective.Priority = 0;
             vcamFP.Priority = 0;
             vcamOverhead.Priority = 0;
             playerVisible = true;
@@ -96,7 +96,7 @@ public class CameraModeSwitcher : MonoBehaviour
             switch (current_camera)
             {
                 case 0:
-                    vcamTop.Priority = 10;
+                    vcamPerspective.Priority = 10;
                     break;
                 case 1:
                     vcamFP.Priority = 10;
@@ -154,13 +154,13 @@ public class CameraModeSwitcher : MonoBehaviour
     {
         // all cameras point to current agent
         if (player == null) return;
-        vcamTop.transform.position = new Vector3(
+        vcamPerspective.transform.position = new Vector3(
             player.agent.transform.position.x,
             player.agent.height,
             player.agent.transform.position.z
         );
         // top camera override angle so north is top of screen
-        vcamTop.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // always north up
+        vcamPerspective.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // always north up
     }
 
 
@@ -215,13 +215,13 @@ public class CameraModeSwitcher : MonoBehaviour
     {
         // Prefer the one that is live according to Cinemachine
         if (IsLive(vcamFP)) return vcamFP;
-        if (IsLive(vcamTop)) return vcamTop;
+        if (IsLive(vcamPerspective)) return vcamPerspective;
         if (IsLive(vcamOverhead)) return vcamOverhead;
 
         // Fallback: highest Priority
         CinemachineVirtualCamera best = null;
         int bestP = int.MinValue;
-        foreach (var v in new[] { vcamFP, vcamTop, vcamOverhead })
+        foreach (var v in new[] { vcamFP, vcamPerspective, vcamOverhead })
         {
             if (v != null && v.Priority > bestP) { best = v; bestP = v.Priority; }
         }
@@ -264,9 +264,9 @@ public class CameraModeSwitcher : MonoBehaviour
         }
 
         // Top cam (Transposer): adjust FollowOffset.z for zoom effect
-        if (vcamTop)
+        if (vcamPerspective)
         {
-            var transposer = vcamTop.GetCinemachineComponent<CinemachineTransposer>();
+            var transposer = vcamPerspective.GetCinemachineComponent<CinemachineTransposer>();
             if (transposer != null)
             {
                 var off = transposer.m_FollowOffset;

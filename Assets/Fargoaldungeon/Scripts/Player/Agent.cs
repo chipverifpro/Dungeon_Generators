@@ -591,8 +591,8 @@ public partial class Agent : MonoBehaviour
         // Calculate how much we can turn this frame
         float maxStep = turnSpeedDegPerSec * Time.deltaTime;
 
-        Debug.Log($"vcamTop: {dir.vcamTop.Priority}, vcamFP: {dir.vcamFP.Priority}, vcamOverhead: {dir.vcamOverhead.Priority}");
-        if (dir.vcamOverhead.Priority > Mathf.Max(dir.vcamFP.Priority, dir.vcamTop.Priority))
+        Debug.Log($"vcamPerspective: {dir.vcamPerspective.Priority}, vcamFP: {dir.vcamFP.Priority}, vcamOverhead: {dir.vcamOverhead.Priority}");
+        if (dir.vcamOverhead.Priority > Mathf.Max(dir.vcamFP.Priority, dir.vcamPerspective.Priority))
             maxStep *= 3f; // with Overhead camera, speed up turn or it looks odd.
 
         // Clamp the rotation so we don't overshoot

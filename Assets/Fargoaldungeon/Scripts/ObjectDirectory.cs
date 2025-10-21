@@ -27,7 +27,7 @@ public class ObjectDirectory : MonoBehaviour
 
     [Header("Game Camearas")]
     public CinemachineBrain brain;
-    public CinemachineVirtualCamera vcamFP, vcamTop, vcamOverhead;
+    public CinemachineVirtualCamera vcamFP, vcamPerspective, vcamOverhead;
 
 
     [Header("Game User Interfaces")]
@@ -100,7 +100,7 @@ public class ObjectDirectory : MonoBehaviour
         if (!player) Debug.LogWarning($"[Directory{pass_num}] player not assigned.");
         if (!brain) Debug.LogWarning($"[Directory{pass_num}] brain not assigned.");
         if (!vcamFP) Debug.LogWarning($"[Directory{pass_num}] vcamFP not assigned.");
-        if (!vcamTop) Debug.LogWarning($"[Directory{pass_num}] vcamTop not assigned.");
+        if (!vcamPerspective) Debug.LogWarning($"[Directory{pass_num}] vcamPerspective not assigned.");
         if (!vcamOverhead) Debug.LogWarning($"[Directory{pass_num}] vcamOverhead not assigned.");
         if (!menuManager) Debug.LogWarning($"[Directory{pass_num}] menuManager not assigned.");
         if (!sceneFader) Debug.LogWarning($"[Directory{pass_num}] sceneFader not assigned.");

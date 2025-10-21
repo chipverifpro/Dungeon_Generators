@@ -3563,7 +3563,7 @@ MonoBehaviour:
   - m_Script
   m_LockStageInInspector: 
   m_StreamingVersion: 20170927
-  m_Priority: 10
+  m_Priority: 0
   m_StandbyUpdate: 2
   m_LookAt: {fileID: 556401679}
   m_Follow: {fileID: 556401679}
@@ -3811,6 +3811,8 @@ MonoBehaviour:
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  targetYawDeg: 0
+  prevYawDeg: 0
   DogPrefab: {fileID: 1880613839}
   anim: {fileID: 1880613837}
   next_actualCrumb:
@@ -4370,6 +4372,8 @@ MonoBehaviour:
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  targetYawDeg: 0
+  prevYawDeg: 0
   DogPrefab: {fileID: 464182955}
   anim: {fileID: 464182953}
   next_actualCrumb:
@@ -4653,6 +4657,8 @@ MonoBehaviour:
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  targetYawDeg: 0
+  prevYawDeg: 0
   DogPrefab: {fileID: 1651296779}
   anim: {fileID: 1651296777}
   next_actualCrumb:
@@ -5322,6 +5328,8 @@ MonoBehaviour:
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  targetYawDeg: 0
+  prevYawDeg: 0
   DogPrefab: {fileID: 6544990386685219093}
   anim: {fileID: 5475111281846579140}
   next_actualCrumb:
@@ -9145,7 +9153,7 @@ GameObject:
   - component: {fileID: 1801122502}
   - component: {fileID: 1801122503}
   m_Layer: 0
-  m_Name: vcamTop
+  m_Name: vcamPerspective
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9160,7 +9168,7 @@ Transform:
   m_GameObject: {fileID: 1801122501}
   serializedVersion: 2
   m_LocalRotation: {x: 0.33100694, y: -0.00000004132199, z: 0.0000000027908418, w: 0.9436283}
-  m_LocalPosition: {x: -52.989567, y: 5.0699325, z: -36.708233}
+  m_LocalPosition: {x: -52.989567, y: 5.069933, z: -36.708233}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -9359,7 +9367,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   brain: {fileID: 1815589289}
   vcamFP: {fileID: 445485060}
-  vcamTop: {fileID: 1801122503}
+  vcamPerspective: {fileID: 1801122503}
   vcamOverhead: {fileID: 705631742}
   playerModel: {fileID: 556401678}
   toggleKey: 9
@@ -9813,7 +9821,7 @@ MonoBehaviour:
   player: {fileID: 556401680}
   brain: {fileID: 1815589289}
   vcamFP: {fileID: 445485060}
-  vcamTop: {fileID: 1801122503}
+  vcamPerspective: {fileID: 1801122503}
   vcamOverhead: {fileID: 705631742}
   bottomBanner: {fileID: 669106355}
   menuManager: {fileID: 836622446}
@@ -11286,6 +11294,8 @@ MonoBehaviour:
   pos2: {x: 0, y: 0}
   height: 0
   yawDeg: 0
+  targetYawDeg: 0
+  prevYawDeg: 0
   DogPrefab: {fileID: 160131188}
   anim: {fileID: 160131186}
   next_actualCrumb:
