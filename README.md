@@ -47,3 +47,11 @@ Three views of a packed room algorithm containing multiple player agents...
 <br>
 <p>
 I am transforming this into a <b>game</b>.  I'm excited to see everything come together to help tell a story.  The plot involves bravery, discovery, and a yearning to be more.  Face challenges together with friends made along the way. Discover you can be more than you ever dreamed of, and finally be able to decide which path you truly want to to follow.
+<br>
+<H3>A Dog's Tale</H3>
+<img width="575" height="322" alt="Screenshot 2025-10-21 at 11 50 03 AM" src="https://github.com/user-attachments/assets/41d2b178-d469-467c-8fea-453c13495662" />
+<br>
+<img width="749" height="494" alt="Screenshot 2025-10-21 at 11 51 17 AM" src="https://github.com/user-attachments/assets/14cb4072-3a63-436b-ba56-f94f9bb0cb1f" />
+<br>
+<img width="741" height="487" alt="Screenshot 2025-10-21 at 11 53 27 AM" src="https://github.com/user-attachments/assets/8f1bcaaa-2f0e-4f40-964b-617cd6bd8457" />
+<br>
