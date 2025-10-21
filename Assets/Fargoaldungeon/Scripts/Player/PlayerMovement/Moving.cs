@@ -21,6 +21,7 @@ public partial class Player : MonoBehaviour
         CleanupFloat(ref thrust);
         Cleanup(ref agent.pos2);
 
+        agent.prevYawDeg = agent.yawDeg;
         if (Math.Abs(turn) > 1e-10f)
         {
             // Rotate the Player

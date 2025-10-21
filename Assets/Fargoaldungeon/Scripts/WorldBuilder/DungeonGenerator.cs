@@ -1096,6 +1096,10 @@ public partial class DungeonGenerator : MonoBehaviour
         Vector2Int nPos;
         int spread_count;
 
+        yield return null;
+        if (!buildComplete) yield break;
+        //yield return new WaitUntil(() => buildComplete);
+
         foreach (Room r in rooms)
         {
             foreach (Cell c in r.cells)

@@ -77,7 +77,7 @@ public sealed class TimeManager : MonoBehaviour
     {
         if (_instance != null && _instance != this) { Destroy(gameObject); return; }
         _instance = this;
-        DontDestroyOnLoad(gameObject);
+        //DontDestroyOnLoad(gameObject);
 
         if (smoothingHalfLifeFrames > 0)
         {

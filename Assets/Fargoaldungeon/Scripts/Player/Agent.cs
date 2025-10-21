@@ -29,6 +29,8 @@ public partial class Agent : MonoBehaviour
     public Vector2 pos2;
     public float height;
     public float yawDeg;
+    public float targetYawDeg;
+    public float prevYawDeg;
 
     // while in a pack formation, these are the target positions as calculated from leader's position.
     //public Vector2 formationTargetPos;     // position we should be at in formation
@@ -125,6 +127,7 @@ public partial class Agent : MonoBehaviour
         {
             return; // no target to follow, do nothing
         }
+        //prevYawDeg = yawDeg;
 
         originalPos = pos2;
         move_credit = baseSpeed * Time.deltaTime;
@@ -185,9 +188,12 @@ public partial class Agent : MonoBehaviour
                 //Debug.Log("CC");
                 // turn to correct angle of movement.
                 final_dest_pos = new(pos2.x, pos2.y);
+                prevYawDeg = yawDeg;
                 unit_vector = (final_dest_pos - originalPos).normalized;
                 yawDeg = UnitVectorToYaw(unit_vector);
-
+                targetYawDeg = yawDeg;
+                TurnTowards(ref yawDeg, prevYawDeg, targetYawDeg, turnSpeedDegPerSec);
+                prevYawDeg = yawDeg;
                 TransformPosition(this);    // move the agent object to it's new location.
             }
         }
@@ -320,7 +326,7 @@ public partial class Agent : MonoBehaviour
         //move_credit = baseSpeed * Time.deltaTime;
         dir.pathfinding.TrySkippingWaypoints(this);
         targetPos = routeWaypoints[0];
-        targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+        targetPos += new Vector2(0.5f, 0.5f);   // head to center of tile
         // if there is exactly one waypoint, skip it and go to exact target (next_formationCrumb)
         if (routeWaypoints.Count == 1)
         {
@@ -338,7 +344,7 @@ public partial class Agent : MonoBehaviour
             if (routeWaypoints.Count == 0) return move_credit;
             dir.pathfinding.TrySkippingWaypoints(this);
             targetPos = routeWaypoints[0];
-            targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+            targetPos += new Vector2(0.5f, 0.5f);   // head to center of tile
             Debug.Log($"(1) waypoint targetPos = {targetPos}");
             //Debug.Log("B");
             dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
@@ -374,7 +380,7 @@ public partial class Agent : MonoBehaviour
                 }
                 dir.pathfinding.TrySkippingWaypoints(this);
                 targetPos = routeWaypoints[0];
-                targetPos += new Vector2(0.25f, 0.25f);   // head to center of tile
+                targetPos += new Vector2(0.5f, 0.5f);   // head to center of tile
                 Debug.Log($"(2) waypoint targetPos = {targetPos}");
                 dist_to_target = Mathf.Sqrt((pos2 - targetPos).sqrMagnitude);
             }
@@ -384,7 +390,9 @@ public partial class Agent : MonoBehaviour
         final_dest_pos = new(pos2.x, pos2.y);
         unit_vector = (final_dest_pos - originalPos).normalized;
         yawDeg = UnitVectorToYaw(unit_vector);
-
+        targetYawDeg = yawDeg;
+        TurnTowards(ref yawDeg, prevYawDeg, targetYawDeg, turnSpeedDegPerSec);
+        prevYawDeg = yawDeg;
         TransformPosition(this);    // move the agent object to it's new location.
         return move_credit;
     }
@@ -430,6 +438,7 @@ public partial class Agent : MonoBehaviour
     // Convert from map location to world location and apply that to the agent's ojbect
     public bool TransformPosition(Agent agent)
     {
+        agent.prevYawDeg = agent.yawDeg;
         if (pack.gen.buildComplete == false)
         {
             Debug.LogWarning("TransformPosition: Dungeon generation not complete yet.");
@@ -535,6 +544,9 @@ public partial class Agent : MonoBehaviour
             t.y = agent.height + 1;
             agent.transform.position = t;
             //pack.player.transform.position = t;
+            agent.targetYawDeg = agent.yawDeg;
+            TurnTowards(ref agent.yawDeg, agent.prevYawDeg, agent.targetYawDeg, agent.turnSpeedDegPerSec);
+            agent.prevYawDeg = agent.yawDeg;
             agent.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
             //pack.player.transform.rotation = Quaternion.Euler(0f, agent.yawDeg + yawCorrection, 0f); // rotate around Y for 3D
             if (pack.player.agent == agent)
@@ -550,6 +562,9 @@ public partial class Agent : MonoBehaviour
             t.x = t_World.x; t.y = t_World.y; // XY location
             t.z = agent.height + 1;
             agent.transform.position = t;
+            agent.targetYawDeg = agent.yawDeg;
+            TurnTowards(ref agent.yawDeg, agent.prevYawDeg, agent.targetYawDeg, agent.turnSpeedDegPerSec);
+            agent.prevYawDeg = agent.yawDeg;
             agent.transform.rotation = Quaternion.Euler(0f, 0f, agent.yawDeg + yawCorrection); // rotate around Z for XY
             if (pack.player.agent == agent)
             {
@@ -561,6 +576,53 @@ public partial class Agent : MonoBehaviour
         return true;
     }
 
+    public void TurnTowards(ref float currentYaw, float prevYawDeg, float targetYaw, float turnSpeedDegPerSec)
+    {
+        // Signed shortest angular delta (-180 to 180)
+        float delta = Mathf.DeltaAngle(prevYawDeg, targetYaw);
+
+        // If already aligned (or extremely close), snap to target
+        if (Mathf.Abs(delta) < 0.01f)
+        {
+            currentYaw = targetYaw;
+            return;
+        }
+
+        // Calculate how much we can turn this frame
+        float maxStep = turnSpeedDegPerSec * Time.deltaTime;
+
+        Debug.Log($"vcamTop: {dir.vcamTop.Priority}, vcamFP: {dir.vcamFP.Priority}, vcamOverhead: {dir.vcamOverhead.Priority}");
+        if (dir.vcamOverhead.Priority > Mathf.Max(dir.vcamFP.Priority, dir.vcamTop.Priority))
+            maxStep *= 3f; // with Overhead camera, speed up turn or it looks odd.
+
+        // Clamp the rotation so we don't overshoot
+        float step = Mathf.Clamp(delta, -maxStep, maxStep);
+
+        // Apply rotation
+        currentYaw = prevYawDeg + step;
+    }
+
+    /// <summary>
+    /// Determines whether to turn left (-1) or right (+1) to reach targetDir from startDir
+    /// using the shortest angular direction. Returns 0 if already facing (within epsilon).
+    /// </summary>
+    public static int GetTurnDirection(float startDir, float targetDir, float epsilon = 0.01f)
+    {
+        // Normalize angles to 0–360
+        startDir = Mathf.Repeat(startDir, 360f);
+        targetDir = Mathf.Repeat(targetDir, 360f);
+
+        // Difference in range -180 to +180
+        float delta = Mathf.DeltaAngle(startDir, targetDir);
+
+        if (Mathf.Abs(delta) < epsilon)
+            return 0; // Already aligned (or close enough)
+
+        return (delta > 0f) ? -1 : +1;
+        // Positive delta means target is to the "left" (counterclockwise),
+        // so return -1 to indicate turning left.
+    }
+    
     public float UnitVectorToYaw(Vector2 unit_vector)
     {
         return Mathf.Atan2(unit_vector.x, unit_vector.y) * Mathf.Rad2Deg - yawCorrection;
